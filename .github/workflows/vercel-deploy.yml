@@ -1,0 +1,28 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel (production)
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          url=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN")
+          echo "Deployed to: $url"
+          echo "deployment_url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: echo "### Deployed to ${{ steps.deploy.outputs.deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
