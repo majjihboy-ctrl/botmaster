@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+.rsbuild/
+*.log
+npm-debug.log*
+
+.env.local
+.env.*.local
+
+.vercel/
+.DS_Store
+*.tsbuildinfo
+coverage/

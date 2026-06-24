@@ -11,6 +11,8 @@ import MobileFullPageModal from '../shared_ui/mobile-full-page-modal';
 import Modal from '../shared_ui/modal';
 import Tabs from '../shared_ui/tabs';
 import GoogleDrive from './google-drive';
+import FreeBots from './free-bots';
+import FreeBotsFooter from './free-bots-footer';
 import Local from './local';
 import LocalFooter from './local-footer';
 import Recent from './recent';
@@ -23,6 +25,7 @@ const LoadModal: React.FC = observer(() => {
         active_index,
         is_load_modal_open,
         loaded_local_file,
+        selected_free_bot,
         onEntered,
         recent_strategies,
         setActiveTabIndex,
@@ -62,12 +65,16 @@ const LoadModal: React.FC = observer(() => {
                             <GoogleDrive />
                         </div>
                     )}
+                    <div label={localize('Free bots')}>
+                        <FreeBots />
+                    </div>
                 </Tabs>
             </MobileFullPageModal>
         );
     }
 
     const is_file_loaded = !!loaded_local_file && tab_name === tabs_title.TAB_LOCAL;
+    const is_free_bot_loaded = !!selected_free_bot && tab_name === tabs_title.TAB_FREE_BOTS;
     const has_recent_strategies = recent_strategies.length > 0 && tab_name === tabs_title.TAB_RECENT;
 
     return (
@@ -97,6 +104,9 @@ const LoadModal: React.FC = observer(() => {
                             <GoogleDrive />
                         </div>
                     )}
+                    <div label={localize('Free bots')}>
+                        <FreeBots />
+                    </div>
                 </Tabs>
             </Modal.Body>
             {has_recent_strategies && (
@@ -107,6 +117,11 @@ const LoadModal: React.FC = observer(() => {
             {is_file_loaded && (
                 <Modal.Footer has_separator>
                     <LocalFooter />
+                </Modal.Footer>
+            )}
+            {is_free_bot_loaded && (
+                <Modal.Footer has_separator>
+                    <FreeBotsFooter />
                 </Modal.Footer>
             )}
         </Modal>

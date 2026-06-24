@@ -2,6 +2,7 @@ export const tabs_title = Object.freeze({
     TAB_LOCAL: 'local_tab',
     TAB_GOOGLE: 'google_tab',
     TAB_RECENT: 'recent_tab',
+    TAB_FREE_BOTS: 'free_bots_tab',
 });
 
 export const clearInjectionDiv = (el_ref?: HTMLElement) => {

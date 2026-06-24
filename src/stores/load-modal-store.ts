@@ -34,6 +34,7 @@ export default class LoadModalStore {
             is_delete_modal_open: observable,
             is_strategy_removed: observable,
             loaded_local_file: observable,
+            selected_free_bot: observable,
             recent_strategies: observable,
             dashboard_strategies: observable,
             selected_strategy_id: observable,
@@ -59,6 +60,7 @@ export default class LoadModalStore {
             onZoomInOutClick: action.bound,
             setActiveTabIndex: action.bound,
             setLoadedLocalFile: action.bound,
+            setSelectedFreeBot: action.bound,
             setRecentStrategies: action.bound,
             setSelectedStrategyId: action.bound,
             toggleExplanationExpand: action.bound,
@@ -109,6 +111,7 @@ export default class LoadModalStore {
     is_open_button_loading = false;
     is_open_button_disabled = false;
     loaded_local_file: File | null = null;
+    selected_free_bot: import('../constants/free-bots').TFreeBot | null = null;
     recent_strategies: Array<TStrategy> = [];
     dashboard_strategies: Array<TStrategy> | [] = [];
     selected_strategy_id = '';
@@ -135,10 +138,12 @@ export default class LoadModalStore {
         if (this.core.ui.is_mobile) {
             if (this.active_index === 0) return tabs_title.TAB_LOCAL;
             if (this.active_index === 1) return tabs_title.TAB_GOOGLE;
+            if (this.active_index === 2) return tabs_title.TAB_FREE_BOTS;
         }
         if (this.active_index === 0) return tabs_title.TAB_RECENT;
         if (this.active_index === 1) return tabs_title.TAB_LOCAL;
         if (this.active_index === 2) return tabs_title.TAB_GOOGLE;
+        if (this.active_index === 3) return tabs_title.TAB_FREE_BOTS;
         return '';
     }
 
@@ -227,6 +232,31 @@ export default class LoadModalStore {
 
     setLoadedLocalFile = (loaded_local_file: File | null): void => {
         this.loaded_local_file = loaded_local_file;
+    };
+
+    setSelectedFreeBot = (free_bot: import('../constants/free-bots').TFreeBot | null): void => {
+        this.selected_free_bot = free_bot;
+    };
+
+    loadFreeBotPreview = async (free_bot: import('../constants/free-bots').TFreeBot): Promise<void> => {
+        this.setSelectedFreeBot(free_bot);
+        const xml_module = await import(
+            /* webpackChunkName: `[request]` */ `../xml/free-bots/${free_bot.id}.xml`
+        );
+        if (this.local_workspace) {
+            this.local_workspace.dispose();
+            this.local_workspace = null;
+        }
+        await this.loadStrategyOnModalLocalPreview({
+            block_string: xml_module.default,
+            drop_event: null,
+            from: save_types.LOCAL,
+            workspace: null,
+            file_name: free_bot.title,
+            strategy_id: '',
+            showIncompatibleStrategyDialog: false,
+        });
+        this.setOpenButtonDisabled(false);
     };
 
     setRecentStrategies = (recent_strategies: TStrategy[]): void => {
