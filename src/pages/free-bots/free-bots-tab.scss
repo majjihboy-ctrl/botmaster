@@ -5,24 +5,28 @@
 
     &__grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
-        gap: 1.2rem;
+        grid-template-columns: repeat(auto-fill, minmax(25rem, 1fr));
+        gap: 1.6rem;
     }
 
     &__card {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        gap: 0.6rem;
-        padding: 1.6rem;
-        text-align: left;
-        background: var(--general-main-1);
+        gap: 0.8rem;
+        padding: 1.8rem;
+        background: linear-gradient(155deg, var(--general-main-1) 0%, var(--general-section-1) 100%);
         border: 1px solid var(--border-divider);
-        border-radius: 8px;
-        cursor: pointer;
-        transition: border-color 0.15s ease;
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            border-color 0.18s ease;
 
         &:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
             border-color: var(--brand-red-coral);
         }
 
@@ -35,6 +39,36 @@
         &-description {
             font-size: var(--text-size-xs);
             color: var(--text-less-prominent);
+            flex: 1;
+        }
+
+        &-load {
+            align-self: stretch;
+            margin-top: 0.4rem;
+            padding: 0.8rem 1.2rem;
+            font-size: var(--text-size-xs);
+            font-weight: bold;
+            color: var(--brand-white);
+            background: linear-gradient(135deg, var(--brand-red-coral) 0%, var(--brand-tertiary) 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition:
+                opacity 0.15s ease,
+                transform 0.1s ease;
+
+            &:hover:not(:disabled) {
+                opacity: 0.92;
+            }
+
+            &:active:not(:disabled) {
+                transform: scale(0.98);
+            }
+
+            &:disabled {
+                cursor: not-allowed;
+                opacity: 0.6;
+            }
         }
     }
 }

@@ -259,6 +259,23 @@ export default class LoadModalStore {
         this.setOpenButtonDisabled(false);
     };
 
+    // Skips the preview workspace entirely — used by the "Load" button on the
+    // top-level Free Bots tab cards, which load straight into Bot Builder.
+    loadFreeBotDirect = async (free_bot: import('../constants/free-bots').TFreeBot): Promise<void> => {
+        const xml_module = await import(
+            /* webpackChunkName: `[request]` */ `../xml/free-bots/${free_bot.id}.xml`
+        );
+        const convertedDom = window.Blockly.utils.xml.textToDom(xml_module.default);
+        updateXmlValues({
+            strategy_id: window.Blockly.utils.idGenerator.genUid(),
+            convertedDom,
+            file_name: free_bot.title,
+            from: save_types.LOCAL,
+        });
+        await this.loadStrategyOnBotBuilder();
+        await this.saveStrategyToLocalStorage();
+    };
+
     setRecentStrategies = (recent_strategies: TStrategy[]): void => {
         this.recent_strategies = recent_strategies;
     };
