@@ -76,10 +76,12 @@
 
     &__item {
         list-style: none;
-        font-size: 14px;
+        font-size: 1.5rem;
+        font-weight: 500;
         text-align: center;
         white-space: nowrap;
         color: var(--text-general);
+        transition: color 0.2s ease;
         -webkit-touch-callout: none;
         -webkit-tap-highlight-color: transparent;
 
@@ -109,7 +111,7 @@
             position: relative;
 
             &:after {
-                border-bottom: 2px solid var(--brand-red-coral);
+                border-bottom: 3px solid var(--brand-red-coral);
                 content: '';
                 position: absolute;
                 left: 0;
@@ -121,6 +123,10 @@
         &:not(.dc-tabs__active) {
             cursor: pointer;
             color: var(--text-general);
+
+            &:hover {
+                color: var(--text-prominent);
+            }
         }
 
         &:not(&--header-fit-content) {
@@ -130,7 +136,7 @@
 
     &__active {
         font-weight: 700;
-        color: var(--text-prominent);
+        color: var(--brand-red-coral);
     }
 
     &__active-line {
@@ -141,16 +147,17 @@
         left: 0;
 
         /* rtl:end:ignore */
-        height: 2px;
+        height: 3px;
+        border-radius: 3px;
         background: var(--brand-red-coral);
         transition: all ease-in-out 0.3s;
 
         &--top {
-            bottom: -2px;
+            bottom: -3px;
         }
 
         &--bottom {
-            top: -2px;
+            top: -3px;
         }
 
         &--is-hidden {

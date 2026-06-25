@@ -1,7 +1,13 @@
+@use 'components/shared/styles/mixins' as *;
+
 .free-bots-tab {
     padding: 1.6rem;
-    height: 100%;
+    height: var(--tab-content-height);
     overflow-y: auto;
+
+    @include mobile-or-tablet-screen {
+        height: var(--tab-content-height-mobile);
+    }
 
     &__grid {
         display: grid;
