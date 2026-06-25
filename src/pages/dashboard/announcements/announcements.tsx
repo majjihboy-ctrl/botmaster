@@ -10,7 +10,6 @@ import { localize } from '@deriv-com/translations';
 import { Notifications as Announcement } from '@deriv-com/ui';
 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
 /* [/AI] */
-import { guide_content } from '../../tutorials/constants';
 import { performButtonAction } from './utils/accumulator-helper-functions';
 import { MessageAnnounce, TitleAnnounce } from './announcement-components';
 import AnnouncementDialog from './announcement-dialog';
@@ -116,7 +115,7 @@ const Announcements = observer(({ is_mobile, is_tablet, handleTabChange }: TAnno
     }, [read_announcements_map]);
 
     const openAccumulatorsVideo = () => {
-        const accumulators_video = guide_content().find(guide_content => guide_content.id === 4);
+        const accumulators_video = { url: 'https://www.youtube.com/embed/uMBBmdNaadU' };
         if (accumulators_video) {
             showVideoDialog({ url: accumulators_video.url, type: 'url' });
         }

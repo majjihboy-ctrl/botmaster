@@ -37,7 +37,6 @@ import {
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
     LabelPairedStarCaptionRegularIcon,
 } from '@deriv/quill-icons/LabelPaired';
-import { LegacyGuide1pxIcon } from '@deriv/quill-icons/Legacy';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import RunPanel from '../../components/run-panel';
@@ -49,7 +48,6 @@ import FreeBotsTab from '../free-bots/free-bots-tab';
 import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
-const Tutorial = lazy(() => import('../tutorials'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -82,7 +80,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'tutorial', 'free_bots', 'analysis_tool'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -294,20 +292,6 @@ const AppWrapper = observer(() => {
         if (active_tour !== '') {
             setActiveTour('');
         }
-
-        // Prevent scrolling when tutorial tab is active (only on mobile)
-        const mainElement = document.querySelector('.main__container');
-        if (active_tab === DBOT_TABS.TUTORIAL && !isDesktop) {
-            document.body.style.overflow = 'hidden';
-            if (mainElement instanceof HTMLElement) {
-                mainElement.classList.add('no-scroll');
-            }
-        } else {
-            document.body.style.overflow = '';
-            if (mainElement instanceof HTMLElement) {
-                mainElement.classList.remove('no-scroll');
-            }
-        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [active_tab]);
 
@@ -387,7 +371,7 @@ const AppWrapper = observer(() => {
                                         <LabelPairedObjectsColumnCaptionRegularIcon
                                             height='24px'
                                             width='24px'
-                                            fill='var(--text-general)'
+                                            fill='currentColor'
                                         />
                                         <Localize i18n_default_text='Dashboard' />
                                     </>
@@ -402,7 +386,7 @@ const AppWrapper = observer(() => {
                                         <LabelPairedPuzzlePieceTwoCaptionBoldIcon
                                             height='24px'
                                             width='24px'
-                                            fill='var(--text-general)'
+                                            fill='currentColor'
                                         />
                                         <Localize i18n_default_text='Bot Builder' />
                                     </>
@@ -415,7 +399,7 @@ const AppWrapper = observer(() => {
                                         <LabelPairedChartLineCaptionRegularIcon
                                             height='24px'
                                             width='24px'
-                                            fill='var(--text-general)'
+                                            fill='currentColor'
                                         />
                                         <Localize i18n_default_text='Charts' />
                                     </>
@@ -435,34 +419,10 @@ const AppWrapper = observer(() => {
                             <div
                                 label={
                                     <>
-                                        <LegacyGuide1pxIcon
-                                            height='16px'
-                                            width='16px'
-                                            fill='var(--text-general)'
-                                            className='icon-general-fill-g-path'
-                                        />
-                                        <Localize i18n_default_text='Tutorials' />
-                                    </>
-                                }
-                                id='id-tutorials'
-                            >
-                                <div className='tutorials-wrapper'>
-                                    <Suspense
-                                        fallback={
-                                            <ChunkLoader message={localize('Please wait, loading tutorials...')} />
-                                        }
-                                    >
-                                        <Tutorial handleTabChange={handleTabChange} />
-                                    </Suspense>
-                                </div>
-                            </div>
-                            <div
-                                label={
-                                    <>
                                         <LabelPairedStarCaptionRegularIcon
                                             height='24px'
                                             width='24px'
-                                            fill='var(--text-general)'
+                                            fill='currentColor'
                                         />
                                         <Localize i18n_default_text='Free bots' />
                                     </>
@@ -477,7 +437,7 @@ const AppWrapper = observer(() => {
                                         <LabelPairedChartCandlestickCaptionRegularIcon
                                             height='24px'
                                             width='24px'
-                                            fill='var(--text-general)'
+                                            fill='currentColor'
                                         />
                                         <Localize i18n_default_text='Analysis Tool' />
                                     </>

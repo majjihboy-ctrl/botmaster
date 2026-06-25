@@ -1,4 +1,4 @@
-import { getImageLocation } from '../../../public-path';
+import { getImageLocation } from '../../public-path';
 import React from 'react';
 import Text from '@/components/shared_ui/text';
 import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';

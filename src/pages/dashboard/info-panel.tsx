@@ -3,7 +3,6 @@ import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import Modal from '@/components/shared_ui/modal';
 import Text from '@/components/shared_ui/text';
-import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { LegacyClose1pxIcon } from '@deriv/quill-icons/Legacy';
 import { useDevice } from '@deriv-com/ui';
@@ -15,22 +14,9 @@ const InfoPanel = observer(() => {
 
     const [is_tour_open, setIsTourOpen] = React.useState(false);
 
-    const {
-        active_tour,
-        is_info_panel_visible,
-        setActiveTab,
-        setActiveTabTutorial,
-        setInfoPanelVisibility,
-        setFaqTitle,
-    } = dashboard;
-    const switchTab = (link: boolean, label: string, faq_id: string) => {
-        const tutorial_link = link ? setActiveTab(DBOT_TABS.TUTORIAL) : null;
-        const tutorial_label = label === 'Guide' ? setActiveTabTutorial(0) : setActiveTabTutorial(1);
+    const { active_tour, is_info_panel_visible, setInfoPanelVisibility, setFaqTitle } = dashboard;
+    const switchTab = (label: string, faq_id: string) => {
         setFaqTitle(faq_id);
-        return {
-            tutorial_link,
-            tutorial_label,
-        };
     };
 
     const handleClose = () => {
@@ -69,7 +55,7 @@ const InfoPanel = observer(() => {
                                 color='prominent'
                                 lineHeight='xl'
                                 as='p'
-                                onClick={() => switchTab(link, label, text.faq_id)}
+                                onClick={() => switchTab(label, text.faq_id)}
                                 size={isDesktop ? 's' : 'xxs'}
                             >
                                 {text.data}

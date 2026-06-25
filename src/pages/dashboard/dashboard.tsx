@@ -5,7 +5,7 @@ import Text from '@/components/shared_ui/text';
 import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
-import OnboardTourHandler from '../tutorials/dbot-tours/onboarding-tour';
+import OnboardTourHandler from '../../components/dbot-tours/onboarding-tour';
 import Announcements from './announcements';
 import Cards from './cards';
 import InfoPanel from './info-panel';
