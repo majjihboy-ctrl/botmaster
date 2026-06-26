@@ -30,9 +30,297 @@
             content="Import your current bot or learn how to create a trading bot from scratch with our detailed guides, FAQs, and tutorials. Start with a quick strategy!"
         />
         <title>Automate Your Trades | Deriv Bot</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap"
+            rel="stylesheet"
+        />
         <style>
             :root {
                 font-size: 62.5%;
+            }
+
+            /* ── Boot splash (shown before the app mounts; React replaces #root's
+               contents on mount, so this is removed automatically — see main.tsx) ── */
+            #boot-splash {
+                position: fixed;
+                inset: 0;
+                z-index: 9999;
+                background: #060a12;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                font-family: 'Share Tech Mono', monospace;
+            }
+
+            #boot-splash .grid-bg {
+                position: fixed;
+                inset: 0;
+                background-image: linear-gradient(rgba(0, 229, 255, 0.04) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(0, 229, 255, 0.04) 1px, transparent 1px);
+                background-size: 40px 40px;
+            }
+
+            #boot-splash .stage {
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 36px;
+                z-index: 10;
+            }
+
+            #boot-splash .spinner-wrap {
+                position: relative;
+                width: 280px;
+                height: 280px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #boot-splash .ring {
+                position: absolute;
+                border-radius: 50%;
+                border: 2px solid transparent;
+            }
+
+            #boot-splash .ring-1 {
+                width: 260px;
+                height: 260px;
+                border-top-color: #00e5ff;
+                border-right-color: rgba(0, 229, 255, 0.3);
+                animation: boot-spinCW 3s linear infinite;
+            }
+            #boot-splash .ring-1::before {
+                content: '';
+                position: absolute;
+                inset: -2px;
+                border-radius: 50%;
+                border: 2px dashed rgba(0, 229, 255, 0.12);
+                animation: boot-spinCCW 12s linear infinite;
+            }
+
+            #boot-splash .ring-2 {
+                width: 210px;
+                height: 210px;
+                border-bottom-color: #1a6fff;
+                border-left-color: rgba(26, 111, 255, 0.4);
+                border-width: 3px;
+                animation: boot-spinCCW 2s linear infinite;
+            }
+            #boot-splash .ring-2::after {
+                content: '';
+                position: absolute;
+                width: 10px;
+                height: 10px;
+                background: #00e5ff;
+                border-radius: 50%;
+                top: -6px;
+                left: 50%;
+                transform: translateX(-50%);
+                box-shadow: 0 0 12px #00e5ff, 0 0 24px #00e5ff;
+            }
+
+            #boot-splash .ring-3 {
+                width: 160px;
+                height: 160px;
+                border-top-color: #f0b429;
+                border-right-color: rgba(240, 180, 41, 0.2);
+                border-width: 2px;
+                animation: boot-spinCW 1.6s linear infinite;
+            }
+            #boot-splash .ring-3::before {
+                content: '';
+                position: absolute;
+                width: 8px;
+                height: 8px;
+                background: #f0b429;
+                border-radius: 50%;
+                bottom: -5px;
+                left: 50%;
+                transform: translateX(-50%);
+                box-shadow: 0 0 10px #f0b429, 0 0 20px #f0b429;
+            }
+
+            #boot-splash .ring-4 {
+                width: 118px;
+                height: 118px;
+                border-bottom-color: #00ff88;
+                border-right-color: rgba(0, 255, 136, 0.3);
+                border-width: 1.5px;
+                animation: boot-spinCCW 4s linear infinite;
+            }
+
+            #boot-splash .ticks {
+                position: absolute;
+                width: 260px;
+                height: 260px;
+                animation: boot-spinCW 3s linear infinite;
+            }
+
+            #boot-splash .logo-center {
+                position: absolute;
+                width: 96px;
+                animation: boot-logoBreathe 3s ease-in-out infinite;
+                filter: drop-shadow(0 0 14px rgba(0, 229, 255, 0.6)) drop-shadow(0 0 30px rgba(26, 111, 255, 0.4));
+                z-index: 5;
+            }
+            @keyframes boot-logoBreathe {
+                0%,
+                100% {
+                    transform: scale(1);
+                    filter: drop-shadow(0 0 14px rgba(0, 229, 255, 0.6)) drop-shadow(0 0 30px rgba(26, 111, 255, 0.3));
+                }
+                50% {
+                    transform: scale(1.06);
+                    filter: drop-shadow(0 0 22px rgba(0, 229, 255, 0.9)) drop-shadow(0 0 50px rgba(26, 111, 255, 0.5));
+                }
+            }
+
+            #boot-splash .glow-core {
+                position: absolute;
+                width: 120px;
+                height: 120px;
+                background: radial-gradient(circle, rgba(0, 229, 255, 0.18) 0%, transparent 70%);
+                border-radius: 50%;
+                animation: boot-glowPulse 3s ease-in-out infinite;
+            }
+            @keyframes boot-glowPulse {
+                0%,
+                100% {
+                    transform: scale(1);
+                    opacity: 0.7;
+                }
+                50% {
+                    transform: scale(1.4);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes boot-spinCW {
+                from {
+                    transform: rotate(0deg);
+                }
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            @keyframes boot-spinCCW {
+                from {
+                    transform: rotate(0deg);
+                }
+                to {
+                    transform: rotate(-360deg);
+                }
+            }
+
+            #boot-splash .label-wrap {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+            }
+            #boot-splash .brand {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 28px;
+                font-weight: 900;
+                letter-spacing: 0.18em;
+                color: #fff;
+                text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+            }
+            #boot-splash .brand span {
+                color: #00e5ff;
+            }
+            #boot-splash .tagline {
+                font-size: 10px;
+                letter-spacing: 0.35em;
+                color: rgba(0, 229, 255, 0.5);
+                text-transform: uppercase;
+            }
+
+            #boot-splash .status-row {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                font-size: 10px;
+                color: rgba(0, 229, 255, 0.4);
+                letter-spacing: 0.12em;
+            }
+            #boot-splash .dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #00ff88;
+                animation: boot-dotBlink 1.4s ease-in-out infinite;
+            }
+            #boot-splash .dot:nth-child(2) {
+                animation-delay: 0.2s;
+                background: #00e5ff;
+            }
+            #boot-splash .dot:nth-child(3) {
+                animation-delay: 0.4s;
+                background: #f0b429;
+            }
+            @keyframes boot-dotBlink {
+                0%,
+                100% {
+                    opacity: 0.2;
+                    transform: scale(0.8);
+                }
+                50% {
+                    opacity: 1;
+                    transform: scale(1.2);
+                }
+            }
+
+            #boot-splash .arc-seg {
+                position: absolute;
+                border-radius: 50%;
+                border: 1px solid transparent;
+            }
+            #boot-splash .arc-1 {
+                width: 238px;
+                height: 238px;
+                border-top-color: rgba(240, 180, 41, 0.15);
+                border-bottom-color: rgba(240, 180, 41, 0.15);
+                animation: boot-spinCW 8s linear infinite;
+            }
+            #boot-splash .arc-2 {
+                width: 186px;
+                height: 186px;
+                border-left-color: rgba(0, 255, 136, 0.1);
+                border-right-color: rgba(0, 255, 136, 0.1);
+                animation: boot-spinCCW 6s linear infinite;
+            }
+
+            #boot-splash .particle {
+                position: fixed;
+                width: 2px;
+                height: 2px;
+                background: #00e5ff;
+                border-radius: 50%;
+                pointer-events: none;
+                animation: boot-floatUp linear infinite;
+                opacity: 0;
+            }
+            @keyframes boot-floatUp {
+                0% {
+                    transform: translateY(100vh);
+                    opacity: 0;
+                }
+                10% {
+                    opacity: 0.5;
+                }
+                90% {
+                    opacity: 0.3;
+                }
+                100% {
+                    transform: translateY(-5vh);
+                    opacity: 0;
+                }
             }
         </style>
     </head>
@@ -51,7 +339,115 @@
 
         <div id="modal_root" class="modal-root"></div>
         <div id="popup_root" class="popup-root"></div>
-        <div id="root"></div>
+        <div id="root">
+            <div id="boot-splash">
+                <div class="grid-bg"></div>
+                <div id="boot-particles"></div>
+
+                <div class="stage">
+                    <div class="spinner-wrap">
+                        <div class="arc-1 arc-seg"></div>
+                        <div class="arc-2 arc-seg"></div>
+
+                        <canvas class="ticks" id="boot-tickCanvas" width="260" height="260"></canvas>
+
+                        <div class="ring ring-1"></div>
+                        <div class="ring ring-2"></div>
+                        <div class="ring ring-3"></div>
+                        <div class="ring ring-4"></div>
+
+                        <div class="glow-core"></div>
+                        <img
+                            class="logo-center"
+                            id="boot-logo"
+                            alt="botmaster"
+                            src="<%= assetPrefix %>/boot-splash-logo.png"
+                        />
+                    </div>
+
+                    <div class="label-wrap">
+                        <div class="brand">BOT<span>MASTER</span></div>
+                        <div class="tagline">Smart Automated Trading</div>
+                    </div>
+
+                    <div class="status-row">
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <span id="boot-statusText">CONNECTING TO MARKETS</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+            (function () {
+                var splash = document.getElementById('boot-splash');
+                if (!splash) return;
+
+                // Tick marks on the outer ring
+                var canvas = document.getElementById('boot-tickCanvas');
+                var ctx = canvas && canvas.getContext('2d');
+                if (ctx) {
+                    var cx = 130,
+                        cy = 130,
+                        r = 126;
+                    for (var i = 0; i < 60; i++) {
+                        var angle = (i / 60) * Math.PI * 2 - Math.PI / 2;
+                        var isMajor = i % 5 === 0;
+                        var len = isMajor ? 12 : 6;
+                        var x1 = cx + r * Math.cos(angle);
+                        var y1 = cy + r * Math.sin(angle);
+                        var x2 = cx + (r - len) * Math.cos(angle);
+                        var y2 = cy + (r - len) * Math.sin(angle);
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.strokeStyle = isMajor ? 'rgba(0,229,255,0.55)' : 'rgba(0,229,255,0.18)';
+                        ctx.lineWidth = isMajor ? 2 : 1;
+                        ctx.stroke();
+                    }
+                }
+
+                // Ambient particles
+                var pEl = document.getElementById('boot-particles');
+                if (pEl) {
+                    for (var p = 0; p < 20; p++) {
+                        var d = document.createElement('div');
+                        d.className = 'particle';
+                        d.style.left = Math.random() * 100 + 'vw';
+                        d.style.animationDuration = 7 + Math.random() * 9 + 's';
+                        d.style.animationDelay = Math.random() * 9 + 's';
+                        pEl.appendChild(d);
+                    }
+                }
+
+                // Status text cycle — self-clears once the real app has mounted
+                // and replaced #root's contents (#boot-splash will no longer exist).
+                var statuses = [
+                    'CONNECTING TO MARKETS',
+                    'LOADING STRATEGY MODULES',
+                    'SYNCING PRICE FEEDS',
+                    'CALIBRATING RISK ENGINE',
+                    'SYSTEM READY',
+                ];
+                var si = 0;
+                var stEl = document.getElementById('boot-statusText');
+                var statusInterval = setInterval(function () {
+                    if (!document.getElementById('boot-splash')) {
+                        clearInterval(statusInterval);
+                        return;
+                    }
+                    si = (si + 1) % statuses.length;
+                    stEl.style.opacity = 0;
+                    setTimeout(function () {
+                        if (!stEl.isConnected) return;
+                        stEl.textContent = statuses[si];
+                        stEl.style.transition = 'opacity .4s';
+                        stEl.style.opacity = 1;
+                    }, 300);
+                }, 1800);
+            })();
+        </script>
         <!-- LiveChat script -->
         <script type="text/javascript" defer>
             window.__lc = window.__lc || {};
