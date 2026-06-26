@@ -1,0 +1,129 @@
+.branded-spinner {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &__ring {
+        position: absolute;
+        border-radius: 50%;
+        border: 2px solid transparent;
+    }
+
+    &__ring--1 {
+        width: 130px;
+        height: 130px;
+        border-top-color: #00e5ff;
+        border-right-color: rgba(0, 229, 255, 0.3);
+        animation: branded-spin-cw 3s linear infinite;
+    }
+
+    &__ring--2 {
+        width: 105px;
+        height: 105px;
+        border-bottom-color: #1a6fff;
+        border-left-color: rgba(26, 111, 255, 0.4);
+        border-width: 3px;
+        animation: branded-spin-ccw 2s linear infinite;
+    }
+
+    &__ring--3 {
+        width: 80px;
+        height: 80px;
+        border-top-color: #f0b429;
+        border-right-color: rgba(240, 180, 41, 0.2);
+        animation: branded-spin-cw 1.6s linear infinite;
+    }
+
+    &__ring--4 {
+        width: 59px;
+        height: 59px;
+        border-bottom-color: #00ff88;
+        border-right-color: rgba(0, 255, 136, 0.3);
+        border-width: 1.5px;
+        animation: branded-spin-ccw 4s linear infinite;
+    }
+
+    &__arc {
+        position: absolute;
+        border-radius: 50%;
+        border: 1px solid transparent;
+    }
+
+    &__arc--1 {
+        width: 119px;
+        height: 119px;
+        border-top-color: rgba(240, 180, 41, 0.15);
+        border-bottom-color: rgba(240, 180, 41, 0.15);
+        animation: branded-spin-cw 8s linear infinite;
+    }
+
+    &__arc--2 {
+        width: 93px;
+        height: 93px;
+        border-left-color: rgba(0, 255, 136, 0.1);
+        border-right-color: rgba(0, 255, 136, 0.1);
+        animation: branded-spin-ccw 6s linear infinite;
+    }
+
+    &__glow {
+        position: absolute;
+        width: 60px;
+        height: 60px;
+        background: radial-gradient(circle, rgba(0, 229, 255, 0.18) 0%, transparent 70%);
+        border-radius: 50%;
+        animation: branded-glow-pulse 3s ease-in-out infinite;
+    }
+
+    &__logo {
+        position: absolute;
+        width: 56px;
+        z-index: 5;
+        animation: branded-logo-breathe 3s ease-in-out infinite;
+        filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.55)) drop-shadow(0 0 20px rgba(26, 111, 255, 0.35));
+    }
+}
+
+@keyframes branded-spin-cw {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes branded-spin-ccw {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(-360deg);
+    }
+}
+
+@keyframes branded-glow-pulse {
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.7;
+    }
+    50% {
+        transform: scale(1.4);
+        opacity: 1;
+    }
+}
+
+@keyframes branded-logo-breathe {
+    0%,
+    100% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.55)) drop-shadow(0 0 20px rgba(26, 111, 255, 0.3));
+    }
+    50% {
+        transform: scale(1.06);
+        filter: drop-shadow(0 0 16px rgba(0, 229, 255, 0.85)) drop-shadow(0 0 32px rgba(26, 111, 255, 0.5));
+    }
+}
