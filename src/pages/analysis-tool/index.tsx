@@ -1,10 +1,11 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
-import { SYMBOLS, useDigitStats } from './use-digit-stats';
+import { useDigitStats, useSyntheticSymbols } from './use-digit-stats';
 import './analysis-tool.scss';
 
 const AnalysisTool = observer(() => {
-    const [symbol, setSymbol] = React.useState(SYMBOLS[4]); // R_100
+    const symbol_options = useSyntheticSymbols();
+    const [symbol, setSymbol] = React.useState('R_100');
     const [tickCount, setTickCount] = React.useState(1000);
     const [overUnderDigit, setOverUnderDigit] = React.useState(5);
 
@@ -25,9 +26,9 @@ const AnalysisTool = observer(() => {
                 <div className='analysis-tool__controls'>
                     <span className='analysis-tool__field-label'>Symbol</span>
                     <select value={symbol} onChange={e => setSymbol(e.target.value)}>
-                        {SYMBOLS.map(s => (
-                            <option key={s} value={s}>
-                                {s}
+                        {symbol_options.map(s => (
+                            <option key={s.symbol} value={s.symbol}>
+                                {s.display_name}
                             </option>
                         ))}
                     </select>

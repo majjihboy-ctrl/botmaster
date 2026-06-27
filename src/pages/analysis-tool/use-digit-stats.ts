@@ -2,7 +2,51 @@ import { useEffect, useRef, useState } from 'react';
 import { api_base } from '@/external/bot-skeleton';
 import { getLastDigitForList } from '@/external/bot-skeleton/services/tradeEngine/utils/helpers';
 
-export const SYMBOLS = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
+export type TSymbolOption = { symbol: string; display_name: string };
+
+// Fallback used only until the live active_symbols list has loaded.
+const FALLBACK_SYMBOLS: TSymbolOption[] = [
+    { symbol: 'R_10', display_name: 'Volatility 10 Index' },
+    { symbol: 'R_25', display_name: 'Volatility 25 Index' },
+    { symbol: 'R_50', display_name: 'Volatility 50 Index' },
+    { symbol: 'R_75', display_name: 'Volatility 75 Index' },
+    { symbol: 'R_100', display_name: 'Volatility 100 Index' },
+    { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index' },
+    { symbol: '1HZ15V', display_name: 'Volatility 15 (1s) Index' },
+    { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index' },
+    { symbol: '1HZ30V', display_name: 'Volatility 30 (1s) Index' },
+    { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index' },
+    { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index' },
+    { symbol: '1HZ90V', display_name: 'Volatility 90 (1s) Index' },
+    { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index' },
+    { symbol: 'RDBEAR', display_name: 'Bear Market Index' },
+    { symbol: 'RDBULL', display_name: 'Bull Market Index' },
+];
+
+export const useSyntheticSymbols = (): TSymbolOption[] => {
+    const [symbols, setSymbols] = useState<TSymbolOption[]>(FALLBACK_SYMBOLS);
+
+    useEffect(() => {
+        let attempts = 0;
+        const tryLoad = () => {
+            const list = api_base?.active_symbols;
+            if (Array.isArray(list) && list.length) {
+                const synthetic = list
+                    .filter((s: any) => s.market === 'synthetic_index')
+                    .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name || s.symbol }));
+                if (synthetic.length) {
+                    setSymbols(synthetic);
+                    return;
+                }
+            }
+            attempts += 1;
+            if (attempts < 10) setTimeout(tryLoad, 500);
+        };
+        tryLoad();
+    }, []);
+
+    return symbols;
+};
 
 export type TDigitStats = {
     digit_counts: number[]; // index 0-9, count of occurrences in the current window
