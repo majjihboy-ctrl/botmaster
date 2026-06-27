@@ -136,16 +136,23 @@
     }
 
     &__account-type {
-        @include typeface(--xxsmall-left-normal-green);
-
         line-height: 1;
         margin: 0;
         font-size: var(--text-size-xxs);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #fff;
+        background: $color-green-4;
+        padding: 0.2rem 0.7rem;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
     }
 
     &--is-virtual {
         .acc-info__account-type {
-            color: $color-yellow;
+            background: $color-yellow;
         }
     }
 
