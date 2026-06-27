@@ -23,8 +23,22 @@ const FALLBACK_SYMBOLS: TSymbolOption[] = [
     { symbol: 'RDBULL', display_name: 'Bull Market Index' },
 ];
 
+// These must always be present in the dropdown, even if the live
+// active_symbols response is missing them for any reason.
+const MUST_INCLUDE: TSymbolOption[] = [
+    { symbol: '1HZ15V', display_name: 'Volatility 15 (1s) Index' },
+    { symbol: '1HZ30V', display_name: 'Volatility 30 (1s) Index' },
+    { symbol: '1HZ90V', display_name: 'Volatility 90 (1s) Index' },
+];
+
+const withMustInclude = (list: TSymbolOption[]): TSymbolOption[] => {
+    const present = new Set(list.map(s => s.symbol));
+    const missing = MUST_INCLUDE.filter(s => !present.has(s.symbol));
+    return [...list, ...missing];
+};
+
 export const useSyntheticSymbols = (): TSymbolOption[] => {
-    const [symbols, setSymbols] = useState<TSymbolOption[]>(FALLBACK_SYMBOLS);
+    const [symbols, setSymbols] = useState<TSymbolOption[]>(withMustInclude(FALLBACK_SYMBOLS));
 
     useEffect(() => {
         let attempts = 0;
@@ -35,7 +49,7 @@ export const useSyntheticSymbols = (): TSymbolOption[] => {
                     .filter((s: any) => s.market === 'synthetic_index')
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name || s.symbol }));
                 if (synthetic.length) {
-                    setSymbols(synthetic);
+                    setSymbols(withMustInclude(synthetic));
                     return;
                 }
             }
@@ -60,6 +74,11 @@ export type TDigitStats = {
     streak_count: number;
     streak_direction: 'rise' | 'fall' | null;
     recent_digits: number[];
+    recent_quotes: number[];
+    current_quote: number | null;
+    quote_change_pct: number;
+    rise_pct: number;
+    fall_pct: number;
     is_loading: boolean;
 };
 
@@ -75,6 +94,11 @@ const EMPTY_STATS: TDigitStats = {
     streak_count: 0,
     streak_direction: null,
     recent_digits: [],
+    recent_quotes: [],
+    current_quote: null,
+    quote_change_pct: 0,
+    rise_pct: 0,
+    fall_pct: 0,
     is_loading: true,
 };
 
@@ -97,6 +121,13 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
     // Streak: consecutive rises/falls based on raw quote direction
     let streak_count = 0;
     let streak_direction: 'rise' | 'fall' | null = null;
+    let rise_count = 0;
+    let fall_count = 0;
+    for (let i = 1; i < quotes.length; i++) {
+        const diff = quotes[i] - quotes[i - 1];
+        if (diff > 0) rise_count += 1;
+        else if (diff < 0) fall_count += 1;
+    }
     for (let i = quotes.length - 1; i > 0; i--) {
         const diff = quotes[i] - quotes[i - 1];
         if (diff === 0) break;
@@ -110,6 +141,10 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
             break;
         }
     }
+    const move_total = rise_count + fall_count || 1;
+    const first_quote = quotes[0];
+    const last_quote = quotes[quotes.length - 1];
+    const quote_change_pct = first_quote ? ((last_quote - first_quote) / first_quote) * 100 : 0;
 
     return {
         digit_counts,
@@ -123,6 +158,11 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
         streak_count,
         streak_direction,
         recent_digits: digits.slice(-15),
+        recent_quotes: quotes.slice(-100),
+        current_quote: last_quote ?? null,
+        quote_change_pct,
+        rise_pct: Math.round((rise_count / move_total) * 100),
+        fall_pct: Math.round((fall_count / move_total) * 100),
         is_loading: false,
     };
 };

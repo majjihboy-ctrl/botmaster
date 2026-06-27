@@ -291,6 +291,62 @@
             border-color: var(--brand-red-coral);
         }
     }
+
+    &__panel--chart {
+        margin-top: 1.6rem;
+    }
+
+    &__chart-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.2rem;
+
+        h2 {
+            margin-bottom: 0;
+        }
+    }
+
+    &__price-readout {
+        display: flex;
+        align-items: baseline;
+        gap: 0.8rem;
+    }
+
+    &__price-value {
+        font-size: var(--text-size-m);
+        font-weight: 700;
+        color: var(--text-prominent);
+    }
+
+    &__price-change {
+        font-size: var(--text-size-xs);
+        font-weight: 600;
+
+        &.up {
+            color: #16a34a;
+        }
+        &.down {
+            color: #ef4444;
+        }
+    }
+
+    &__sparkline {
+        width: 100%;
+        height: 16rem;
+        display: block;
+    }
+
+    &__chart-empty {
+        height: 16rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-less-prominent);
+        font-size: var(--text-size-xs);
+    }
 }
 
 @keyframes analysis-tool-blink {
