@@ -28,23 +28,32 @@ const FreeBotsTab = observer(() => {
 
     return (
         <div className='free-bots-tab'>
-            <div className='free-bots-tab__grid'>
-                {FREE_BOTS.map(bot => (
-                    <div key={bot.id} className='free-bots-tab__card'>
-                        <div className='free-bots-tab__card-title'>{bot.title}</div>
-                        <div className='free-bots-tab__card-description'>{bot.description}</div>
-                        <button
-                            type='button'
-                            className='free-bots-tab__card-load'
-                            data-testid={`dt_free-bots-tab__load-${bot.id}`}
-                            disabled={loading_id === bot.id}
-                            onClick={() => handleLoad(bot)}
-                        >
-                            {loading_id === bot.id ? localize('Loading...') : localize('Load')}
-                        </button>
+            {FREE_BOTS.length === 0 ? (
+                <div className='free-bots-tab__empty'>
+                    <div className='free-bots-tab__empty-title'>{localize('New bots coming soon')}</div>
+                    <div className='free-bots-tab__empty-text'>
+                        {localize("We're refreshing this collection — check back shortly.")}
                     </div>
-                ))}
-            </div>
+                </div>
+            ) : (
+                <div className='free-bots-tab__grid'>
+                    {FREE_BOTS.map(bot => (
+                        <div key={bot.id} className='free-bots-tab__card'>
+                            <div className='free-bots-tab__card-title'>{bot.title}</div>
+                            <div className='free-bots-tab__card-description'>{bot.description}</div>
+                            <button
+                                type='button'
+                                className='free-bots-tab__card-load'
+                                data-testid={`dt_free-bots-tab__load-${bot.id}`}
+                                disabled={loading_id === bot.id}
+                                onClick={() => handleLoad(bot)}
+                            >
+                                {loading_id === bot.id ? localize('Loading...') : localize('Load')}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 });

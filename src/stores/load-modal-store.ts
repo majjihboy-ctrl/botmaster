@@ -45,6 +45,8 @@ export default class LoadModalStore {
             tab_name: computed,
             is_open_button_disabled: observable,
             setOpenButtonDisabled: action.bound,
+            is_current_bot_restricted: observable,
+            setIsCurrentBotRestricted: action.bound,
             getSelectedStrategyID: action.bound,
             refreshStrategies: action.bound,
             loadStrategyToBuilder: action.bound,
@@ -110,6 +112,7 @@ export default class LoadModalStore {
     is_explanation_expand = false;
     is_open_button_loading = false;
     is_open_button_disabled = false;
+    is_current_bot_restricted = false;
     loaded_local_file: File | null = null;
     selected_free_bot: import('../constants/free-bots').TFreeBot | null = null;
     recent_strategies: Array<TStrategy> = [];
@@ -149,6 +152,10 @@ export default class LoadModalStore {
 
     setOpenButtonDisabled = (is_open_button_disabled: boolean) => {
         this.is_open_button_disabled = is_open_button_disabled;
+    };
+
+    setIsCurrentBotRestricted = (is_current_bot_restricted: boolean) => {
+        this.is_current_bot_restricted = is_current_bot_restricted;
     };
 
     getSelectedStrategyID = (current_workspace_id: string) => {
@@ -274,6 +281,7 @@ export default class LoadModalStore {
         });
         await this.loadStrategyOnBotBuilder();
         await this.saveStrategyToLocalStorage();
+        this.setIsCurrentBotRestricted(true);
     };
 
     setRecentStrategies = (recent_strategies: TStrategy[]): void => {
@@ -512,6 +520,7 @@ export default class LoadModalStore {
     };
 
     loadStrategyOnBotBuilder = async () => {
+        this.setIsCurrentBotRestricted(false);
         const {
             strategy_id = window.Blockly.utils.idGenerator.genUid(),
             convertedDom,

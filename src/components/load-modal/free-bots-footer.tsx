@@ -14,6 +14,7 @@ const FreeBotsFooter = observer(() => {
         loadStrategyOnBotBuilder,
         setSelectedFreeBot,
         saveStrategyToLocalStorage,
+        setIsCurrentBotRestricted,
         toggleLoadModal,
     } = load_modal;
     const { setOpenSettings, setPreviewOnPopup } = dashboard;
@@ -30,6 +31,7 @@ const FreeBotsFooter = observer(() => {
                 onClick={() => {
                     loadStrategyOnBotBuilder();
                     saveStrategyToLocalStorage();
+                    setIsCurrentBotRestricted(true);
                     setSelectedFreeBot(null);
                     toggleLoadModal();
                     setPreviewOnPopup(false);

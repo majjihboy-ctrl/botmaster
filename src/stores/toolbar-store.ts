@@ -76,6 +76,7 @@ export default class ToolbarStore implements IToolbarStore {
     };
 
     resetDefaultStrategy = async () => {
+        this.root_store.load_modal.setIsCurrentBotRestricted(false);
         const workspace = window.Blockly.derivWorkspace;
         workspace.current_strategy_id = window?.Blockly?.utils?.idGenerator?.genUid();
         await load({

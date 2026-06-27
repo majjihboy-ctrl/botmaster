@@ -7,34 +7,24 @@ export type TFreeBot = {
 // Each `id` must match a file name (without extension) in `src/xml/free-bots/`.
 export const FREE_BOTS: TFreeBot[] = [
     {
-        id: 'muokozi-v1',
-        title: 'Muokozi V1',
-        description: 'Digit Over/Under strategy with martingale recovery.',
-    },
-    {
         id: 'over-destroyer',
         title: 'Over Destroyer',
         description: 'Digit Over/Under strategy with martingale recovery.',
     },
     {
-        id: 'over-1-entry-search-after-loss',
-        title: 'Over 1 – Entry Search After Loss',
-        description: 'Digit Over strategy that searches for a fresh entry point after a loss.',
+        id: 'kuomoka-digit-under',
+        title: 'Kuomoka Digit Under',
+        description: 'Digit Under strategy with martingale recovery.',
     },
     {
-        id: 'over-2-under-6-over-4',
-        title: 'Over 2 / Under 6 / Over 4',
-        description: 'Digit Over/Under strategy with martingale recovery.',
+        id: 'differ-killer-bot',
+        title: 'Differ Killer Bot',
+        description: 'Fast-entry Digit Differs strategy with martingale recovery.',
     },
     {
-        id: 'realmoney',
-        title: 'Real Money',
-        description: 'Digit Over/Under strategy with martingale recovery.',
-    },
-    {
-        id: 'matches-digit-alternator',
-        title: 'Matches: Most & Second-Most Digit Alternator',
-        description: 'Digit Matches strategy that alternates between the most and second-most frequent digits.',
+        id: 'smartdiffers-x6',
+        title: 'SmartDiffers X6',
+        description: 'Six combined Digit Differs strategies in one bot, with martingale recovery.',
     },
     {
         id: 'over-2-under-7-master-bot',
@@ -42,19 +32,9 @@ export const FREE_BOTS: TFreeBot[] = [
         description: 'Digit Over/Under strategy.',
     },
     {
-        id: 'double-with-analysis',
-        title: 'Double (With Analysis)',
-        description: 'Digit Over/Under strategy with martingale recovery and entry analysis.',
-    },
-    {
-        id: 'final-judge',
-        title: 'Final Judge',
-        description: 'Digit Over/Under strategy with martingale recovery.',
-    },
-    {
-        id: 'kuomoka-over-3',
-        title: 'Kuomoka Over 3',
-        description: 'Digit Under strategy with martingale recovery.',
+        id: 'over-1-entry-search-after-loss',
+        title: 'Over 1 – Entry Search After Loss',
+        description: 'Digit Over strategy that searches for a fresh entry point after a loss.',
     },
     {
         id: 'last-digit-martingale',
