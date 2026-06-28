@@ -172,6 +172,11 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
     const quotesRef = useRef<number[]>([]);
     const pipSizeRef = useRef<number>(2);
     const subscriptionIdRef = useRef<string | null>(null);
+    const overUnderDigitRef = useRef<number>(over_under_digit);
+
+    useEffect(() => {
+        overUnderDigitRef.current = over_under_digit;
+    }, [over_under_digit]);
 
     useEffect(() => {
         let is_cancelled = false;
@@ -194,13 +199,13 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
 
                 const prices: number[] = history_res?.history?.prices?.map(Number) ?? [];
                 quotesRef.current = prices;
-                setStats(computeStats(prices, pip_size, over_under_digit));
+                setStats(computeStats(prices, pip_size, overUnderDigitRef.current));
 
                 message_subscription = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === symbol) {
                         if (data.tick.id) subscriptionIdRef.current = data.tick.id;
                         quotesRef.current = [...quotesRef.current, Number(data.tick.quote)].slice(-tick_count);
-                        setStats(computeStats(quotesRef.current, pipSizeRef.current, over_under_digit));
+                        setStats(computeStats(quotesRef.current, pipSizeRef.current, overUnderDigitRef.current));
                     }
                 });
 

@@ -101,7 +101,7 @@ const AnalysisTool = observer(() => {
                         <div className='analysis-tool__label'>Over / Under — editable digit</div>
                         <div className='analysis-tool__ou-row'>
                             <select value={overUnderDigit} onChange={e => setOverUnderDigit(Number(e.target.value))}>
-                                {Array.from({ length: 10 }, (_, i) => (
+                                {Array.from({ length: 8 }, (_, i) => i + 1).map(i => (
                                     <option key={i} value={i}>
                                         {i}
                                     </option>
