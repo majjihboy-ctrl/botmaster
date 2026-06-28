@@ -149,6 +149,34 @@ const AnalysisTool = observer(() => {
             </div>
 
             <div className='analysis-tool__panel'>
+                <h2>Digit frequency by window — and ticks since last seen</h2>
+                <div className='analysis-tool__compare-table'>
+                    <div className='analysis-tool__compare-row analysis-tool__compare-row--head'>
+                        <div>Digit</div>
+                        {stats.window_counts.map(w => (
+                            <div key={w.label}>{w.label}</div>
+                        ))}
+                        <div>Last seen</div>
+                    </div>
+                    {Array.from({ length: 10 }, (_, d) => (
+                        <div className='analysis-tool__compare-row' key={d}>
+                            <div className='analysis-tool__compare-digit'>{d}</div>
+                            {stats.window_counts.map(w => {
+                                const win_total = w.counts.reduce((a, b) => a + b, 0) || 1;
+                                const pct = Math.round((w.counts[d] / win_total) * 100);
+                                return <div key={w.label}>{pct}%</div>;
+                            })}
+                            <div className='analysis-tool__compare-lastseen'>
+                                {stats.ticks_since_last_seen[d] === -1
+                                    ? '—'
+                                    : `${stats.ticks_since_last_seen[d]} ago`}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className='analysis-tool__panel'>
                 <h2>Recent ticks</h2>
                 <div className='analysis-tool__ticks-row'>
                     {stats.recent_digits.map((d, i) => (

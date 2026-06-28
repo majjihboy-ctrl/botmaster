@@ -64,6 +64,8 @@ export const useSyntheticSymbols = (): TSymbolOption[] => {
 
 export type TDigitStats = {
     digit_counts: number[]; // index 0-9, count of occurrences in the current window
+    window_counts: { label: string; size: number; counts: number[] }[];
+    ticks_since_last_seen: number[]; // index 0-9, ticks since each digit last appeared (-1 = not seen)
     most_idx: number;
     second_idx: number;
     least_idx: number;
@@ -84,6 +86,8 @@ export type TDigitStats = {
 
 const EMPTY_STATS: TDigitStats = {
     digit_counts: new Array(10).fill(0),
+    window_counts: [],
+    ticks_since_last_seen: new Array(10).fill(-1),
     most_idx: 0,
     second_idx: 0,
     least_idx: 0,
@@ -101,6 +105,17 @@ const EMPTY_STATS: TDigitStats = {
     fall_pct: 0,
     is_loading: true,
 };
+
+const countDigits = (quotes: number[], pip_size: number): number[] => {
+    const counts = new Array(10).fill(0);
+    quotes.forEach(q => {
+        const d = Number(getLastDigitForList(q, pip_size));
+        if (d >= 0 && d <= 9) counts[d] += 1;
+    });
+    return counts;
+};
+
+const WINDOW_SIZES = [50, 200];
 
 const computeStats = (quotes: number[], pip_size: number, over_under_digit: number): TDigitStats => {
     const digits = quotes.map(q => Number(getLastDigitForList(q, pip_size)));
@@ -146,8 +161,24 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
     const last_quote = quotes[quotes.length - 1];
     const quote_change_pct = first_quote ? ((last_quote - first_quote) / first_quote) * 100 : 0;
 
+    const window_counts = WINDOW_SIZES.filter(size => quotes.length >= 10).map(size => ({
+        label: `Last ${Math.min(size, quotes.length)}`,
+        size,
+        counts: countDigits(quotes.slice(-size), pip_size),
+    }));
+    window_counts.push({ label: `Last ${quotes.length}`, size: quotes.length, counts: digit_counts });
+
+    const ticks_since_last_seen = new Array(10).fill(-1).map((_, d) => {
+        for (let i = digits.length - 1; i >= 0; i--) {
+            if (digits[i] === d) return digits.length - 1 - i;
+        }
+        return -1;
+    });
+
     return {
         digit_counts,
+        window_counts,
+        ticks_since_last_seen,
         most_idx,
         second_idx,
         least_idx,
