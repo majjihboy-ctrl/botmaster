@@ -3,8 +3,6 @@ import { observer } from 'mobx-react-lite';
 import { useDigitStats, useSyntheticSymbols } from './use-digit-stats';
 import './analysis-tool.scss';
 
-const CHART_HEIGHT_PX = 140; // matches .analysis-tool__chart { height: 14rem } at the app's 62.5% root font-size
-
 const AnalysisTool = observer(() => {
     const symbol_options = useSyntheticSymbols();
     const [symbol, setSymbol] = React.useState('R_100');
@@ -56,14 +54,16 @@ const AnalysisTool = observer(() => {
                             if (i === stats.most_idx) cls = 'most';
                             else if (i === stats.second_idx) cls = 'second';
                             else if (i === stats.least_idx) cls = 'least';
+                            const size = 5.2 + (count / maxCount) * 3.6; // rem
                             return (
                                 <div className='analysis-tool__digit-col' key={i}>
-                                    <div className='analysis-tool__digit-pct'>{pct}%</div>
                                     <div
-                                        className={`analysis-tool__digit-bar ${cls}`}
-                                        style={{ height: `${Math.max(4, (count / maxCount) * CHART_HEIGHT_PX)}px` }}
-                                    />
-                                    <div className='analysis-tool__digit-label'>{i}</div>
+                                        className={`analysis-tool__digit-circle ${cls}`}
+                                        style={{ width: `${size}rem`, height: `${size}rem` }}
+                                    >
+                                        {i}
+                                    </div>
+                                    <div className='analysis-tool__digit-pct'>{pct}%</div>
                                 </div>
                             );
                         })}
@@ -101,7 +101,7 @@ const AnalysisTool = observer(() => {
                         <div className='analysis-tool__label'>Over / Under — editable digit</div>
                         <div className='analysis-tool__ou-row'>
                             <select value={overUnderDigit} onChange={e => setOverUnderDigit(Number(e.target.value))}>
-                                {Array.from({ length: 8 }, (_, i) => i + 1).map(i => (
+                                {Array.from({ length: 10 }, (_, i) => i).map(i => (
                                     <option key={i} value={i}>
                                         {i}
                                     </option>
@@ -192,54 +192,30 @@ const AnalysisTool = observer(() => {
                 </div>
             </div>
 
-            <div className='analysis-tool__panel analysis-tool__panel--chart'>
-                <div className='analysis-tool__chart-header'>
-                    <h2>Price movement — last {stats.recent_quotes.length} ticks</h2>
-                    {stats.current_quote !== null && (
-                        <div className='analysis-tool__price-readout'>
-                            <span className='analysis-tool__price-value'>{stats.current_quote}</span>
-                            <span
-                                className={`analysis-tool__price-change ${stats.quote_change_pct >= 0 ? 'up' : 'down'}`}
-                            >
-                                {stats.quote_change_pct >= 0 ? '▲' : '▼'} {Math.abs(stats.quote_change_pct).toFixed(3)}%
-                            </span>
-                        </div>
-                    )}
+            <div className='analysis-tool__panel'>
+                <h2>Even / Odd — last {stats.recent_digits_100.length} ticks</h2>
+                <div className='analysis-tool__eo-row'>
+                    {stats.recent_digits_100.map((d, i) => (
+                        <div
+                            key={i}
+                            className={`analysis-tool__eo-dot ${d % 2 === 0 ? 'even' : 'odd'}`}
+                            title={`${d} (${d % 2 === 0 ? 'even' : 'odd'})`}
+                        />
+                    ))}
                 </div>
-                <PriceSparkline quotes={stats.recent_quotes} />
+                <div className='analysis-tool__legend'>
+                    <span>
+                        <span className='analysis-tool__sw' style={{ background: '#22C55E' }} />
+                        Even
+                    </span>
+                    <span>
+                        <span className='analysis-tool__sw' style={{ background: '#EF4444' }} />
+                        Odd
+                    </span>
+                </div>
             </div>
         </div>
     );
 });
-
-const PriceSparkline = ({ quotes }: { quotes: number[] }) => {
-    if (quotes.length < 2) {
-        return <div className='analysis-tool__chart-empty'>Waiting for ticks…</div>;
-    }
-    const width = 1000;
-    const height = 160;
-    const min = Math.min(...quotes);
-    const max = Math.max(...quotes);
-    const range = max - min || 1;
-    const points = quotes.map((q, i) => {
-        const x = (i / (quotes.length - 1)) * width;
-        const y = height - ((q - min) / range) * height;
-        return [x, y];
-    });
-    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ');
-    const areaPath = `${linePath} L${width},${height} L0,${height} Z`;
-    const is_up = quotes[quotes.length - 1] >= quotes[0];
-
-    return (
-        <svg
-            className='analysis-tool__sparkline'
-            viewBox={`0 0 ${width} ${height}`}
-            preserveAspectRatio='none'
-        >
-            <path d={areaPath} fill={is_up ? 'rgba(22,163,74,0.08)' : 'rgba(239,68,68,0.08)'} stroke='none' />
-            <path d={linePath} fill='none' stroke={is_up ? '#16A34A' : '#EF4444'} strokeWidth={2} />
-        </svg>
-    );
-};
 
 export default AnalysisTool;

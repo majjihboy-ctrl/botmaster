@@ -77,6 +77,7 @@ export type TDigitStats = {
     streak_count: number;
     streak_direction: 'rise' | 'fall' | null;
     recent_digits: number[];
+    recent_digits_100: number[];
     recent_quotes: number[];
     current_quote: number | null;
     quote_change_pct: number;
@@ -101,6 +102,7 @@ const EMPTY_STATS: TDigitStats = {
     streak_direction: null,
     recent_digits: [],
     recent_quotes: [],
+    recent_digits_100: [],
     current_quote: null,
     quote_change_pct: 0,
     rise_pct: 0,
@@ -194,6 +196,7 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
         streak_count,
         streak_direction,
         recent_digits: digits.slice(-15),
+        recent_digits_100: digits.slice(-100),
         recent_quotes: quotes.slice(-100),
         current_quote: last_quote ?? null,
         quote_change_pct,
