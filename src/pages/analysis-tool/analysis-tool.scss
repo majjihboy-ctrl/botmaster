@@ -217,6 +217,11 @@
         &.alt {
             color: var(--text-prominent);
         }
+
+        &.equal {
+            color: var(--text-less-prominent);
+            font-size: var(--text-size-s);
+        }
     }
 
     &__bar-split {

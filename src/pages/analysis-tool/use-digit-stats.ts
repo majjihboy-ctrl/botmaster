@@ -73,6 +73,7 @@ export type TDigitStats = {
     odd_pct: number;
     over_pct: number;
     under_pct: number;
+    equal_pct: number;
     streak_count: number;
     streak_direction: 'rise' | 'fall' | null;
     recent_digits: number[];
@@ -95,6 +96,7 @@ const EMPTY_STATS: TDigitStats = {
     odd_pct: 0,
     over_pct: 0,
     under_pct: 0,
+    equal_pct: 0,
     streak_count: 0,
     streak_direction: null,
     recent_digits: [],
@@ -132,6 +134,8 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
     const total = digits.length || 1;
     const even_count = digits.filter(d => d % 2 === 0).length;
     const over_count = digits.filter(d => d > over_under_digit).length;
+    const under_count = digits.filter(d => d < over_under_digit).length;
+    const equal_count = total - over_count - under_count;
 
     // Streak: consecutive rises/falls based on raw quote direction
     let streak_count = 0;
@@ -182,18 +186,19 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
         most_idx,
         second_idx,
         least_idx,
-        even_pct: Math.round((even_count / total) * 100),
-        odd_pct: Math.round(((total - even_count) / total) * 100),
-        over_pct: Math.round((over_count / total) * 100),
-        under_pct: Math.round(((total - over_count) / total) * 100),
+        even_pct: Number(((even_count / total) * 100).toFixed(1)),
+        odd_pct: Number((((total - even_count) / total) * 100).toFixed(1)),
+        over_pct: Number(((over_count / total) * 100).toFixed(1)),
+        under_pct: Number(((under_count / total) * 100).toFixed(1)),
+        equal_pct: Number(((equal_count / total) * 100).toFixed(1)),
         streak_count,
         streak_direction,
         recent_digits: digits.slice(-15),
         recent_quotes: quotes.slice(-100),
         current_quote: last_quote ?? null,
         quote_change_pct,
-        rise_pct: Math.round((rise_count / move_total) * 100),
-        fall_pct: Math.round((fall_count / move_total) * 100),
+        rise_pct: Number(((rise_count / move_total) * 100).toFixed(1)),
+        fall_pct: Number(((fall_count / move_total) * 100).toFixed(1)),
         is_loading: false,
     };
 };

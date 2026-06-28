@@ -108,15 +108,17 @@ const AnalysisTool = observer(() => {
                                 ))}
                             </select>
                             <span className='analysis-tool__ou-text'>
-                                Over {overUnderDigit} / Under {overUnderDigit}
+                                Over {overUnderDigit} / Equal {overUnderDigit} / Under {overUnderDigit}
                             </span>
                         </div>
                         <div className='analysis-tool__stat-row'>
                             <span className='analysis-tool__val'>{stats.over_pct}%</span>
+                            <span className='analysis-tool__val equal'>{stats.equal_pct}%</span>
                             <span className='analysis-tool__val alt'>{stats.under_pct}%</span>
                         </div>
                         <div className='analysis-tool__bar-split'>
                             <div style={{ width: `${stats.over_pct}%`, background: '#3B82F6' }} />
+                            <div style={{ width: `${stats.equal_pct}%`, background: '#9CA3AF' }} />
                             <div style={{ width: `${stats.under_pct}%`, background: '#C7D2E0' }} />
                         </div>
                     </div>
@@ -163,7 +165,7 @@ const AnalysisTool = observer(() => {
                             <div className='analysis-tool__compare-digit'>{d}</div>
                             {stats.window_counts.map(w => {
                                 const win_total = w.counts.reduce((a, b) => a + b, 0) || 1;
-                                const pct = Math.round((w.counts[d] / win_total) * 100);
+                                const pct = ((w.counts[d] / win_total) * 100).toFixed(1);
                                 return <div key={w.label}>{pct}%</div>;
                             })}
                             <div className='analysis-tool__compare-lastseen'>
