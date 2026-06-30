@@ -233,6 +233,14 @@
         font-weight: 600;
         color: var(--text-prominent);
         margin-bottom: 0.8rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    &__scan-disconnected {
+        color: #ef4444;
+        font-size: 0.8rem;
     }
 
     &__scan-stage-row {

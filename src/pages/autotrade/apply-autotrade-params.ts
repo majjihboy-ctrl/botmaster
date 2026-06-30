@@ -89,5 +89,8 @@ export const applyAutotradeParams = (xml_string: string, params: TAutotradeParam
         );
     }
 
+    // eslint-disable-next-line no-console
+    console.log(`[autotrade] Bot configured for symbol=${params.symbol} stake=${params.stake}`);
+
     return new XMLSerializer().serializeToString(xmlDoc);
 };

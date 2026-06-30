@@ -181,9 +181,17 @@ const AutotradeTab = observer(() => {
                         {symbols.map(s => {
                             const status = statuses[s.symbol];
                             const stage = status?.stage ?? 0;
+                            const is_connected = status?.is_connected ?? false;
                             return (
                                 <div className='autotrade__scan-card' key={s.symbol}>
-                                    <div className='autotrade__scan-name'>{s.display_name}</div>
+                                    <div className='autotrade__scan-name'>
+                                        {s.display_name}
+                                        {!is_connected && is_armed && (
+                                            <span className='autotrade__scan-disconnected' title='No ticks received yet'>
+                                                ●
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className='autotrade__scan-stage-row'>
                                         {[0, 1, 2].map(step => (
                                             <span

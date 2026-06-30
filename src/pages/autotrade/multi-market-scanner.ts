@@ -117,6 +117,7 @@ export type TSymbolScanStatus = {
     display_name: string;
     stage: 0 | 1 | 2;
     last_digit: number | null;
+    is_connected: boolean;
 };
 
 export type TScanSignal = { symbol: string; display_name: string; at: number };
@@ -154,6 +155,7 @@ export const useMultiMarketScanner = (
                 display_name: s.display_name,
                 stage: 0,
                 last_digit: null,
+                is_connected: false,
             };
         });
         setStatuses(initial_statuses);
@@ -176,6 +178,7 @@ export const useMultiMarketScanner = (
                         display_name: prev[symbol]?.display_name ?? symbol,
                         stage: state.stage,
                         last_digit: digit,
+                        is_connected: true,
                     },
                 }));
 
@@ -189,9 +192,20 @@ export const useMultiMarketScanner = (
                 if (is_cancelled) return;
                 try {
                     const res = await api_base.api.send({ ticks: s.symbol, subscribe: 1 });
-                    if (res?.subscription?.id) subscriptionIdsRef.current[s.symbol] = res.subscription.id;
+                    if (res?.error) {
+                        // eslint-disable-next-line no-console
+                        console.warn(`[autotrade] Subscribe failed for ${s.symbol}:`, res.error.message || res.error);
+                        continue;
+                    }
+                    if (res?.subscription?.id) {
+                        subscriptionIdsRef.current[s.symbol] = res.subscription.id;
+                    } else {
+                        // eslint-disable-next-line no-console
+                        console.warn(`[autotrade] No subscription id returned for ${s.symbol}`, res);
+                    }
                 } catch (e) {
-                    // one symbol failing to subscribe shouldn't stop the others
+                    // eslint-disable-next-line no-console
+                    console.warn(`[autotrade] Subscribe threw for ${s.symbol}:`, e);
                 }
             }
         };
