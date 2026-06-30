@@ -284,6 +284,25 @@ export default class LoadModalStore {
         this.setIsCurrentBotRestricted(true);
     };
 
+    loadAutotradeBot = async (
+        bot_id: string,
+        bot_title: string,
+        params: import('../pages/autotrade/apply-autotrade-params').TAutotradeParams
+    ): Promise<void> => {
+        const { applyAutotradeParams } = await import('../pages/autotrade/apply-autotrade-params');
+        const xml_module = await import(/* webpackChunkName: `[request]` */ `../xml/autotrade/${bot_id}.xml`);
+        const xml_string = applyAutotradeParams(xml_module.default, params);
+        const convertedDom = window.Blockly.utils.xml.textToDom(xml_string);
+        updateXmlValues({
+            strategy_id: window.Blockly.utils.idGenerator.genUid(),
+            convertedDom,
+            file_name: `${bot_title} — ${params.symbol}`,
+            from: save_types.LOCAL,
+        });
+        await this.loadStrategyOnBotBuilder();
+        this.setIsCurrentBotRestricted(true);
+    };
+
     setRecentStrategies = (recent_strategies: TStrategy[]): void => {
         this.recent_strategies = recent_strategies;
     };
