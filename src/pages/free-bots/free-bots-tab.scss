@@ -87,6 +87,95 @@
         }
     }
 
+    &__savior-card {
+        position: relative;
+        grid-column: 1 / -1; // spans the full width so it stands out
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.8rem;
+        padding: 2rem;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+        border: 1px solid transparent;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow:
+            0 0 0 1px rgba(99, 102, 241, 0.4),
+            0 8px 32px rgba(99, 102, 241, 0.15);
+
+        &:hover {
+            box-shadow:
+                0 0 0 1px rgba(99, 102, 241, 0.7),
+                0 12px 40px rgba(99, 102, 241, 0.25);
+        }
+    }
+
+    &__savior-glow {
+        position: absolute;
+        top: -40px;
+        right: -40px;
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    &__savior-badge {
+        font-size: var(--text-size-xxs);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: #818cf8;
+        background: rgba(99, 102, 241, 0.12);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        padding: 0.3rem 0.9rem;
+        border-radius: 20px;
+        position: relative;
+    }
+
+    &__savior-title {
+        font-size: var(--text-size-m);
+        font-weight: 700;
+        color: #f1f5f9;
+        position: relative;
+    }
+
+    &__savior-desc {
+        font-size: var(--text-size-xs);
+        color: #94a3b8;
+        line-height: 1.55;
+        position: relative;
+    }
+
+    &__savior-load {
+        align-self: stretch;
+        margin-top: 0.4rem;
+        padding: 1rem 1.2rem;
+        font-size: var(--text-size-xs);
+        font-weight: 700;
+        color: #fff;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        position: relative;
+        transition: opacity 0.15s ease, transform 0.1s ease;
+
+        &:hover:not(:disabled) {
+            opacity: 0.92;
+            transform: translateY(-1px);
+        }
+
+        &:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+    }
+
     &__empty {
         display: flex;
         flex-direction: column;
