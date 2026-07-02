@@ -8,10 +8,55 @@ const AnalysisTool = observer(() => {
     const [symbol, setSymbol] = React.useState('R_100');
     const [tickCount, setTickCount] = React.useState(1000);
     const [overUnderDigit, setOverUnderDigit] = React.useState(5);
+    const [selectedDigit, setSelectedDigit] = React.useState<number | null>(null);
 
     const stats = useDigitStats(symbol, tickCount, overUnderDigit);
     const maxCount = Math.max(...stats.digit_counts, 1);
     const totalCount = stats.digit_counts.reduce((a, b) => a + b, 0) || 1;
+
+    // Default the picked digit to whichever is currently "most" once data loads,
+    // but never override a digit the person has actually clicked on.
+    const hasUserPicked = React.useRef(false);
+    React.useEffect(() => {
+        if (!hasUserPicked.current && !stats.is_loading && stats.digits.length) {
+            setSelectedDigit(stats.most_idx);
+        }
+    }, [stats.is_loading, stats.most_idx, stats.digits.length]);
+
+    const handlePickDigit = (digit: number) => {
+        hasUserPicked.current = true;
+        setSelectedDigit(digit);
+    };
+
+    // Matches stats for the picked digit: how often it lands, how long the gaps
+    // between matches run, and how long it's been since it last landed.
+    const matchStats = React.useMemo(() => {
+        if (selectedDigit === null || !stats.digits.length) {
+            return { count: 0, match_pct: 0, avg_gap: 0, max_gap: 0, since_last: -1 };
+        }
+        const digits = stats.digits;
+        const positions: number[] = [];
+        digits.forEach((d, i) => {
+            if (d === selectedDigit) positions.push(i);
+        });
+        const count = positions.length;
+        const match_pct = Number(((count / digits.length) * 100).toFixed(1));
+        let avg_gap = 0;
+        let max_gap = 0;
+        if (count > 1) {
+            const gaps: number[] = [];
+            for (let i = 1; i < positions.length; i++) gaps.push(positions[i] - positions[i - 1]);
+            avg_gap = Number((gaps.reduce((a, b) => a + b, 0) / gaps.length).toFixed(1));
+            max_gap = Math.max(...gaps);
+        }
+        const since_last = count ? digits.length - 1 - positions[positions.length - 1] : -1;
+        return { count, match_pct, avg_gap, max_gap, since_last };
+    }, [selectedDigit, stats.digits]);
+
+    // "Due" heuristic: gap since last match is already at or past the average
+    // gap for that digit, so a match is statistically overdue in this window.
+    const is_overdue =
+        matchStats.count > 1 && matchStats.since_last >= 0 && matchStats.since_last >= matchStats.avg_gap;
 
     return (
         <div className='analysis-tool'>
@@ -44,6 +89,49 @@ const AnalysisTool = observer(() => {
                 </div>
             </div>
 
+            <div className='analysis-tool__panel analysis-tool__panel--matches'>
+                <div className='analysis-tool__chart-header'>
+                    <h2>Digit Matches</h2>
+                    <span className='analysis-tool__matches-hint'>Tap a digit in the chart below to target it</span>
+                </div>
+                {selectedDigit === null ? (
+                    <div className='analysis-tool__chart-empty'>Waiting for data…</div>
+                ) : (
+                    <div className='analysis-tool__matches-body'>
+                        <div className='analysis-tool__matches-digit'>{selectedDigit}</div>
+                        <div className='analysis-tool__matches-stats'>
+                            <div className='analysis-tool__matches-stat'>
+                                <span className='analysis-tool__matches-stat-val'>{matchStats.match_pct}%</span>
+                                <span className='analysis-tool__matches-stat-label'>Match rate</span>
+                            </div>
+                            <div className='analysis-tool__matches-stat'>
+                                <span className='analysis-tool__matches-stat-val'>{matchStats.count}</span>
+                                <span className='analysis-tool__matches-stat-label'>Matches seen</span>
+                            </div>
+                            <div className='analysis-tool__matches-stat'>
+                                <span className='analysis-tool__matches-stat-val'>
+                                    {matchStats.since_last === -1 ? '—' : matchStats.since_last}
+                                </span>
+                                <span className='analysis-tool__matches-stat-label'>Ticks since last</span>
+                            </div>
+                            <div className='analysis-tool__matches-stat'>
+                                <span className='analysis-tool__matches-stat-val'>{matchStats.avg_gap || '—'}</span>
+                                <span className='analysis-tool__matches-stat-label'>Avg gap</span>
+                            </div>
+                            <div className='analysis-tool__matches-stat'>
+                                <span className='analysis-tool__matches-stat-val'>{matchStats.max_gap || '—'}</span>
+                                <span className='analysis-tool__matches-stat-label'>Longest gap</span>
+                            </div>
+                        </div>
+                        <div className={`analysis-tool__matches-flag ${is_overdue ? 'due' : ''}`}>
+                            {is_overdue
+                                ? `Overdue — it's gone ${matchStats.since_last} ticks without a match vs an average gap of ${matchStats.avg_gap}`
+                                : `On pace — average gap for this digit is ${matchStats.avg_gap || '—'} ticks`}
+                        </div>
+                    </div>
+                )}
+            </div>
+
             <div className='analysis-tool__grid'>
                 <div className='analysis-tool__panel'>
                     <h2>Digit distribution — last {tickCount} ticks</h2>
@@ -54,12 +142,17 @@ const AnalysisTool = observer(() => {
                             if (i === stats.most_idx) cls = 'most';
                             else if (i === stats.second_idx) cls = 'second';
                             else if (i === stats.least_idx) cls = 'least';
+                            if (i === selectedDigit) cls += ' selected';
                             const size = 5.2 + (count / maxCount) * 3.6; // rem
                             return (
                                 <div className='analysis-tool__digit-col' key={i}>
                                     <div
                                         className={`analysis-tool__digit-circle ${cls}`}
                                         style={{ width: `${size}rem`, height: `${size}rem` }}
+                                        onClick={() => handlePickDigit(i)}
+                                        role='button'
+                                        tabIndex={0}
+                                        title={`Pick digit ${i} for Matches`}
                                     >
                                         {i}
                                     </div>

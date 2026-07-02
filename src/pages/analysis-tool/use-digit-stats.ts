@@ -79,6 +79,7 @@ export type TDigitStats = {
     recent_digits: number[];
     recent_digits_100: number[];
     recent_quotes: number[];
+    digits: number[];
     current_quote: number | null;
     quote_change_pct: number;
     rise_pct: number;
@@ -103,6 +104,7 @@ const EMPTY_STATS: TDigitStats = {
     recent_digits: [],
     recent_quotes: [],
     recent_digits_100: [],
+    digits: [],
     current_quote: null,
     quote_change_pct: 0,
     rise_pct: 0,
@@ -198,6 +200,7 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
         recent_digits: digits.slice(-15),
         recent_digits_100: digits.slice(-100),
         recent_quotes: quotes.slice(-100),
+        digits,
         current_quote: last_quote ?? null,
         quote_change_pct,
         rise_pct: Number(((rise_count / move_total) * 100).toFixed(1)),

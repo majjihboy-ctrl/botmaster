@@ -161,6 +161,12 @@
             background: #ef4444;
             box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
         }
+        &.selected {
+            box-shadow: 0 0 0 3px var(--general-main-1), 0 0 0 6px var(--brand-tertiary);
+        }
+        &.selected:hover {
+            box-shadow: 0 0 0 3px var(--general-main-1), 0 0 0 7px var(--brand-tertiary);
+        }
     }
 
     &__legend {
@@ -413,6 +419,82 @@
         }
         &.odd {
             background: #ef4444;
+        }
+    }
+
+    &__panel--matches {
+        margin-bottom: 1.6rem;
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.06) 0%, rgba(59, 130, 246, 0.04) 100%);
+    }
+
+    &__matches-hint {
+        font-size: var(--text-size-xxs);
+        color: var(--text-less-prominent);
+    }
+
+    &__matches-body {
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+
+    &__matches-digit {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 6.4rem;
+        height: 6.4rem;
+        min-width: 6.4rem;
+        border-radius: 50%;
+        background: var(--brand-tertiary);
+        color: #fff;
+        font-size: 2.4rem;
+        font-weight: 700;
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.16);
+    }
+
+    &__matches-stats {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+        flex: 1;
+    }
+
+    &__matches-stat {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        min-width: 8rem;
+    }
+
+    &__matches-stat-val {
+        font-size: var(--text-size-m);
+        font-weight: 700;
+        color: var(--text-prominent);
+    }
+
+    &__matches-stat-label {
+        font-size: var(--text-size-xxs);
+        color: var(--text-less-prominent);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    &__matches-flag {
+        width: 100%;
+        margin-top: 0.4rem;
+        padding: 0.9rem 1.2rem;
+        border-radius: 6px;
+        font-size: var(--text-size-xs);
+        font-weight: 600;
+        background: var(--general-section-1);
+        color: var(--text-less-prominent);
+
+        &.due {
+            background: rgba(34, 197, 94, 0.12);
+            color: #16a34a;
         }
     }
 }
