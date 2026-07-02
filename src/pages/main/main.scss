@@ -69,12 +69,6 @@
                 display: none; // pill-style active state replaces the underline
             }
 
-            &__active {
-                background: #ffffff;
-                color: #5b21b6;
-                box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
-            }
-
             &__list {
                 background: linear-gradient(90deg, #6d28d9 0%, #8b5cf6 50%, #6d28d9 100%);
                 border-radius: 1.2rem;
@@ -191,10 +185,13 @@
                 }
 
                 &.dc-tabs__active {
+                    background: #ffffff !important;
+                    color: #5b21b6 !important;
                     font-weight: 700;
+                    box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
 
                     svg {
-                        fill: #5b21b6;
+                        fill: #5b21b6 !important;
                     }
                 }
             }
