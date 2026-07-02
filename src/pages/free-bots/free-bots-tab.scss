@@ -25,36 +25,54 @@
     }
 
     &__card {
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: flex-start;
         gap: 0.8rem;
         padding: 1.8rem;
-        background: linear-gradient(155deg, var(--general-main-1) 0%, var(--general-section-1) 100%);
-        border: 1px solid var(--border-divider);
-        border-radius: 12px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+        border: 1px solid transparent;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow:
+            0 0 0 1px rgba(99, 102, 241, 0.3),
+            0 6px 20px rgba(99, 102, 241, 0.1);
         transition:
             transform 0.18s ease,
-            box-shadow 0.18s ease,
-            border-color 0.18s ease;
+            box-shadow 0.18s ease;
+
+        &::before {
+            content: '';
+            position: absolute;
+            top: -40px;
+            right: -40px;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
+            pointer-events: none;
+        }
 
         &:hover {
             transform: translateY(-4px);
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
-            border-color: var(--brand-red-coral);
+            box-shadow:
+                0 0 0 1px rgba(99, 102, 241, 0.6),
+                0 12px 32px rgba(99, 102, 241, 0.2);
         }
 
         &-title {
             font-size: var(--text-size-s);
             font-weight: bold;
-            color: var(--text-prominent);
+            color: #f1f5f9;
+            position: relative;
         }
 
         &-description {
             font-size: var(--text-size-xs);
-            color: var(--text-less-prominent);
+            color: #94a3b8;
             flex: 1;
+            position: relative;
         }
 
         &-load {
@@ -63,11 +81,12 @@
             padding: 0.8rem 1.2rem;
             font-size: var(--text-size-xs);
             font-weight: bold;
-            color: var(--brand-white);
-            background: linear-gradient(135deg, var(--brand-red-coral) 0%, var(--brand-tertiary) 100%);
+            color: #fff;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
             border: none;
             border-radius: 8px;
             cursor: pointer;
+            position: relative;
             transition:
                 opacity 0.15s ease,
                 transform 0.1s ease;
