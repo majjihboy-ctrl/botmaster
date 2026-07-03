@@ -33,6 +33,7 @@ import {
 import {
     LabelPairedChartCandlestickCaptionRegularIcon,
     LabelPairedChartLineCaptionRegularIcon,
+    LabelPairedChartTrendUpCaptionRegularIcon,
     LabelPairedObjectsColumnCaptionRegularIcon,
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
     LabelPairedStarCaptionRegularIcon,
@@ -44,6 +45,7 @@ import AnalysisTool from '../analysis-tool';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
+import UpsDownsTool from '../ups-downs-tool';
 import FreeBotsTab from '../free-bots/free-bots-tab';
 import './main.scss';
 
@@ -80,7 +82,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool', 'ups_downs_tool'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -146,7 +148,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-analysis-tool');
+        const el_tutorial = document.getElementById('id-ups-downs-tool');
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -445,6 +447,21 @@ const AppWrapper = observer(() => {
                                 id='id-analysis-tool'
                             >
                                 <AnalysisTool />
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedChartTrendUpCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='currentColor'
+                                        />
+                                        <Localize i18n_default_text='Ups/Downs' />
+                                    </>
+                                }
+                                id='id-ups-downs-tool'
+                            >
+                                <UpsDownsTool />
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
