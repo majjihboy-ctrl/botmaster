@@ -10,7 +10,7 @@ const SpeedTrader = observer(() => {
     const { client } = useStore();
     const symbol_options = useSyntheticSymbols();
 
-    const [symbol, setSymbol] = React.useState('R_75');
+    const [symbol, setSymbol] = React.useState('1HZ100V');
     const [initial_stake, setInitialStake] = React.useState(0.35);
     const [martingale_mult, setMartingaleMult] = React.useState(1.5);
     const [stop_loss, setStopLoss] = React.useState(50);
@@ -46,7 +46,7 @@ const SpeedTrader = observer(() => {
                 </div>
                 <p className='speed-trader__desc'>
                     {localize(
-                        'Fires the next contract immediately on every tick instead of waiting for the previous one to settle, with martingale recovery on loss.'
+                        'Monitors the market continuously and executes trades automatically, with martingale recovery on loss.'
                     )}
                 </p>
 
@@ -128,10 +128,6 @@ const SpeedTrader = observer(() => {
                             <span className='speed-trader__label'>{localize('Next stake')}</span>
                             <span className='speed-trader__value'>${state.current_stake.toFixed(2)}</span>
                         </div>
-                        <div>
-                            <span className='speed-trader__label'>{localize('Losses in a row')}</span>
-                            <span className='speed-trader__value'>{state.consecutive_losses}</span>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -158,7 +154,7 @@ const SpeedTrader = observer(() => {
                         <h3>{localize('Start live speed trading?')}</h3>
                         <p>
                             {localize(
-                                'This fires real-money trades on every tick, before the previous contract has fully settled with Deriv. Stake'
+                                'This trades with real funds automatically, without waiting for each contract to fully settle before deciding the next move. Stake'
                             )}{' '}
                             ${initial_stake.toFixed(2)}, {localize('martingale')} {martingale_mult}x,{' '}
                             {localize('stop loss')} ${stop_loss}, {localize('take profit')} ${take_profit}{' '}
