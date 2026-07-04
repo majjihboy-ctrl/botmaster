@@ -46,7 +46,7 @@ const SpeedTrader = observer(() => {
                 </div>
                 <p className='speed-trader__desc'>
                     {localize(
-                        'Fires the next contract immediately on every tick instead of waiting for the previous one to settle. Cycles Even → Even → Odd → Odd, with martingale recovery on loss.'
+                        'Fires the next contract immediately on every tick instead of waiting for the previous one to settle, with martingale recovery on loss.'
                     )}
                 </p>
 
