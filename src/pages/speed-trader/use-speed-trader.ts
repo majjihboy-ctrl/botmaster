@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api_base } from '@/external/bot-skeleton';
+import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 
 export type TSpeedTraderLogEntry = {
     id: number;
     time: string;
     text: string;
-    kind: 'win' | 'loss' | 'info' | 'warn' | 'error';
+    kind: 'info' | 'win' | 'loss' | 'warn' | 'error';
 };
 
 export type TSpeedTraderState = {
@@ -41,22 +41,24 @@ const EMPTY_STATE: TSpeedTraderState = {
 };
 
 let log_id_counter = 0;
+
 const randomTarget = () => Math.floor(Math.random() * (VIRTUAL_LOSS_MAX - VIRTUAL_LOSS_MIN + 1)) + VIRTUAL_LOSS_MIN;
+
 const winsSide = (digit: number, side: TSide) => (side === 'even' ? digit % 2 === 0 : digit % 2 === 1);
+
+// Format the quote with the symbol's pip precision so trailing zeros
+// survive (663.10 -> digit 0, NOT 1). String(663.10) drops the zero.
+const extractLastDigit = (quote: number, pip_size: number) => Number(quote.toFixed(pip_size).slice(-1));
 
 export const useSpeedTrader = (currency: string) => {
     const [state, setState] = useState<TSpeedTraderState>(EMPTY_STATE);
 
     const paramsRef = useRef<TSpeedTraderParams | null>(null);
     const currencyRef = useRef(currency);
-    currencyRef.current = currency;
-
     const totalPnlRef = useRef(0);
     const currentStakeRef = useRef(0);
     const isArmedRef = useRef(false);
 
-    // Internal state machine — deliberately never surfaced in any visible
-    // log line or UI text.
     const sideRef = useRef<TSide>('even');
     const modeRef = useRef<TMode>('virtual');
     const virtualLossCountRef = useRef(0);
@@ -72,6 +74,10 @@ export const useSpeedTrader = (currency: string) => {
     const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
     const tickSubscriptionIdRef = useRef<string | null>(null);
 
+    useEffect(() => {
+        currencyRef.current = currency;
+    }, [currency]);
+
     const pushLog = useCallback((text: string, kind: TSpeedTraderLogEntry['kind'] = 'info') => {
         log_id_counter += 1;
         const entry: TSpeedTraderLogEntry = { id: log_id_counter, time: new Date().toLocaleTimeString(), text, kind };
@@ -81,6 +87,7 @@ export const useSpeedTrader = (currency: string) => {
     const placeRealTrade = useCallback(() => {
         const p = paramsRef.current;
         if (!p) return;
+
         const side = sideRef.current;
         const stake = currentStakeRef.current;
         const rid = ++reqIdCounterRef.current;
@@ -106,28 +113,35 @@ export const useSpeedTrader = (currency: string) => {
             })
             .then((res: any) => {
                 if (res?.req_id !== undefined && res.req_id !== rid) return; // stale response, ignore
+
                 if (res?.error) {
-                    // Fix carried over from the earlier Speed Trader fix: a
-                    // rejected order must not be treated as an outstanding
-                    // contract. Reset back to a clean, non-pending state so
-                    // the next tick simply retries rather than settling a
-                    // trade that never happened.
+                    // A rejected order must not be treated as an outstanding
+                    // contract. Drop back to virtual counting with a fresh
+                    // target instead of blindly retrying every tick.
                     pendingRef.current = false;
                     awaitingResultRef.current = false;
+                    modeRef.current = 'virtual';
+                    virtualLossCountRef.current = 0;
+                    virtualLossTargetRef.current = randomTarget();
                     pushLog(`Order rejected: ${res.error.message || res.error.code}`, 'error');
                     return;
                 }
+
                 const buy = res?.buy;
                 if (!buy) {
                     pendingRef.current = false;
                     pushLog('Buy confirmation had no data — treating as not placed.', 'warn');
                     return;
                 }
+
                 buyPriceRef.current = typeof buy.buy_price === 'number' ? buy.buy_price : stake;
                 const payout = typeof buy.payout === 'number' ? buy.payout : null;
                 if (payout === null && !payoutWarnedRef.current) {
                     payoutWarnedRef.current = true;
-                    pushLog('Buy confirmation did not include a payout figure — using a conservative estimate for this trade only.', 'warn');
+                    pushLog(
+                        'Buy confirmation did not include a payout figure — using a conservative estimate for this trade only.',
+                        'warn'
+                    );
                 }
                 payoutRef.current = payout ?? stake * 1.9;
                 pendingRef.current = false;
@@ -135,6 +149,10 @@ export const useSpeedTrader = (currency: string) => {
             })
             .catch((e: any) => {
                 pendingRef.current = false;
+                awaitingResultRef.current = false;
+                modeRef.current = 'virtual';
+                virtualLossCountRef.current = 0;
+                virtualLossTargetRef.current = randomTarget();
                 pushLog(`Buy request failed: ${e?.message || e}`, 'error');
             });
     }, [pushLog]);
@@ -143,11 +161,15 @@ export const useSpeedTrader = (currency: string) => {
         (digit: number) => {
             const p = paramsRef.current;
             if (!p) return;
+
             const won = winsSide(digit, sideRef.current);
             const pnl_change = won ? payoutRef.current - buyPriceRef.current : -buyPriceRef.current;
             totalPnlRef.current += pnl_change;
 
-            pushLog(`${won ? 'WIN' : 'LOSS'} | $${pnl_change.toFixed(2)} | Total PnL $${totalPnlRef.current.toFixed(2)}`, won ? 'win' : 'loss');
+            pushLog(
+                `${won ? 'WIN' : 'LOSS'} | $${pnl_change.toFixed(2)} | Total PnL $${totalPnlRef.current.toFixed(2)}`,
+                won ? 'win' : 'loss'
+            );
 
             awaitingResultRef.current = false;
             buyPriceRef.current = 0;
@@ -178,12 +200,11 @@ export const useSpeedTrader = (currency: string) => {
                 setState(prev => ({ ...prev, is_armed: false, stop_reason: 'take_profit' }));
                 return;
             }
-
-            if (modeRef.current === 'real' && isArmedRef.current) {
-                placeRealTrade();
-            }
+            // No immediate re-trade here: the settling tick only settles.
+            // If mode is still 'real', the NEXT tick places the follow-up
+            // trade via handleTick — same ordering as the reference script.
         },
-        [placeRealTrade, pushLog]
+        [pushLog]
     );
 
     const handleVirtualTick = useCallback((digit: number) => {
@@ -197,9 +218,10 @@ export const useSpeedTrader = (currency: string) => {
     }, []);
 
     const handleTick = useCallback(
-        (quote: number) => {
+        (quote: number, pip_size: number) => {
             if (!isArmedRef.current) return;
-            const digit = Number(String(quote).slice(-1));
+
+            const digit = extractLastDigit(quote, pip_size);
 
             if (awaitingResultRef.current) {
                 settleRealTrade(digit);
@@ -211,6 +233,7 @@ export const useSpeedTrader = (currency: string) => {
                 placeRealTrade();
                 return;
             }
+
             const should_go_real = handleVirtualTick(digit);
             if (should_go_real) {
                 modeRef.current = 'real';
@@ -249,14 +272,22 @@ export const useSpeedTrader = (currency: string) => {
                 if (data?.msg_type === 'buy') return; // handled via the .then() on the send() call itself
                 if (data?.msg_type === 'tick' && data?.tick?.symbol === params.symbol) {
                     if (data.tick.id) tickSubscriptionIdRef.current = data.tick.id;
-                    handleTick(Number(data.tick.quote));
+                    handleTick(Number(data.tick.quote), Number(data.tick.pip_size ?? 2));
                 }
             });
 
-            const sub_res = await api_base.api.send({ ticks: params.symbol, subscribe: 1 });
-            if (sub_res?.error) {
-                pushLog(`Failed to subscribe to ${params.symbol}: ${sub_res.error.message}`, 'error');
+            let sub_res: any = null;
+            try {
+                sub_res = await api_base.api.send({ ticks: params.symbol, subscribe: 1 });
+            } catch (e: any) {
                 isArmedRef.current = false;
+                pushLog(`Tick subscription failed: ${e?.message || e}`, 'error');
+                setState(prev => ({ ...prev, is_armed: false, is_loading: false }));
+                return;
+            }
+            if (sub_res?.error) {
+                isArmedRef.current = false;
+                pushLog(`Tick subscription rejected: ${sub_res.error.message || sub_res.error.code}`, 'error');
                 setState(prev => ({ ...prev, is_armed: false, is_loading: false }));
                 return;
             }
