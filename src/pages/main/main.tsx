@@ -35,6 +35,7 @@ import {
     LabelPairedChartLineCaptionRegularIcon,
     LabelPairedChartTrendUpCaptionRegularIcon,
     LabelPairedObjectsColumnCaptionRegularIcon,
+    LabelPairedPlaybackSpeedCaptionRegularIcon,
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
     LabelPairedStarCaptionRegularIcon,
 } from '@deriv/quill-icons/LabelPaired';
@@ -45,6 +46,7 @@ import AnalysisTool from '../analysis-tool';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
+import SpeedTrader from '../speed-trader';
 import UpsDownsTool from '../ups-downs-tool';
 import FreeBotsTab from '../free-bots/free-bots-tab';
 import './main.scss';
@@ -82,7 +84,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool', 'ups_downs_tool'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool', 'ups_downs_tool', 'speed_trader'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -148,7 +150,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-ups-downs-tool');
+        const el_tutorial = document.getElementById('id-speed-trader');
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -462,6 +464,21 @@ const AppWrapper = observer(() => {
                                 id='id-ups-downs-tool'
                             >
                                 <UpsDownsTool />
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedPlaybackSpeedCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='currentColor'
+                                        />
+                                        <Localize i18n_default_text='Speed Trader' />
+                                    </>
+                                }
+                                id='id-speed-trader'
+                            >
+                                <SpeedTrader />
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
