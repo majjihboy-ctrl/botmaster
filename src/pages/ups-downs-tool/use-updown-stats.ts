@@ -139,22 +139,24 @@ class UpDownEngine {
             const up = slice.filter(d => d === 1).length;
             const down = slice.filter(d => d === -1).length;
             const total = up + down || 1;
+            const win_up_pct = Number(((up / total) * 100).toFixed(1));
             return {
                 label: `Last ${Math.min(size, this.directions.length)}`,
-                up_pct: Number(((up / total) * 100).toFixed(1)),
-                down_pct: Number(((down / total) * 100).toFixed(1)),
+                up_pct: win_up_pct,
+                down_pct: Number((100 - win_up_pct).toFixed(1)),
             };
         });
+        const overall_up_pct = Number(((up_count / move_total) * 100).toFixed(1));
         window_counts.push({
             label: `Last ${this.directions.length}`,
-            up_pct: Number(((up_count / move_total) * 100).toFixed(1)),
-            down_pct: Number(((down_count / move_total) * 100).toFixed(1)),
+            up_pct: overall_up_pct,
+            down_pct: Number((100 - overall_up_pct).toFixed(1)),
         });
 
         return {
             recent_directions: this.directions.slice(-100),
-            window_up_pct: Number(((up_count / move_total) * 100).toFixed(1)),
-            window_down_pct: Number(((down_count / move_total) * 100).toFixed(1)),
+            window_up_pct: overall_up_pct,
+            window_down_pct: Number((100 - overall_up_pct).toFixed(1)),
             window_counts,
             current_streak_count: this.streak_count,
             current_streak_dir: this.streak_dir,
@@ -203,12 +205,15 @@ export const useUpDownStats = (symbol: string, tick_window: number, reset_key: n
                     setStats(engine.getStats());
                 });
 
-                const sub_res = await api_base.api.send({ ticks: symbol, subscribe: 1 });
-                if (sub_res?.error) {
-                    // eslint-disable-next-line no-console
-                    console.warn(`[ups-downs] Subscribe failed for ${symbol}:`, sub_res.error.message || sub_res.error);
-                } else if (sub_res?.subscription?.id) {
-                    subscriptionIdRef.current = sub_res.subscription.id;
+                try {
+                    const sub_res = await api_base.api.send({ ticks: symbol, subscribe: 1 });
+                    if (sub_res?.subscription?.id) subscriptionIdRef.current = sub_res.subscription.id;
+                } catch (sub_error: any) {
+                    // Another part of the app (e.g. a running bot) may already hold
+                    // a subscription for this symbol. Ticks still arrive on the shared
+                    // onMessage stream in that case, so this isn't fatal — only bail
+                    // out for genuinely unexpected errors.
+                    if (sub_error?.error?.code !== 'AlreadySubscribed') throw sub_error;
                 }
             } catch (e) {
                 if (!is_cancelled) setStats(prev => ({ ...prev, is_loading: false }));
@@ -225,7 +230,6 @@ export const useUpDownStats = (symbol: string, tick_window: number, reset_key: n
                 subscriptionIdRef.current = null;
             }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [symbol, tick_window, reset_key]);
 
     return stats;

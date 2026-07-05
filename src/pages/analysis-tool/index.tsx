@@ -69,16 +69,27 @@ const AnalysisTool = observer(() => {
                     </span>
                 </div>
                 <div className='analysis-tool__controls'>
-                    <span className='analysis-tool__field-label'>Symbol</span>
-                    <select value={symbol} onChange={e => setSymbol(e.target.value)}>
+                    <label className='analysis-tool__field-label' htmlFor='analysis-tool-symbol'>
+                        Symbol
+                    </label>
+                    <select
+                        id='analysis-tool-symbol'
+                        aria-label='Symbol'
+                        value={symbol}
+                        onChange={e => setSymbol(e.target.value)}
+                    >
                         {symbol_options.map(s => (
                             <option key={s.symbol} value={s.symbol}>
                                 {s.display_name}
                             </option>
                         ))}
                     </select>
-                    <span className='analysis-tool__field-label'>Ticks</span>
+                    <label className='analysis-tool__field-label' htmlFor='analysis-tool-tick-count'>
+                        Ticks
+                    </label>
                     <input
+                        id='analysis-tool-tick-count'
+                        aria-label='Number of ticks'
                         type='number'
                         min={50}
                         max={5000}
@@ -163,15 +174,15 @@ const AnalysisTool = observer(() => {
                     </div>
                     <div className='analysis-tool__legend'>
                         <span>
-                            <span className='analysis-tool__sw' style={{ background: '#22C55E' }} />
+                            <span className='analysis-tool__sw' style={{ background: 'var(--status-success)' }} />
                             Most appearing
                         </span>
                         <span>
-                            <span className='analysis-tool__sw' style={{ background: '#3B82F6' }} />
+                            <span className='analysis-tool__sw' style={{ background: 'var(--status-info)' }} />
                             2nd most appearing
                         </span>
                         <span>
-                            <span className='analysis-tool__sw' style={{ background: '#EF4444' }} />
+                            <span className='analysis-tool__sw' style={{ background: 'var(--status-danger)' }} />
                             Least appearing
                         </span>
                     </div>
@@ -185,15 +196,19 @@ const AnalysisTool = observer(() => {
                             <span className='analysis-tool__val alt'>{stats.odd_pct}%</span>
                         </div>
                         <div className='analysis-tool__bar-split'>
-                            <div style={{ width: `${stats.even_pct}%`, background: '#3B82F6' }} />
-                            <div style={{ width: `${stats.odd_pct}%`, background: '#C7D2E0' }} />
+                            <div style={{ width: `${stats.even_pct}%`, background: 'var(--status-info)' }} />
+                            <div style={{ width: `${stats.odd_pct}%`, background: 'var(--status-disabled)' }} />
                         </div>
                     </div>
 
                     <div className='analysis-tool__stat-card'>
                         <div className='analysis-tool__label'>Over / Under — editable digit</div>
                         <div className='analysis-tool__ou-row'>
-                            <select value={overUnderDigit} onChange={e => setOverUnderDigit(Number(e.target.value))}>
+                            <select
+                                aria-label='Over/under threshold digit'
+                                value={overUnderDigit}
+                                onChange={e => setOverUnderDigit(Number(e.target.value))}
+                            >
                                 {Array.from({ length: 10 }, (_, i) => i).map(i => (
                                     <option key={i} value={i}>
                                         {i}
@@ -210,9 +225,9 @@ const AnalysisTool = observer(() => {
                             <span className='analysis-tool__val alt'>{stats.under_pct}%</span>
                         </div>
                         <div className='analysis-tool__bar-split'>
-                            <div style={{ width: `${stats.over_pct}%`, background: '#3B82F6' }} />
-                            <div style={{ width: `${stats.equal_pct}%`, background: '#9CA3AF' }} />
-                            <div style={{ width: `${stats.under_pct}%`, background: '#C7D2E0' }} />
+                            <div style={{ width: `${stats.over_pct}%`, background: 'var(--status-info)' }} />
+                            <div style={{ width: `${stats.equal_pct}%`, background: 'var(--text-less-prominent)' }} />
+                            <div style={{ width: `${stats.under_pct}%`, background: 'var(--status-disabled)' }} />
                         </div>
                     </div>
 

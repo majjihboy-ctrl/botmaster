@@ -121,6 +121,18 @@ const countDigits = (quotes: number[], pip_size: number): number[] => {
     return counts;
 };
 
+// Fallback for when api_base.pip_sizes hasn't loaded yet for this symbol:
+// infer decimal precision directly from a real quote string rather than
+// assuming 2 (wrong for e.g. R_10/R_25, which use 3 decimals).
+const inferPipSize = (raw_prices: (string | number)[]): number | null => {
+    for (const p of raw_prices) {
+        const s = String(p);
+        const dot = s.indexOf('.');
+        if (dot !== -1) return s.length - dot - 1;
+    }
+    return null;
+};
+
 const WINDOW_SIZES = [50, 200];
 
 const computeStats = (quotes: number[], pip_size: number, over_under_digit: number): TDigitStats => {
@@ -139,7 +151,6 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
     const even_count = digits.filter(d => d % 2 === 0).length;
     const over_count = digits.filter(d => d > over_under_digit).length;
     const under_count = digits.filter(d => d < over_under_digit).length;
-    const equal_count = total - over_count - under_count;
 
     // Streak: consecutive rises/falls based on raw quote direction
     let streak_count = 0;
@@ -183,6 +194,10 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
         return -1;
     });
 
+    const even_pct = Number(((even_count / total) * 100).toFixed(1));
+    const over_pct = Number(((over_count / total) * 100).toFixed(1));
+    const under_pct = Number(((under_count / total) * 100).toFixed(1));
+
     return {
         digit_counts,
         window_counts,
@@ -190,11 +205,11 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
         most_idx,
         second_idx,
         least_idx,
-        even_pct: Number(((even_count / total) * 100).toFixed(1)),
-        odd_pct: Number((((total - even_count) / total) * 100).toFixed(1)),
-        over_pct: Number(((over_count / total) * 100).toFixed(1)),
-        under_pct: Number(((under_count / total) * 100).toFixed(1)),
-        equal_pct: Number(((equal_count / total) * 100).toFixed(1)),
+        even_pct,
+        odd_pct: Number((100 - even_pct).toFixed(1)),
+        over_pct,
+        under_pct,
+        equal_pct: Number((100 - over_pct - under_pct).toFixed(1)),
         streak_count,
         streak_direction,
         recent_digits: digits.slice(-15),
@@ -227,8 +242,7 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
         const start = async () => {
             setStats(prev => ({ ...prev, is_loading: true }));
 
-            const pip_size = api_base?.pip_sizes?.[symbol] ?? 2;
-            pipSizeRef.current = pip_size;
+            const pip_size_lookup = api_base?.pip_sizes?.[symbol];
 
             try {
                 const history_res = await api_base.api.send({
@@ -239,7 +253,11 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                 });
                 if (is_cancelled) return;
 
-                const prices: number[] = history_res?.history?.prices?.map(Number) ?? [];
+                const raw_prices: (string | number)[] = history_res?.history?.prices ?? [];
+                const pip_size = pip_size_lookup ?? inferPipSize(raw_prices) ?? 2;
+                pipSizeRef.current = pip_size;
+
+                const prices: number[] = raw_prices.map(Number);
                 quotesRef.current = prices;
                 setStats(computeStats(prices, pip_size, overUnderDigitRef.current));
 
@@ -251,7 +269,16 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                     }
                 });
 
-                await api_base.api.send({ ticks: symbol, subscribe: 1 });
+                try {
+                    const sub_res = await api_base.api.send({ ticks: symbol, subscribe: 1 });
+                    if (sub_res?.subscription?.id) subscriptionIdRef.current = sub_res.subscription.id;
+                } catch (sub_error: any) {
+                    // Another part of the app (e.g. a running bot) may already hold
+                    // a subscription for this symbol. Ticks still arrive on the shared
+                    // onMessage stream in that case, so this isn't fatal — only bail
+                    // out for genuinely unexpected errors.
+                    if (sub_error?.error?.code !== 'AlreadySubscribed') throw sub_error;
+                }
             } catch (e) {
                 if (!is_cancelled) setStats(prev => ({ ...prev, is_loading: false }));
             }
@@ -267,7 +294,6 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                 subscriptionIdRef.current = null;
             }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [symbol, tick_count]);
 
     // Recompute derived stats (even/odd, over/under, most/least) without
@@ -276,7 +302,6 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
         if (quotesRef.current.length) {
             setStats(computeStats(quotesRef.current, pipSizeRef.current, over_under_digit));
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [over_under_digit]);
 
     return stats;
