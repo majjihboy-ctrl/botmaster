@@ -66,7 +66,8 @@ export const useSpeedTrader = (currency: string) => {
     const virtualLossTargetRef = useRef(randomTarget());
     const martingaleStepRef = useRef(0);
     const pendingRef = useRef(false); // buy sent, awaiting confirmation
-    const awaitingResultRef = useRef(false); // buy confirmed, awaiting settling tick
+    const awaitingResultRef = useRef(false); // buy confirmed, awaiting contract settlement
+    const contractIdRef = useRef<string | null>(null); // track the contract we're waiting for
     const reqIdRef = useRef<number | null>(null);
     const reqIdCounterRef = useRef(0);
     const buyPriceRef = useRef(0);
@@ -164,6 +165,7 @@ export const useSpeedTrader = (currency: string) => {
 
                         buyPriceRef.current = typeof buy.buy_price === 'number' ? buy.buy_price : ask_price;
                         payoutRef.current = real_payout; // verified, not guessed
+                        contractIdRef.current = buy.contract_id || null; // store contract ID to wait for settlement
                         pendingRef.current = false;
                         awaitingResultRef.current = true;
                     })
@@ -178,17 +180,17 @@ export const useSpeedTrader = (currency: string) => {
             });
     }, [pushLog]);
 
-    const settleRealTrade = useCallback(
-        (digit: number) => {
+    const settleRealTradeFromResult = useCallback(
+        (result: { won: boolean; payout: number }) => {
             const p = paramsRef.current;
             if (!p) return;
 
-            const won = winsSide(digit, sideRef.current);
-            const pnl_change = won ? payoutRef.current - buyPriceRef.current : -buyPriceRef.current;
+            const won = result.won;
+            const pnl_change = won ? result.payout - buyPriceRef.current : -buyPriceRef.current;
             totalPnlRef.current += pnl_change;
 
             pushLog(
-                `${won ? '🟢 WIN' : '🔴 LOSS'} | Digit ${digit} | Payout $${payoutRef.current.toFixed(2)} | PnL $${pnl_change.toFixed(2)} | Total $${totalPnlRef.current.toFixed(2)}`,
+                `${won ? '🟢 WIN' : '🔴 LOSS'} | Payout $${result.payout.toFixed(2)} | PnL $${pnl_change.toFixed(2)} | Total $${totalPnlRef.current.toFixed(2)}`,
                 won ? 'win' : 'loss'
             );
 
@@ -248,12 +250,8 @@ export const useSpeedTrader = (currency: string) => {
         (quote: number, pip_size: number) => {
             if (!isArmedRef.current) return;
 
-            const digit = extractLastDigit(quote, pip_size);
-
-            if (awaitingResultRef.current) {
-                settleRealTrade(digit);
-                return;
-            }
+            // No longer settle on tick - we wait for contract settlement from Deriv
+            if (awaitingResultRef.current) return;
             if (pendingRef.current) return; // mid-flight on the buy confirmation, do nothing this tick
 
             if (modeRef.current === 'real') {
@@ -261,13 +259,14 @@ export const useSpeedTrader = (currency: string) => {
                 return;
             }
 
+            const digit = extractLastDigit(quote, pip_size);
             const should_go_real = handleVirtualTick(digit);
             if (should_go_real) {
                 modeRef.current = 'real';
                 placeRealTrade();
             }
         },
-        [handleVirtualTick, placeRealTrade, settleRealTrade]
+        [handleVirtualTick, placeRealTrade]
     );
 
     const start = useCallback(
@@ -298,6 +297,22 @@ export const useSpeedTrader = (currency: string) => {
 
             messageSubscriptionRef.current = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
                 if (data?.msg_type === 'buy') return; // handled via the .then() on the send() call itself
+                
+                // Wait for contract settlement result from Deriv
+                if (data?.msg_type === 'contract' && awaitingResultRef.current && contractIdRef.current) {
+                    if (data.contract?.contract_id === contractIdRef.current) {
+                        const win = data.contract?.win === 1;
+                        const payout = data.contract?.payout || payoutRef.current;
+                        
+                        settleRealTradeFromResult({
+                            won: win,
+                            payout: payout
+                        });
+                        contractIdRef.current = null;
+                    }
+                    return;
+                }
+                
                 if (data?.msg_type === 'tick' && data?.tick?.symbol === params.symbol) {
                     if (data.tick.id) tickSubscriptionIdRef.current = data.tick.id;
                     handleTick(Number(data.tick.quote), Number(data.tick.pip_size ?? 2));
