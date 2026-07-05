@@ -68,8 +68,6 @@ export const useSpeedTrader = (currency: string) => {
     const pendingRef = useRef(false); // buy sent, awaiting confirmation
     const awaitingResultRef = useRef(false); // buy confirmed, awaiting contract settlement
     const contractIdRef = useRef<string | null>(null); // track the contract we're waiting for
-    const reqIdRef = useRef<number | null>(null);
-    const reqIdCounterRef = useRef(0);
     const buyPriceRef = useRef(0);
     const payoutRef = useRef(0);
 
@@ -92,9 +90,7 @@ export const useSpeedTrader = (currency: string) => {
 
         const side = sideRef.current;
         const stake = currentStakeRef.current;
-        const rid = ++reqIdCounterRef.current;
         pendingRef.current = true;
-        reqIdRef.current = rid;
 
         pushLog(`Trading ${side.toUpperCase()} — waiting for result…`, 'info');
 
@@ -111,10 +107,20 @@ export const useSpeedTrader = (currency: string) => {
         // "shortcut buy" method used previously does not return a
         // trustworthy payout figure, which is why PnL was consistently
         // wrong regardless of stake.
+        //
+        // IMPORTANT: we do NOT set our own req_id here. The underlying
+        // Deriv API library (DerivAPIBasic) matches responses to pending
+        // requests purely by req_id, using its own internal auto-incrementing
+        // counter for any request that doesn't explicitly specify one. Other
+        // parts of this app share the same connection and rely on that same
+        // auto-increment. If we supply our own separately-counted req_id, it
+        // can collide with the library's counter and our response gets
+        // mixed up with an unrelated message (e.g. a balance update). The
+        // promise returned by .send() already resolves to the exact
+        // response for that call — no manual correlation needed.
         api_base.api
             .send({
                 proposal: 1,
-                req_id: rid,
                 amount: stake,
                 basis: 'stake',
                 contract_type: side === 'even' ? 'DIGITEVEN' : 'DIGITODD',
@@ -124,8 +130,6 @@ export const useSpeedTrader = (currency: string) => {
                 underlying_symbol: p.symbol,
             })
             .then((prop_res: any) => {
-                if (prop_res?.req_id !== undefined && prop_res.req_id !== rid) return; // stale response, ignore
-
                 if (prop_res?.error) {
                     resetToVirtual();
                     const err = prop_res.error;
@@ -144,16 +148,14 @@ export const useSpeedTrader = (currency: string) => {
                 const real_payout = typeof proposal.payout === 'number' ? proposal.payout : stake * 1.95;
                 const ask_price = typeof proposal.ask_price === 'number' ? proposal.ask_price : stake;
 
-                // Step 2: buy at the exact price/id just quoted.
+                // Step 2: buy at the exact price/id just quoted. Again, no
+                // manual req_id — same reasoning as above.
                 api_base.api
                     .send({
                         buy: proposal.id,
                         price: ask_price,
-                        req_id: rid,
                     })
                     .then((buy_res: any) => {
-                        if (buy_res?.req_id !== undefined && buy_res.req_id !== rid) return;
-
                         if (buy_res?.error) {
                             resetToVirtual();
                             const err = buy_res.error;
