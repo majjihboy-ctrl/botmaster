@@ -154,7 +154,9 @@ export const useSpeedTrader = (currency: string) => {
             if (!p) return;
 
             const won = winsSide(digit, sideRef.current);
-            const pnl_change = won ? payoutRef.current - buyPriceRef.current : -buyPriceRef.current;
+            // Apply 3% fee cut to payout
+            const actualPayout = won ? payoutRef.current * 0.97 : 0;
+            const pnl_change = actualPayout - buyPriceRef.current;
             totalPnlRef.current += pnl_change;
 
             pushLog(
