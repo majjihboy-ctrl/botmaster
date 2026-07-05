@@ -184,15 +184,11 @@ export const useSpeedTrader = (currency: string) => {
             if (!p) return;
 
             const won = winsSide(digit, sideRef.current);
-            // Apply 3% fee to payout
-            const payoutAfterFee = won ? payoutRef.current * 0.97 : 0;
-            const pnl_change = payoutAfterFee - buyPriceRef.current;
+            const pnl_change = won ? payoutRef.current - buyPriceRef.current : -buyPriceRef.current;
             totalPnlRef.current += pnl_change;
 
-            const payoutStr = won ? `Payout $${payoutRef.current.toFixed(2)} (3% fee: -$${(payoutRef.current * 0.03).toFixed(2)})` : 'Loss';
-            
             pushLog(
-                `${won ? '🟢 WIN' : '🔴 LOSS'} | Digit ${digit} | ${payoutStr} | PnL $${pnl_change.toFixed(2)} | Total $${totalPnlRef.current.toFixed(2)}`,
+                `${won ? '🟢 WIN' : '🔴 LOSS'} | Digit ${digit} | Payout $${payoutRef.current.toFixed(2)} | PnL $${pnl_change.toFixed(2)} | Total $${totalPnlRef.current.toFixed(2)}`,
                 won ? 'win' : 'loss'
             );
 
