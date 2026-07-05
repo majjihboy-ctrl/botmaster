@@ -134,7 +134,7 @@ class UpDownEngine {
         const down_count = this.directions.filter(d => d === -1).length;
         const move_total = up_count + down_count || 1;
 
-        const window_counts = SUB_WINDOWS.filter(size => this.directions.length >= 10).map(size => {
+        const window_counts = SUB_WINDOWS.filter(size => this.directions.length >= size).map(size => {
             const slice = this.directions.slice(-size);
             const up = slice.filter(d => d === 1).length;
             const down = slice.filter(d => d === -1).length;

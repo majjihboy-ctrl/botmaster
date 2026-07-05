@@ -169,7 +169,7 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
     const last_quote = quotes[quotes.length - 1];
     const quote_change_pct = first_quote ? ((last_quote - first_quote) / first_quote) * 100 : 0;
 
-    const window_counts = WINDOW_SIZES.filter(size => quotes.length >= 10).map(size => ({
+    const window_counts = WINDOW_SIZES.filter(size => quotes.length >= size).map(size => ({
         label: `Last ${Math.min(size, quotes.length)}`,
         size,
         counts: countDigits(quotes.slice(-size), pip_size),
