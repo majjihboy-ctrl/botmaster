@@ -70,6 +70,7 @@ const SpeedTrader = observer(() => {
                             step={0.01}
                             value={initial_stake}
                             disabled={state.is_armed}
+                            onFocus={(e) => e.target.select()}
                             onChange={e => setInitialStake(Number(e.target.value) || 0.35)}
                         />
                     </label>
@@ -81,6 +82,7 @@ const SpeedTrader = observer(() => {
                             step={0.1}
                             value={martingale_mult}
                             disabled={state.is_armed}
+                            onFocus={(e) => e.target.select()}
                             onChange={e => setMartingaleMult(Number(e.target.value) || 1)}
                         />
                     </label>
@@ -92,6 +94,7 @@ const SpeedTrader = observer(() => {
                             step={1}
                             value={max_martingale_steps}
                             disabled={state.is_armed}
+                            onFocus={(e) => e.target.select()}
                             onChange={e => setMaxMartingaleSteps(Number(e.target.value) || 5)}
                         />
                     </label>
@@ -103,6 +106,7 @@ const SpeedTrader = observer(() => {
                             step={1}
                             value={stop_loss}
                             disabled={state.is_armed}
+                            onFocus={(e) => e.target.select()}
                             onChange={e => setStopLoss(Number(e.target.value) || 0)}
                         />
                     </label>
@@ -114,6 +118,7 @@ const SpeedTrader = observer(() => {
                             step={0.1}
                             value={take_profit}
                             disabled={state.is_armed}
+                            onFocus={(e) => e.target.select()}
                             onChange={e => setTakeProfit(Number(e.target.value) || 0)}
                         />
                     </label>
