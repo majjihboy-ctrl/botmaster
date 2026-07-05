@@ -71,7 +71,6 @@ export const useSpeedTrader = (currency: string) => {
     const reqIdCounterRef = useRef(0);
     const buyPriceRef = useRef(0);
     const payoutRef = useRef(0);
-    const payoutWarnedRef = useRef(false);
 
     const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
     const tickSubscriptionIdRef = useRef<string | null>(null);
@@ -96,11 +95,7 @@ export const useSpeedTrader = (currency: string) => {
         pendingRef.current = true;
         reqIdRef.current = rid;
 
-        pushLog(
-            `💰 REAL TRADE | Side=${side.toUpperCase()} | after ${virtualLossCountRef.current} virtual losses ` +
-            `(target was ${virtualLossTargetRef.current}) | Stake $${stake.toFixed(2)}`,
-            'info'
-        );
+        pushLog(`Trading ${side.toUpperCase()} — waiting for result…`, 'info');
 
         api_base.api
             .send({
@@ -121,34 +116,24 @@ export const useSpeedTrader = (currency: string) => {
                 if (res?.req_id !== undefined && res.req_id !== rid) return; // stale response, ignore
 
                 if (res?.error) {
-                    // A rejected order must not be treated as an outstanding
-                    // contract. Drop back to virtual counting with a fresh
-                    // target instead of blindly retrying every tick.
                     pendingRef.current = false;
                     awaitingResultRef.current = false;
                     modeRef.current = 'virtual';
                     virtualLossCountRef.current = 0;
                     virtualLossTargetRef.current = randomTarget();
-                    pushLog(`Order rejected: ${res.error.message || res.error.code}`, 'error');
+                    pushLog(`Trade rejected`, 'error');
                     return;
                 }
 
                 const buy = res?.buy;
                 if (!buy) {
                     pendingRef.current = false;
-                    pushLog('Buy confirmation had no data — treating as not placed.', 'warn');
+                    pushLog('Trade placement failed', 'error');
                     return;
                 }
 
                 buyPriceRef.current = typeof buy.buy_price === 'number' ? buy.buy_price : stake;
                 const payout = typeof buy.payout === 'number' ? buy.payout : null;
-                if (payout === null && !payoutWarnedRef.current) {
-                    payoutWarnedRef.current = true;
-                    pushLog(
-                        'Buy confirmation did not include a payout figure — using a conservative estimate for this trade only.',
-                        'warn'
-                    );
-                }
                 payoutRef.current = payout ?? stake * 1.9;
                 pendingRef.current = false;
                 awaitingResultRef.current = true;
@@ -159,7 +144,7 @@ export const useSpeedTrader = (currency: string) => {
                 modeRef.current = 'virtual';
                 virtualLossCountRef.current = 0;
                 virtualLossTargetRef.current = randomTarget();
-                pushLog(`Buy request failed: ${e?.message || e}`, 'error');
+                pushLog(`Trade failed`, 'error');
             });
     }, [pushLog]);
 
@@ -173,8 +158,7 @@ export const useSpeedTrader = (currency: string) => {
             totalPnlRef.current += pnl_change;
 
             pushLog(
-                `${won ? '🟢 WIN' : '🔴 LOSS'} | Real result: ${digit} | Side=${sideRef.current.toUpperCase()} | ` +
-                `Trade PnL: $${pnl_change.toFixed(2)} | Total PnL $${totalPnlRef.current.toFixed(2)}`,
+                `${won ? '🟢 WIN' : '🔴 LOSS'} | Digit ${digit} | $${pnl_change.toFixed(2)} | Total $${totalPnlRef.current.toFixed(2)}`,
                 won ? 'win' : 'loss'
             );
 
@@ -183,26 +167,15 @@ export const useSpeedTrader = (currency: string) => {
             payoutRef.current = 0;
 
             if (won) {
-                // WIN: stay on same side, back to virtual, reset stake to initial
-                pushLog(
-                    `Staying on ${sideRef.current.toUpperCase()} — back to VIRTUAL counting. ` +
-                    `Stake reset to $${p.initial_stake.toFixed(2)}`,
-                    'info'
-                );
                 modeRef.current = 'virtual';
                 virtualLossCountRef.current = 0;
                 virtualLossTargetRef.current = randomTarget();
                 currentStakeRef.current = p.initial_stake;
                 martingaleStepRef.current = 0;
             } else {
-                // LOSS: stay on same side, apply martingale, trade real again next tick
                 let newStake = currentStakeRef.current * p.martingale_mult;
                 
                 if (martingaleStepRef.current >= p.max_martingale_steps) {
-                    pushLog(
-                        `⛔ Max martingale steps (${p.max_martingale_steps}) reached — resetting stake to $${p.initial_stake.toFixed(2)}.`,
-                        'warn'
-                    );
                     martingaleStepRef.current = 0;
                     currentStakeRef.current = p.initial_stake;
                 } else {
@@ -211,12 +184,6 @@ export const useSpeedTrader = (currency: string) => {
                 }
                 
                 modeRef.current = 'real';
-                pushLog(
-                    `🔁 Staying on ${sideRef.current.toUpperCase()} after real loss — ` +
-                    `trading REAL again next tick at $${currentStakeRef.current.toFixed(2)} ` +
-                    `(martingale step ${martingaleStepRef.current}/${p.max_martingale_steps}).`,
-                    'info'
-                );
             }
 
             setState(prev => ({ ...prev, total_pnl: totalPnlRef.current, current_stake: currentStakeRef.current }));
@@ -240,23 +207,12 @@ export const useSpeedTrader = (currency: string) => {
     const handleVirtualTick = useCallback((digit: number) => {
         const won = winsSide(digit, sideRef.current);
         if (won) {
-            if (virtualLossCountRef.current > 0) {
-                pushLog(
-                    `Virtual WIN (digit ${digit}) — resets ${sideRef.current.toUpperCase()} virtual-loss streak.`,
-                    'info'
-                );
-            }
             virtualLossCountRef.current = 0;
             return false;
         }
         virtualLossCountRef.current += 1;
-        pushLog(
-            `Virtual LOSS (digit ${digit}) | ${sideRef.current.toUpperCase()} | ` +
-            `streak ${virtualLossCountRef.current}/${virtualLossTargetRef.current}`,
-            'info'
-        );
         return virtualLossCountRef.current >= virtualLossTargetRef.current;
-    }, [pushLog]);
+    }, []);
 
     const handleTick = useCallback(
         (quote: number, pip_size: number) => {
@@ -297,7 +253,6 @@ export const useSpeedTrader = (currency: string) => {
             martingaleStepRef.current = 0;
             pendingRef.current = false;
             awaitingResultRef.current = false;
-            payoutWarnedRef.current = false;
             isArmedRef.current = true;
 
             setState({
@@ -309,13 +264,7 @@ export const useSpeedTrader = (currency: string) => {
                 stop_reason: null,
             });
 
-            pushLog(`Connecting to ${params.symbol}…`, 'info');
-            pushLog(
-                `Starting side=EVEN, virtual-loss target=${virtualLossTargetRef.current}, ` +
-                `initial stake=$${params.initial_stake.toFixed(2)}, ` +
-                `martingale mult=${params.martingale_mult}x, max steps=${finalParams.max_martingale_steps}`,
-                'info'
-            );
+            pushLog(`Scanning the market on ${params.symbol}…`, 'info');
 
             messageSubscriptionRef.current = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
                 if (data?.msg_type === 'buy') return; // handled via the .then() on the send() call itself
@@ -330,19 +279,19 @@ export const useSpeedTrader = (currency: string) => {
                 sub_res = await api_base.api.send({ ticks: params.symbol, subscribe: 1 });
             } catch (e: any) {
                 isArmedRef.current = false;
-                pushLog(`Tick subscription failed: ${e?.message || e}`, 'error');
+                pushLog(`Connection failed`, 'error');
                 setState(prev => ({ ...prev, is_armed: false, is_loading: false }));
                 return;
             }
             if (sub_res?.error) {
                 isArmedRef.current = false;
-                pushLog(`Tick subscription rejected: ${sub_res.error.message || sub_res.error.code}`, 'error');
+                pushLog(`Connection failed`, 'error');
                 setState(prev => ({ ...prev, is_armed: false, is_loading: false }));
                 return;
             }
             if (sub_res?.subscription?.id) tickSubscriptionIdRef.current = sub_res.subscription.id;
 
-            pushLog('Armed and monitoring.', 'info');
+            pushLog('Ready — scanning for trades…', 'info');
             setState(prev => ({ ...prev, is_loading: false }));
         },
         [handleTick, pushLog]
