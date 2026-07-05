@@ -158,15 +158,17 @@ export const useSpeedTrader = (currency: string) => {
                             return;
                         }
                         const buy = buy_res?.buy;
-                        if (!buy || !buy.contract_id) {
+                        // If the buy object exists at all, money has been spent —
+                        // we must track this trade no matter what, never drop it.
+                        if (!buy) {
                             resetToVirtual();
-                            pushLog(`Buy failed - no contract`, 'error');
+                            pushLog('Buy failed', 'error');
                             return;
                         }
 
                         buyPriceRef.current = typeof buy.buy_price === 'number' ? buy.buy_price : ask_price;
                         payoutRef.current = real_payout; // verified, not guessed
-                        contractIdRef.current = buy.contract_id || null; // store contract ID to wait for settlement
+                        contractIdRef.current = buy.contract_id ?? null; // may be missing; fallback settlement still works
                         pendingRef.current = false;
                         awaitingResultRef.current = true;
                     })
