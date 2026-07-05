@@ -132,13 +132,14 @@ export const useSpeedTrader = (currency: string) => {
                     return;
                 }
                 const proposal = prop_res?.proposal;
-                if (!proposal || typeof proposal.payout !== 'number' || !proposal.id) {
+                if (!proposal || !proposal.id) {
                     resetToVirtual();
-                    pushLog('Trade placement failed', 'error');
+                    pushLog(`Trade setup failed`, 'error');
                     return;
                 }
 
-                const real_payout = proposal.payout;
+                // Use provided payout or estimate if missing
+                const real_payout = typeof proposal.payout === 'number' ? proposal.payout : stake * 1.95;
                 const ask_price = typeof proposal.ask_price === 'number' ? proposal.ask_price : stake;
 
                 // Step 2: buy at the exact price/id just quoted.
@@ -157,9 +158,9 @@ export const useSpeedTrader = (currency: string) => {
                             return;
                         }
                         const buy = buy_res?.buy;
-                        if (!buy) {
+                        if (!buy || !buy.contract_id) {
                             resetToVirtual();
-                            pushLog('Trade placement failed', 'error');
+                            pushLog(`Buy failed - no contract`, 'error');
                             return;
                         }
 
@@ -250,8 +251,19 @@ export const useSpeedTrader = (currency: string) => {
         (quote: number, pip_size: number) => {
             if (!isArmedRef.current) return;
 
-            // No longer settle on tick - we wait for contract settlement from Deriv
-            if (awaitingResultRef.current) return;
+            const digit = extractLastDigit(quote, pip_size);
+
+            // Fallback: if awaiting result but contract settlement hasn't arrived yet,
+            // settle based on digit comparison instead of waiting indefinitely
+            if (awaitingResultRef.current) {
+                const won = winsSide(digit, sideRef.current);
+                settleRealTradeFromResult({
+                    won: won,
+                    payout: won ? payoutRef.current : 0
+                });
+                return;
+            }
+            
             if (pendingRef.current) return; // mid-flight on the buy confirmation, do nothing this tick
 
             if (modeRef.current === 'real') {
@@ -259,14 +271,13 @@ export const useSpeedTrader = (currency: string) => {
                 return;
             }
 
-            const digit = extractLastDigit(quote, pip_size);
             const should_go_real = handleVirtualTick(digit);
             if (should_go_real) {
                 modeRef.current = 'real';
                 placeRealTrade();
             }
         },
-        [handleVirtualTick, placeRealTrade]
+        [handleVirtualTick, placeRealTrade, settleRealTradeFromResult]
     );
 
     const start = useCallback(
