@@ -12,9 +12,10 @@ const SpeedTrader = observer(() => {
 
     const [symbol, setSymbol] = React.useState('1HZ100V');
     const [initial_stake, setInitialStake] = React.useState(0.35);
-    const [martingale_mult, setMartingaleMult] = React.useState(1.5);
-    const [stop_loss, setStopLoss] = React.useState(50);
-    const [take_profit, setTakeProfit] = React.useState(0.5);
+    const [martingale_mult, setMartingaleMult] = React.useState(2);
+    const [max_martingale_steps, setMaxMartingaleSteps] = React.useState(5);
+    const [stop_loss, setStopLoss] = React.useState(5);
+    const [take_profit, setTakeProfit] = React.useState(100);
     const [show_confirm, setShowConfirm] = React.useState(false);
 
     const { state, start, stop } = useSpeedTrader(client?.currency);
@@ -28,7 +29,7 @@ const SpeedTrader = observer(() => {
 
     const confirmStart = () => {
         setShowConfirm(false);
-        start({ symbol, initial_stake, martingale_mult, stop_loss, take_profit });
+        start({ symbol, initial_stake, martingale_mult, max_martingale_steps, stop_loss, take_profit });
     };
 
     return (
@@ -81,6 +82,17 @@ const SpeedTrader = observer(() => {
                             value={martingale_mult}
                             disabled={state.is_armed}
                             onChange={e => setMartingaleMult(Number(e.target.value) || 1)}
+                        />
+                    </label>
+                    <label>
+                        <span>{localize('Max martingale steps')}</span>
+                        <input
+                            type='number'
+                            min={1}
+                            step={1}
+                            value={max_martingale_steps}
+                            disabled={state.is_armed}
+                            onChange={e => setMaxMartingaleSteps(Number(e.target.value) || 5)}
                         />
                     </label>
                     <label>
@@ -156,8 +168,8 @@ const SpeedTrader = observer(() => {
                             {localize(
                                 'This trades with real funds automatically, without waiting for each contract to fully settle before deciding the next move. Stake'
                             )}{' '}
-                            ${initial_stake.toFixed(2)}, {localize('martingale')} {martingale_mult}x,{' '}
-                            {localize('stop loss')} ${stop_loss}, {localize('take profit')} ${take_profit}{' '}
+                            ${initial_stake.toFixed(2)}, {localize('martingale')} {martingale_mult}x{' '}
+                            ({localize('max')} {max_martingale_steps} {localize('steps')}), {localize('stop loss')} ${stop_loss}, {localize('take profit')} ${take_profit}{' '}
                             {localize('on')} {symbol}.
                         </p>
                         <div className='speed-trader__confirm-actions'>

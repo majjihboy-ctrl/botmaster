@@ -21,6 +21,7 @@ export type TSpeedTraderParams = {
     symbol: string;
     initial_stake: number;
     martingale_mult: number;
+    max_martingale_steps: number;
     stop_loss: number;
     take_profit: number;
 };
@@ -63,6 +64,7 @@ export const useSpeedTrader = (currency: string) => {
     const modeRef = useRef<TMode>('virtual');
     const virtualLossCountRef = useRef(0);
     const virtualLossTargetRef = useRef(randomTarget());
+    const martingaleStepRef = useRef(0);
     const pendingRef = useRef(false); // buy sent, awaiting confirmation
     const awaitingResultRef = useRef(false); // buy confirmed, awaiting settling tick
     const reqIdRef = useRef<number | null>(null);
@@ -94,7 +96,11 @@ export const useSpeedTrader = (currency: string) => {
         pendingRef.current = true;
         reqIdRef.current = rid;
 
-        pushLog(`Trade placed — stake $${stake.toFixed(2)}`, 'info');
+        pushLog(
+            `💰 REAL TRADE | Side=${side.toUpperCase()} | after ${virtualLossCountRef.current} virtual losses ` +
+            `(target was ${virtualLossTargetRef.current}) | Stake $${stake.toFixed(2)}`,
+            'info'
+        );
 
         api_base.api
             .send({
@@ -167,7 +173,8 @@ export const useSpeedTrader = (currency: string) => {
             totalPnlRef.current += pnl_change;
 
             pushLog(
-                `${won ? 'WIN' : 'LOSS'} | $${pnl_change.toFixed(2)} | Total PnL $${totalPnlRef.current.toFixed(2)}`,
+                `${won ? '🟢 WIN' : '🔴 LOSS'} | Real result: ${digit} | Side=${sideRef.current.toUpperCase()} | ` +
+                `Trade PnL: $${pnl_change.toFixed(2)} | Total PnL $${totalPnlRef.current.toFixed(2)}`,
                 won ? 'win' : 'loss'
             );
 
@@ -176,14 +183,40 @@ export const useSpeedTrader = (currency: string) => {
             payoutRef.current = 0;
 
             if (won) {
+                // WIN: stay on same side, back to virtual, reset stake to initial
+                pushLog(
+                    `Staying on ${sideRef.current.toUpperCase()} — back to VIRTUAL counting. ` +
+                    `Stake reset to $${p.initial_stake.toFixed(2)}`,
+                    'info'
+                );
                 modeRef.current = 'virtual';
                 virtualLossCountRef.current = 0;
                 virtualLossTargetRef.current = randomTarget();
                 currentStakeRef.current = p.initial_stake;
+                martingaleStepRef.current = 0;
             } else {
-                sideRef.current = sideRef.current === 'even' ? 'odd' : 'even';
+                // LOSS: stay on same side, apply martingale, trade real again next tick
+                let newStake = currentStakeRef.current * p.martingale_mult;
+                
+                if (martingaleStepRef.current >= p.max_martingale_steps) {
+                    pushLog(
+                        `⛔ Max martingale steps (${p.max_martingale_steps}) reached — resetting stake to $${p.initial_stake.toFixed(2)}.`,
+                        'warn'
+                    );
+                    martingaleStepRef.current = 0;
+                    currentStakeRef.current = p.initial_stake;
+                } else {
+                    martingaleStepRef.current += 1;
+                    currentStakeRef.current = Number(newStake.toFixed(2));
+                }
+                
                 modeRef.current = 'real';
-                currentStakeRef.current = Number((currentStakeRef.current * p.martingale_mult).toFixed(2));
+                pushLog(
+                    `🔁 Staying on ${sideRef.current.toUpperCase()} after real loss — ` +
+                    `trading REAL again next tick at $${currentStakeRef.current.toFixed(2)} ` +
+                    `(martingale step ${martingaleStepRef.current}/${p.max_martingale_steps}).`,
+                    'info'
+                );
             }
 
             setState(prev => ({ ...prev, total_pnl: totalPnlRef.current, current_stake: currentStakeRef.current }));
@@ -200,9 +233,6 @@ export const useSpeedTrader = (currency: string) => {
                 setState(prev => ({ ...prev, is_armed: false, stop_reason: 'take_profit' }));
                 return;
             }
-            // No immediate re-trade here: the settling tick only settles.
-            // If mode is still 'real', the NEXT tick places the follow-up
-            // trade via handleTick — same ordering as the reference script.
         },
         [pushLog]
     );
@@ -210,12 +240,23 @@ export const useSpeedTrader = (currency: string) => {
     const handleVirtualTick = useCallback((digit: number) => {
         const won = winsSide(digit, sideRef.current);
         if (won) {
+            if (virtualLossCountRef.current > 0) {
+                pushLog(
+                    `Virtual WIN (digit ${digit}) — resets ${sideRef.current.toUpperCase()} virtual-loss streak.`,
+                    'info'
+                );
+            }
             virtualLossCountRef.current = 0;
             return false;
         }
         virtualLossCountRef.current += 1;
+        pushLog(
+            `Virtual LOSS (digit ${digit}) | ${sideRef.current.toUpperCase()} | ` +
+            `streak ${virtualLossCountRef.current}/${virtualLossTargetRef.current}`,
+            'info'
+        );
         return virtualLossCountRef.current >= virtualLossTargetRef.current;
-    }, []);
+    }, [pushLog]);
 
     const handleTick = useCallback(
         (quote: number, pip_size: number) => {
@@ -245,13 +286,15 @@ export const useSpeedTrader = (currency: string) => {
 
     const start = useCallback(
         async (params: TSpeedTraderParams) => {
-            paramsRef.current = params;
+            const finalParams = { ...params, max_martingale_steps: params.max_martingale_steps ?? 5 };
+            paramsRef.current = finalParams;
             currentStakeRef.current = params.initial_stake;
             totalPnlRef.current = 0;
             sideRef.current = 'even';
             modeRef.current = 'virtual';
             virtualLossCountRef.current = 0;
             virtualLossTargetRef.current = randomTarget();
+            martingaleStepRef.current = 0;
             pendingRef.current = false;
             awaitingResultRef.current = false;
             payoutWarnedRef.current = false;
@@ -267,6 +310,12 @@ export const useSpeedTrader = (currency: string) => {
             });
 
             pushLog(`Connecting to ${params.symbol}…`, 'info');
+            pushLog(
+                `Starting side=EVEN, virtual-loss target=${virtualLossTargetRef.current}, ` +
+                `initial stake=$${params.initial_stake.toFixed(2)}, ` +
+                `martingale mult=${params.martingale_mult}x, max steps=${finalParams.max_martingale_steps}`,
+                'info'
+            );
 
             messageSubscriptionRef.current = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
                 if (data?.msg_type === 'buy') return; // handled via the .then() on the send() call itself
