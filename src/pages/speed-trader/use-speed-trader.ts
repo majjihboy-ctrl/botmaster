@@ -128,13 +128,15 @@ export const useSpeedTrader = (currency: string) => {
 
                 if (prop_res?.error) {
                     resetToVirtual();
-                    pushLog('Trade rejected', 'error');
+                    const err = prop_res.error;
+                    pushLog(`Proposal rejected: [${err.code || '?'}] ${err.message || 'unknown'}`, 'error');
                     return;
                 }
                 const proposal = prop_res?.proposal;
                 if (!proposal || !proposal.id) {
                     resetToVirtual();
-                    pushLog(`Trade setup failed`, 'error');
+                    const keys = prop_res ? Object.keys(prop_res).join(',') : 'null response';
+                    pushLog(`Trade setup failed - unexpected response [${keys}]`, 'error');
                     return;
                 }
 
@@ -154,7 +156,8 @@ export const useSpeedTrader = (currency: string) => {
 
                         if (buy_res?.error) {
                             resetToVirtual();
-                            pushLog('Trade rejected', 'error');
+                            const err = buy_res.error;
+                            pushLog(`Trade rejected: [${err.code || '?'}] ${err.message || 'unknown'}`, 'error');
                             return;
                         }
                         const buy = buy_res?.buy;
@@ -162,7 +165,8 @@ export const useSpeedTrader = (currency: string) => {
                         // we must track this trade no matter what, never drop it.
                         if (!buy) {
                             resetToVirtual();
-                            pushLog('Buy failed', 'error');
+                            const keys = buy_res ? Object.keys(buy_res).join(',') : 'null response';
+                            pushLog(`Buy failed - unexpected response [${keys}]`, 'error');
                             return;
                         }
 
@@ -172,14 +176,14 @@ export const useSpeedTrader = (currency: string) => {
                         pendingRef.current = false;
                         awaitingResultRef.current = true;
                     })
-                    .catch(() => {
+                    .catch((e: any) => {
                         resetToVirtual();
-                        pushLog('Trade failed', 'error');
+                        pushLog(`Trade failed: ${e?.message || e?.error?.message || 'network error'}`, 'error');
                     });
             })
-            .catch(() => {
+            .catch((e: any) => {
                 resetToVirtual();
-                pushLog('Trade failed', 'error');
+                pushLog(`Trade failed: ${e?.message || e?.error?.message || 'network error'}`, 'error');
             });
     }, [pushLog]);
 
