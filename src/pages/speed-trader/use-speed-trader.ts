@@ -280,8 +280,20 @@ export const useSpeedTrader = (currency: string) => {
         [handleVirtualTick, placeRealTrade, settleRealTradeFromResult]
     );
 
+    const cleanupSubscriptions = useCallback(() => {
+        messageSubscriptionRef.current?.unsubscribe();
+        messageSubscriptionRef.current = null;
+        if (tickSubscriptionIdRef.current) {
+            api_base.api.send({ forget: tickSubscriptionIdRef.current }).catch(() => {});
+            tickSubscriptionIdRef.current = null;
+        }
+    }, []);
+
     const start = useCallback(
         async (params: TSpeedTraderParams) => {
+            // Clean up any existing subscription from a previous run first
+            cleanupSubscriptions();
+
             const finalParams = { ...params, max_martingale_steps: params.max_martingale_steps ?? 5 };
             paramsRef.current = finalParams;
             currentStakeRef.current = params.initial_stake;
@@ -350,27 +362,24 @@ export const useSpeedTrader = (currency: string) => {
             pushLog('Ready — scanning for trades…', 'info');
             setState(prev => ({ ...prev, is_loading: false }));
         },
-        [handleTick, pushLog]
+        [handleTick, pushLog, cleanupSubscriptions]
     );
 
     const stop = useCallback(() => {
         isArmedRef.current = false;
         pendingRef.current = false;
         awaitingResultRef.current = false;
+        cleanupSubscriptions();
         pushLog('Stopped manually.', 'info');
         setState(prev => ({ ...prev, is_armed: false, stop_reason: 'manual' }));
-    }, [pushLog]);
+    }, [pushLog, cleanupSubscriptions]);
 
     useEffect(() => {
         return () => {
             isArmedRef.current = false;
-            messageSubscriptionRef.current?.unsubscribe();
-            if (tickSubscriptionIdRef.current) {
-                api_base.api.send({ forget: tickSubscriptionIdRef.current }).catch(() => {});
-                tickSubscriptionIdRef.current = null;
-            }
+            cleanupSubscriptions();
         };
-    }, []);
+    }, [cleanupSubscriptions]);
 
     return { state, start, stop };
 };
