@@ -2,6 +2,7 @@
 
 .free-bots-tab {
     padding: 1.6rem;
+    padding-bottom: 6rem;
     height: var(--tab-content-height);
     overflow-y: auto;
     display: flex;
@@ -11,6 +12,7 @@
     @include mobile-or-tablet-screen {
         height: var(--tab-content-height-mobile);
         flex-direction: column;
+        padding-bottom: 8rem;
     }
 
     &__main {

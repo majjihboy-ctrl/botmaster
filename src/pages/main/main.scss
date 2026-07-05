@@ -299,10 +299,13 @@
         height: var(--tab-content-height);
         width: 100%;
         transition: all 0.4s;
+        padding-bottom: 6rem;
+        overflow-y: auto;
 
         @include mobile-or-tablet-screen {
             height: var(--tab-content-height-mobile);
             background: var(--general-main-1);
+            padding-bottom: 8rem;
 
             .smartcharts {
                 height: calc(100% - 4rem);
@@ -416,6 +419,12 @@
     z-index: -1;
     background: var(--general-main-1);
     height: var(--tab-content-height);
+    overflow-y: auto;
+    padding-bottom: 6rem;
+
+    @include mobile-or-tablet-screen {
+        padding-bottom: 8rem;
+    }
 
     .injectionDiv {
         .blocklyTrash {
