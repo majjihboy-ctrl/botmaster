@@ -97,54 +97,84 @@ export const useSpeedTrader = (currency: string) => {
 
         pushLog(`Trading ${side.toUpperCase()} — waiting for result…`, 'info');
 
+        const resetToVirtual = () => {
+            pendingRef.current = false;
+            awaitingResultRef.current = false;
+            modeRef.current = 'virtual';
+            virtualLossCountRef.current = 0;
+            virtualLossTargetRef.current = randomTarget();
+        };
+
+        // Step 1: proposal — this is the ONLY reliable source of the real
+        // payout for this stake/contract/symbol combination. The direct
+        // "shortcut buy" method used previously does not return a
+        // trustworthy payout figure, which is why PnL was consistently
+        // wrong regardless of stake.
         api_base.api
             .send({
-                buy: '1',
-                price: stake,
+                proposal: 1,
                 req_id: rid,
-                parameters: {
-                    amount: stake,
-                    basis: 'stake',
-                    contract_type: side === 'even' ? 'DIGITEVEN' : 'DIGITODD',
-                    currency: currencyRef.current || 'USD',
-                    duration: 1,
-                    duration_unit: 't',
-                    underlying_symbol: p.symbol,
-                },
+                amount: stake,
+                basis: 'stake',
+                contract_type: side === 'even' ? 'DIGITEVEN' : 'DIGITODD',
+                currency: currencyRef.current || 'USD',
+                duration: 1,
+                duration_unit: 't',
+                underlying_symbol: p.symbol,
             })
-            .then((res: any) => {
-                if (res?.req_id !== undefined && res.req_id !== rid) return; // stale response, ignore
+            .then((prop_res: any) => {
+                if (prop_res?.req_id !== undefined && prop_res.req_id !== rid) return; // stale response, ignore
 
-                if (res?.error) {
-                    pendingRef.current = false;
-                    awaitingResultRef.current = false;
-                    modeRef.current = 'virtual';
-                    virtualLossCountRef.current = 0;
-                    virtualLossTargetRef.current = randomTarget();
-                    pushLog(`Trade rejected`, 'error');
+                if (prop_res?.error) {
+                    resetToVirtual();
+                    pushLog('Trade rejected', 'error');
                     return;
                 }
-
-                const buy = res?.buy;
-                if (!buy) {
-                    pendingRef.current = false;
+                const proposal = prop_res?.proposal;
+                if (!proposal || typeof proposal.payout !== 'number' || !proposal.id) {
+                    resetToVirtual();
                     pushLog('Trade placement failed', 'error');
                     return;
                 }
 
-                buyPriceRef.current = typeof buy.buy_price === 'number' ? buy.buy_price : stake;
-                const payout = typeof buy.payout === 'number' ? buy.payout : null;
-                payoutRef.current = payout ?? stake * 1.9;
-                pendingRef.current = false;
-                awaitingResultRef.current = true;
+                const real_payout = proposal.payout;
+                const ask_price = typeof proposal.ask_price === 'number' ? proposal.ask_price : stake;
+
+                // Step 2: buy at the exact price/id just quoted.
+                api_base.api
+                    .send({
+                        buy: proposal.id,
+                        price: ask_price,
+                        req_id: rid,
+                    })
+                    .then((buy_res: any) => {
+                        if (buy_res?.req_id !== undefined && buy_res.req_id !== rid) return;
+
+                        if (buy_res?.error) {
+                            resetToVirtual();
+                            pushLog('Trade rejected', 'error');
+                            return;
+                        }
+                        const buy = buy_res?.buy;
+                        if (!buy) {
+                            resetToVirtual();
+                            pushLog('Trade placement failed', 'error');
+                            return;
+                        }
+
+                        buyPriceRef.current = typeof buy.buy_price === 'number' ? buy.buy_price : ask_price;
+                        payoutRef.current = real_payout; // verified, not guessed
+                        pendingRef.current = false;
+                        awaitingResultRef.current = true;
+                    })
+                    .catch(() => {
+                        resetToVirtual();
+                        pushLog('Trade failed', 'error');
+                    });
             })
-            .catch((e: any) => {
-                pendingRef.current = false;
-                awaitingResultRef.current = false;
-                modeRef.current = 'virtual';
-                virtualLossCountRef.current = 0;
-                virtualLossTargetRef.current = randomTarget();
-                pushLog(`Trade failed`, 'error');
+            .catch(() => {
+                resetToVirtual();
+                pushLog('Trade failed', 'error');
             });
     }, [pushLog]);
 
@@ -154,9 +184,7 @@ export const useSpeedTrader = (currency: string) => {
             if (!p) return;
 
             const won = winsSide(digit, sideRef.current);
-            // Apply 3% fee cut to payout
-            const actualPayout = won ? payoutRef.current * 0.97 : 0;
-            const pnl_change = actualPayout - buyPriceRef.current;
+            const pnl_change = won ? payoutRef.current - buyPriceRef.current : -buyPriceRef.current;
             totalPnlRef.current += pnl_change;
 
             pushLog(
