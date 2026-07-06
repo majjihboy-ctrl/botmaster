@@ -5,6 +5,10 @@ import { getLastDigitForList } from '@/external/bot-skeleton/services/tradeEngin
 export type TSymbolOption = { symbol: string; display_name: string };
 
 // Fallback used only until the live active_symbols list has loaded.
+// NOTE: Volatility 15/30/90 (1s) are NOT included here — Deriv only offers
+// those through MT5/cTrader, not through this WebSocket options API, so
+// they never actually appear in a real active_symbols response and any
+// live tick subscription for them will never receive data.
 const FALLBACK_SYMBOLS: TSymbolOption[] = [
     { symbol: 'R_10', display_name: 'Volatility 10 Index' },
     { symbol: 'R_25', display_name: 'Volatility 25 Index' },
@@ -12,12 +16,9 @@ const FALLBACK_SYMBOLS: TSymbolOption[] = [
     { symbol: 'R_75', display_name: 'Volatility 75 Index' },
     { symbol: 'R_100', display_name: 'Volatility 100 Index' },
     { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index' },
-    { symbol: '1HZ15V', display_name: 'Volatility 15 (1s) Index' },
     { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index' },
-    { symbol: '1HZ30V', display_name: 'Volatility 30 (1s) Index' },
     { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index' },
     { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index' },
-    { symbol: '1HZ90V', display_name: 'Volatility 90 (1s) Index' },
     { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index' },
     { symbol: 'JD10', display_name: 'Jump 10 Index' },
     { symbol: 'JD25', display_name: 'Jump 25 Index' },
@@ -26,27 +27,13 @@ const FALLBACK_SYMBOLS: TSymbolOption[] = [
     { symbol: 'JD100', display_name: 'Jump 100 Index' },
 ];
 
-// These must always be present in the dropdown, even if the live
-// active_symbols response is missing them for any reason.
-const MUST_INCLUDE: TSymbolOption[] = [
-    { symbol: '1HZ15V', display_name: 'Volatility 15 (1s) Index' },
-    { symbol: '1HZ30V', display_name: 'Volatility 30 (1s) Index' },
-    { symbol: '1HZ90V', display_name: 'Volatility 90 (1s) Index' },
-];
-
-const withMustInclude = (list: TSymbolOption[]): TSymbolOption[] => {
-    const present = new Set(list.map(s => s.symbol));
-    const missing = MUST_INCLUDE.filter(s => !present.has(s.symbol));
-    return [...list, ...missing];
-};
-
 // Only these two submarkets: Volatility (Continuous) Indices and Jump
 // Indices. Everything else — Crash/Boom, Step, Range Break, Drift Switch,
 // Bear/Bull daily reset — is excluded per product scope.
 const ALLOWED_SUBMARKETS = new Set(['random_index', 'jump_index']);
 
 export const useSyntheticSymbols = (): TSymbolOption[] => {
-    const [symbols, setSymbols] = useState<TSymbolOption[]>(withMustInclude(FALLBACK_SYMBOLS));
+    const [symbols, setSymbols] = useState<TSymbolOption[]>(FALLBACK_SYMBOLS);
 
     useEffect(() => {
         let attempts = 0;
@@ -57,7 +44,7 @@ export const useSyntheticSymbols = (): TSymbolOption[] => {
                     .filter((s: any) => s.market === 'synthetic_index' && ALLOWED_SUBMARKETS.has(s.submarket))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name || s.symbol }));
                 if (synthetic.length) {
-                    setSymbols(withMustInclude(synthetic));
+                    setSymbols(synthetic);
                     return;
                 }
             }
