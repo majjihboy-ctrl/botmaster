@@ -63,9 +63,9 @@ const AnalysisTool = observer(() => {
             <div className='analysis-tool__topbar'>
                 <div className='analysis-tool__title'>
                     <h1>Analysis Tool</h1>
-                    <span className='analysis-tool__live'>
+                    <span className={`analysis-tool__live ${stats.is_stale ? 'stale' : ''}`}>
                         <span className='analysis-tool__pulse' />
-                        {stats.is_loading ? 'CONNECTING' : 'LIVE'}
+                        {stats.is_loading ? 'CONNECTING' : stats.is_stale ? 'RECONNECTING' : 'LIVE'}
                     </span>
                 </div>
                 <div className='analysis-tool__controls'>

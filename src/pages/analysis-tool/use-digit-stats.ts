@@ -93,6 +93,7 @@ export type TDigitStats = {
     rise_pct: number;
     fall_pct: number;
     is_loading: boolean;
+    is_stale: boolean;
 };
 
 const EMPTY_STATS: TDigitStats = {
@@ -118,6 +119,7 @@ const EMPTY_STATS: TDigitStats = {
     rise_pct: 0,
     fall_pct: 0,
     is_loading: true,
+    is_stale: false,
 };
 
 const countDigits = (quotes: number[], pip_size: number): number[] => {
@@ -229,6 +231,7 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
         rise_pct: Number(((rise_count / move_total) * 100).toFixed(1)),
         fall_pct: Number(((fall_count / move_total) * 100).toFixed(1)),
         is_loading: false,
+        is_stale: false,
     };
 };
 
@@ -248,38 +251,50 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
         let is_cancelled = false;
         let message_subscription: { unsubscribe: () => void } | null = null;
         let watchdog: ReturnType<typeof setInterval> | null = null;
+        let resubscribing = false;
 
-        const subscribeToTicks = async () => {
-            // Clear out any subscription this hook previously held for this
-            // symbol before asking for a fresh one — avoids relying on a
-            // possibly-orphaned "AlreadySubscribed" state where the original
-            // holder of that subscription is gone and no ticks actually flow.
-            if (subscriptionIdRef.current) {
-                await api_base.api.send({ forget: subscriptionIdRef.current }).catch(() => {});
-                subscriptionIdRef.current = null;
-            }
+        const subscribeToTicks = async (): Promise<boolean> => {
+            if (resubscribing) return false; // avoid overlapping attempts from watchdog + retries
+            resubscribing = true;
             try {
-                const sub_res = await api_base.api.send({ ticks: symbol, subscribe: 1 });
-                if (sub_res?.error) throw sub_res.error;
-                if (sub_res?.subscription?.id) subscriptionIdRef.current = sub_res.subscription.id;
-                lastTickAtRef.current = Date.now();
-                return true;
-            } catch (sub_error: any) {
-                if (sub_error?.error?.code === 'AlreadySubscribed' || sub_error?.code === 'AlreadySubscribed') {
-                    // Someone else still holds a subscription for this symbol.
-                    // Force a clean slate for ticks specifically, then retry
-                    // once, rather than hoping stale ticks resume.
-                    await api_base.api.send({ forget_all: 'ticks' }).catch(() => {});
+                // Clear out any subscription THIS hook previously held for this
+                // symbol before asking for a fresh one.
+                if (subscriptionIdRef.current) {
+                    await api_base.api.send({ forget: subscriptionIdRef.current }).catch(() => {});
+                    subscriptionIdRef.current = null;
+                }
+
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    if (is_cancelled) return false;
                     try {
-                        const retry_res = await api_base.api.send({ ticks: symbol, subscribe: 1 });
-                        if (retry_res?.subscription?.id) subscriptionIdRef.current = retry_res.subscription.id;
+                        const sub_res = await api_base.api.send({ ticks: symbol, subscribe: 1 });
+                        if (sub_res?.error) throw sub_res.error;
+                        if (sub_res?.subscription?.id) subscriptionIdRef.current = sub_res.subscription.id;
                         lastTickAtRef.current = Date.now();
                         return true;
-                    } catch {
+                    } catch (sub_error: any) {
+                        const code = sub_error?.error?.code || sub_error?.code;
+                        if (code === 'AlreadySubscribed') {
+                            // Deriv's forget_all only accepts a subscription
+                            // TYPE ('ticks'), not a symbol filter — it will
+                            // clear every tick subscription on this connection,
+                            // not just this one. Only reach for it on the
+                            // final attempt, after a plain short-delay retry
+                            // (which resolves it if the stale subscription was
+                            // just about to be cleaned up naturally) has
+                            // already failed twice.
+                            if (attempt === 2) {
+                                await api_base.api.send({ forget_all: 'ticks' }).catch(() => {});
+                            }
+                            await new Promise(r => setTimeout(r, 400));
+                            continue;
+                        }
                         return false;
                     }
                 }
                 return false;
+            } finally {
+                resubscribing = false;
             }
         };
 
@@ -305,29 +320,46 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                 quotesRef.current = prices;
                 setStats(computeStats(prices, pip_size, overUnderDigitRef.current));
 
+                // Symbol match is normalized (trim + uppercase) defensively —
+                // if Deriv ever pushes a tick whose symbol string differs in
+                // case/whitespace from what we requested, a strict `===`
+                // comparison would silently drop every live tick for that
+                // symbol while the initial history fetch (which doesn't
+                // depend on this comparison) still succeeds. That exact
+                // pattern — historical loads fine, live never updates — is
+                // what a silent mismatch here would look like.
+                const normalize = (s: string) => (s || '').trim().toUpperCase();
+                const target_symbol = normalize(symbol);
+
                 message_subscription = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
-                    if (data?.msg_type === 'tick' && data?.tick?.symbol === symbol) {
+                    if (data?.msg_type === 'tick' && normalize(data?.tick?.symbol) === target_symbol) {
                         if (data.tick.id) subscriptionIdRef.current = data.tick.id;
                         lastTickAtRef.current = Date.now();
                         quotesRef.current = [...quotesRef.current, Number(data.tick.quote)].slice(-tick_count);
-                        setStats(computeStats(quotesRef.current, pipSizeRef.current, overUnderDigitRef.current));
+                        setStats(prev => ({
+                            ...computeStats(quotesRef.current, pipSizeRef.current, overUnderDigitRef.current),
+                            is_loading: false,
+                            is_stale: false,
+                        }));
                     }
                 });
 
                 await subscribeToTicks();
+                setStats(prev => ({ ...prev, is_loading: false }));
 
-                // Watchdog: volatility indices tick roughly every 1-2 seconds.
-                // If nothing has arrived for 8s after we believe we're
-                // subscribed, the feed has silently stalled — force a clean
-                // resubscribe rather than sitting frozen while still
-                // displaying "LIVE".
+                // Watchdog: volatility indices tick roughly every 1-2 seconds
+                // (1s indices even faster). If nothing has arrived for 6s
+                // after we believe we're subscribed, the feed has silently
+                // stalled — force a clean resubscribe rather than sitting
+                // frozen while still displaying "LIVE".
                 watchdog = setInterval(() => {
                     if (is_cancelled) return;
                     const silent_for = Date.now() - lastTickAtRef.current;
-                    if (silent_for > 8000) {
+                    if (silent_for > 6000) {
+                        setStats(prev => ({ ...prev, is_stale: true }));
                         subscribeToTicks();
                     }
-                }, 4000);
+                }, 2000);
             } catch (e) {
                 if (!is_cancelled) setStats(prev => ({ ...prev, is_loading: false }));
             }
@@ -350,7 +382,7 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
     // re-subscribing when only the over/under threshold digit changes.
     useEffect(() => {
         if (quotesRef.current.length) {
-            setStats(computeStats(quotesRef.current, pipSizeRef.current, over_under_digit));
+            setStats(prev => ({ ...computeStats(quotesRef.current, pipSizeRef.current, over_under_digit), is_loading: prev.is_loading }));
         }
     }, [over_under_digit]);
 

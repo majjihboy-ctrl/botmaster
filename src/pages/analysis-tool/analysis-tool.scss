@@ -40,6 +40,15 @@
         font-size: var(--text-size-xxs);
         color: var(--status-success);
         font-weight: 600;
+
+        &.stale {
+            color: var(--status-warning, #f59e0b);
+
+            .analysis-tool__pulse {
+                background: var(--status-warning, #f59e0b);
+                animation-duration: 0.7s;
+            }
+        }
     }
 
     &__pulse {
