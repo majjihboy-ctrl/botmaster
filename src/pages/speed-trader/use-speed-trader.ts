@@ -70,6 +70,7 @@ export const useSpeedTrader = (currency: string) => {
     const contractIdRef = useRef<string | null>(null); // track the contract we're waiting for
     const buyPriceRef = useRef(0);
     const payoutRef = useRef(0);
+    const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
     const tickSubscriptionIdRef = useRef<string | null>(null);
@@ -83,6 +84,116 @@ export const useSpeedTrader = (currency: string) => {
         const entry: TSpeedTraderLogEntry = { id: log_id_counter, time: new Date().toLocaleTimeString(), text, kind };
         setState(prev => ({ ...prev, logs: [...prev.logs.slice(-199), entry] }));
     }, []);
+
+    const settleRealTradeFromResult = useCallback(
+        (result: { won: boolean; payout: number }) => {
+            const p = paramsRef.current;
+            if (!p) return;
+            if (!awaitingResultRef.current) return; // already settled — never double count
+
+            const won = result.won;
+            const pnl_change = won ? result.payout - buyPriceRef.current : -buyPriceRef.current;
+            totalPnlRef.current += pnl_change;
+
+            pushLog(
+                `${won ? '🟢 WIN' : '🔴 LOSS'} | Payout $${result.payout.toFixed(2)} | PnL $${pnl_change.toFixed(2)} | Total $${totalPnlRef.current.toFixed(2)}`,
+                won ? 'win' : 'loss'
+            );
+
+            awaitingResultRef.current = false;
+            contractIdRef.current = null;
+            if (pollTimerRef.current) {
+                clearTimeout(pollTimerRef.current);
+                pollTimerRef.current = null;
+            }
+            buyPriceRef.current = 0;
+            payoutRef.current = 0;
+
+            if (won) {
+                modeRef.current = 'virtual';
+                virtualLossCountRef.current = 0;
+                virtualLossTargetRef.current = randomTarget();
+                currentStakeRef.current = p.initial_stake;
+                martingaleStepRef.current = 0;
+            } else {
+                const newStake = currentStakeRef.current * p.martingale_mult;
+
+                if (martingaleStepRef.current >= p.max_martingale_steps) {
+                    martingaleStepRef.current = 0;
+                    currentStakeRef.current = p.initial_stake;
+                } else {
+                    martingaleStepRef.current += 1;
+                    currentStakeRef.current = Number(newStake.toFixed(2));
+                }
+
+                modeRef.current = 'real';
+            }
+
+            setState(prev => ({ ...prev, total_pnl: totalPnlRef.current, current_stake: currentStakeRef.current }));
+
+            if (totalPnlRef.current <= -p.stop_loss) {
+                isArmedRef.current = false;
+                pushLog(`Stop loss hit at $${totalPnlRef.current.toFixed(2)}. Stopped.`, 'error');
+                setState(prev => ({ ...prev, is_armed: false, stop_reason: 'stop_loss' }));
+                return;
+            }
+            if (totalPnlRef.current >= p.take_profit) {
+                isArmedRef.current = false;
+                pushLog(`Take profit hit at $${totalPnlRef.current.toFixed(2)}. Stopped.`, 'error');
+                setState(prev => ({ ...prev, is_armed: false, stop_reason: 'take_profit' }));
+                return;
+            }
+        },
+        [pushLog]
+    );
+
+    // Shared by both the push subscription and the poller below — the ONLY
+    // two things allowed to settle a real trade. Both ask Deriv directly;
+    // neither guesses from the tick stream.
+    const handleContractUpdate = useCallback(
+        (poc: any) => {
+            if (!poc || !contractIdRef.current) return false;
+            if (String(poc.contract_id) !== String(contractIdRef.current)) return false;
+            if (!poc.is_sold) return false;
+
+            const won = poc.status === 'won' || Number(poc.profit) > 0;
+            const payout = typeof poc.payout === 'number' ? poc.payout : payoutRef.current;
+            settleRealTradeFromResult({ won, payout });
+
+            if (poc.subscription?.id) {
+                api_base.api.send({ forget: poc.subscription.id }).catch(() => {});
+            }
+            return true;
+        },
+        [settleRealTradeFromResult]
+    );
+
+    // Safety net for when the push subscription is dropped or delayed.
+    // Actively asks Deriv for the contract's real status — never infers
+    // the outcome from our own tick reading.
+    const pollContractStatus = useCallback(
+        (contract_id: string, attempt = 0) => {
+            if (attempt > 20) return; // ~30s ceiling; the subscription should have caught it well before this
+            pollTimerRef.current = setTimeout(() => {
+                if (!awaitingResultRef.current || contractIdRef.current !== contract_id) return; // already settled elsewhere
+                api_base.api
+                    .send({ proposal_open_contract: 1, contract_id })
+                    .then((res: any) => {
+                        const poc = res?.proposal_open_contract;
+                        const settled = handleContractUpdate(poc);
+                        if (!settled && awaitingResultRef.current && contractIdRef.current === contract_id) {
+                            pollContractStatus(contract_id, attempt + 1);
+                        }
+                    })
+                    .catch(() => {
+                        if (awaitingResultRef.current && contractIdRef.current === contract_id) {
+                            pollContractStatus(contract_id, attempt + 1);
+                        }
+                    });
+            }, 1500);
+        },
+        [handleContractUpdate]
+    );
 
     const placeRealTrade = useCallback(() => {
         const p = paramsRef.current;
@@ -178,10 +289,10 @@ export const useSpeedTrader = (currency: string) => {
                         pendingRef.current = false;
                         awaitingResultRef.current = true;
 
-                        // Actively subscribe to this contract so Deriv pushes us
-                        // the real settlement (is_sold=1) instead of us guessing
-                        // the outcome from the tick stream ourselves.
                         if (buy.contract_id) {
+                            // Actively subscribe to this contract so Deriv pushes us
+                            // the real settlement (is_sold=1) instead of us guessing
+                            // the outcome from the tick stream ourselves.
                             api_base.api
                                 .send({
                                     proposal_open_contract: 1,
@@ -189,9 +300,15 @@ export const useSpeedTrader = (currency: string) => {
                                     subscribe: 1,
                                 })
                                 .catch(() => {
-                                    // Subscription failed to establish — fallback
-                                    // settlement in handleTick will still catch it.
+                                    // Subscription failed to establish — the poller
+                                    // below is the safety net, not tick-guessing.
                                 });
+
+                            // Safety net: in case the push subscription is dropped
+                            // or delayed, actively poll Deriv for this contract's
+                            // real status. This still asks Deriv directly — it
+                            // never infers the result from our own tick reading.
+                            pollContractStatus(buy.contract_id);
                         }
                     })
                     .catch((e: any) => {
@@ -203,63 +320,7 @@ export const useSpeedTrader = (currency: string) => {
                 resetToVirtual();
                 pushLog(`Trade failed: ${e?.message || e?.error?.message || 'network error'}`, 'error');
             });
-    }, [pushLog]);
-
-    const settleRealTradeFromResult = useCallback(
-        (result: { won: boolean; payout: number }) => {
-            const p = paramsRef.current;
-            if (!p) return;
-
-            const won = result.won;
-            const pnl_change = won ? result.payout - buyPriceRef.current : -buyPriceRef.current;
-            totalPnlRef.current += pnl_change;
-
-            pushLog(
-                `${won ? '🟢 WIN' : '🔴 LOSS'} | Payout $${result.payout.toFixed(2)} | PnL $${pnl_change.toFixed(2)} | Total $${totalPnlRef.current.toFixed(2)}`,
-                won ? 'win' : 'loss'
-            );
-
-            awaitingResultRef.current = false;
-            buyPriceRef.current = 0;
-            payoutRef.current = 0;
-
-            if (won) {
-                modeRef.current = 'virtual';
-                virtualLossCountRef.current = 0;
-                virtualLossTargetRef.current = randomTarget();
-                currentStakeRef.current = p.initial_stake;
-                martingaleStepRef.current = 0;
-            } else {
-                let newStake = currentStakeRef.current * p.martingale_mult;
-                
-                if (martingaleStepRef.current >= p.max_martingale_steps) {
-                    martingaleStepRef.current = 0;
-                    currentStakeRef.current = p.initial_stake;
-                } else {
-                    martingaleStepRef.current += 1;
-                    currentStakeRef.current = Number(newStake.toFixed(2));
-                }
-                
-                modeRef.current = 'real';
-            }
-
-            setState(prev => ({ ...prev, total_pnl: totalPnlRef.current, current_stake: currentStakeRef.current }));
-
-            if (totalPnlRef.current <= -p.stop_loss) {
-                isArmedRef.current = false;
-                pushLog(`Stop loss hit at $${totalPnlRef.current.toFixed(2)}. Stopped.`, 'error');
-                setState(prev => ({ ...prev, is_armed: false, stop_reason: 'stop_loss' }));
-                return;
-            }
-            if (totalPnlRef.current >= p.take_profit) {
-                isArmedRef.current = false;
-                pushLog(`Take profit hit at $${totalPnlRef.current.toFixed(2)}. Stopped.`, 'error');
-                setState(prev => ({ ...prev, is_armed: false, stop_reason: 'take_profit' }));
-                return;
-            }
-        },
-        [pushLog]
-    );
+    }, [pushLog, pollContractStatus]);
 
     const handleVirtualTick = useCallback((digit: number) => {
         const won = winsSide(digit, sideRef.current);
@@ -277,17 +338,14 @@ export const useSpeedTrader = (currency: string) => {
 
             const digit = extractLastDigit(quote, pip_size);
 
-            // Fallback: if awaiting result but contract settlement hasn't arrived yet,
-            // settle based on digit comparison instead of waiting indefinitely
-            if (awaitingResultRef.current) {
-                const won = winsSide(digit, sideRef.current);
-                settleRealTradeFromResult({
-                    won: won,
-                    payout: won ? payoutRef.current : 0
-                });
-                return;
-            }
-            
+            // We no longer guess the outcome from the tick stream — that was
+            // causing false WIN reports that didn't match the real account
+            // balance (an off-by-one on which tick actually settles the
+            // contract). While awaiting a result, do nothing here; the
+            // proposal_open_contract subscription (or the poller below) is
+            // the only thing allowed to settle a real trade now.
+            if (awaitingResultRef.current) return;
+
             if (pendingRef.current) return; // mid-flight on the buy confirmation, do nothing this tick
 
             if (modeRef.current === 'real') {
@@ -301,7 +359,7 @@ export const useSpeedTrader = (currency: string) => {
                 placeRealTrade();
             }
         },
-        [handleVirtualTick, placeRealTrade, settleRealTradeFromResult]
+        [handleVirtualTick, placeRealTrade]
     );
 
     const cleanupSubscriptions = useCallback(() => {
@@ -310,6 +368,10 @@ export const useSpeedTrader = (currency: string) => {
         if (tickSubscriptionIdRef.current) {
             api_base.api.send({ forget: tickSubscriptionIdRef.current }).catch(() => {});
             tickSubscriptionIdRef.current = null;
+        }
+        if (pollTimerRef.current) {
+            clearTimeout(pollTimerRef.current);
+            pollTimerRef.current = null;
         }
     }, []);
 
@@ -348,21 +410,7 @@ export const useSpeedTrader = (currency: string) => {
                 // Real Deriv settlement: proposal_open_contract pushes updates
                 // for the subscribed contract; is_sold=1 means it has settled.
                 if (data?.msg_type === 'proposal_open_contract') {
-                    const poc = data.proposal_open_contract;
-                    if (poc && contractIdRef.current && String(poc.contract_id) === String(contractIdRef.current) && poc.is_sold) {
-                        if (awaitingResultRef.current) {
-                            const won = poc.status === 'won' || Number(poc.profit) > 0;
-                            const payout = typeof poc.payout === 'number' ? poc.payout : payoutRef.current;
-                            settleRealTradeFromResult({ won, payout });
-                        }
-                        // Always clean up the subscription for this contract,
-                        // whether we used this update to settle or the fallback
-                        // (tick-based) settlement already handled it first.
-                        if (poc.subscription?.id) {
-                            api_base.api.send({ forget: poc.subscription.id }).catch(() => {});
-                        }
-                        contractIdRef.current = null;
-                    }
+                    handleContractUpdate(data.proposal_open_contract);
                     return;
                 }
                 
@@ -392,7 +440,7 @@ export const useSpeedTrader = (currency: string) => {
             pushLog('Ready — scanning for trades…', 'info');
             setState(prev => ({ ...prev, is_loading: false }));
         },
-        [handleTick, pushLog, cleanupSubscriptions]
+        [handleTick, pushLog, cleanupSubscriptions, handleContractUpdate]
     );
 
     const stop = useCallback(() => {
