@@ -19,8 +19,11 @@ const FALLBACK_SYMBOLS: TSymbolOption[] = [
     { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index' },
     { symbol: '1HZ90V', display_name: 'Volatility 90 (1s) Index' },
     { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index' },
-    { symbol: 'RDBEAR', display_name: 'Bear Market Index' },
-    { symbol: 'RDBULL', display_name: 'Bull Market Index' },
+    { symbol: 'JD10', display_name: 'Jump 10 Index' },
+    { symbol: 'JD25', display_name: 'Jump 25 Index' },
+    { symbol: 'JD50', display_name: 'Jump 50 Index' },
+    { symbol: 'JD75', display_name: 'Jump 75 Index' },
+    { symbol: 'JD100', display_name: 'Jump 100 Index' },
 ];
 
 // These must always be present in the dropdown, even if the live
@@ -37,6 +40,11 @@ const withMustInclude = (list: TSymbolOption[]): TSymbolOption[] => {
     return [...list, ...missing];
 };
 
+// Only these two submarkets: Volatility (Continuous) Indices and Jump
+// Indices. Everything else — Crash/Boom, Step, Range Break, Drift Switch,
+// Bear/Bull daily reset — is excluded per product scope.
+const ALLOWED_SUBMARKETS = new Set(['random_index', 'jump_index']);
+
 export const useSyntheticSymbols = (): TSymbolOption[] => {
     const [symbols, setSymbols] = useState<TSymbolOption[]>(withMustInclude(FALLBACK_SYMBOLS));
 
@@ -46,7 +54,7 @@ export const useSyntheticSymbols = (): TSymbolOption[] => {
             const list = api_base?.active_symbols;
             if (Array.isArray(list) && list.length) {
                 const synthetic = list
-                    .filter((s: any) => s.market === 'synthetic_index')
+                    .filter((s: any) => s.market === 'synthetic_index' && ALLOWED_SUBMARKETS.has(s.submarket))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name || s.symbol }));
                 if (synthetic.length) {
                     setSymbols(withMustInclude(synthetic));
@@ -230,6 +238,7 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
     const pipSizeRef = useRef<number>(2);
     const subscriptionIdRef = useRef<string | null>(null);
     const overUnderDigitRef = useRef<number>(over_under_digit);
+    const lastTickAtRef = useRef<number>(0);
 
     useEffect(() => {
         overUnderDigitRef.current = over_under_digit;
@@ -238,6 +247,41 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
     useEffect(() => {
         let is_cancelled = false;
         let message_subscription: { unsubscribe: () => void } | null = null;
+        let watchdog: ReturnType<typeof setInterval> | null = null;
+
+        const subscribeToTicks = async () => {
+            // Clear out any subscription this hook previously held for this
+            // symbol before asking for a fresh one — avoids relying on a
+            // possibly-orphaned "AlreadySubscribed" state where the original
+            // holder of that subscription is gone and no ticks actually flow.
+            if (subscriptionIdRef.current) {
+                await api_base.api.send({ forget: subscriptionIdRef.current }).catch(() => {});
+                subscriptionIdRef.current = null;
+            }
+            try {
+                const sub_res = await api_base.api.send({ ticks: symbol, subscribe: 1 });
+                if (sub_res?.error) throw sub_res.error;
+                if (sub_res?.subscription?.id) subscriptionIdRef.current = sub_res.subscription.id;
+                lastTickAtRef.current = Date.now();
+                return true;
+            } catch (sub_error: any) {
+                if (sub_error?.error?.code === 'AlreadySubscribed' || sub_error?.code === 'AlreadySubscribed') {
+                    // Someone else still holds a subscription for this symbol.
+                    // Force a clean slate for ticks specifically, then retry
+                    // once, rather than hoping stale ticks resume.
+                    await api_base.api.send({ forget_all: 'ticks' }).catch(() => {});
+                    try {
+                        const retry_res = await api_base.api.send({ ticks: symbol, subscribe: 1 });
+                        if (retry_res?.subscription?.id) subscriptionIdRef.current = retry_res.subscription.id;
+                        lastTickAtRef.current = Date.now();
+                        return true;
+                    } catch {
+                        return false;
+                    }
+                }
+                return false;
+            }
+        };
 
         const start = async () => {
             setStats(prev => ({ ...prev, is_loading: true }));
@@ -264,21 +308,26 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                 message_subscription = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === symbol) {
                         if (data.tick.id) subscriptionIdRef.current = data.tick.id;
+                        lastTickAtRef.current = Date.now();
                         quotesRef.current = [...quotesRef.current, Number(data.tick.quote)].slice(-tick_count);
                         setStats(computeStats(quotesRef.current, pipSizeRef.current, overUnderDigitRef.current));
                     }
                 });
 
-                try {
-                    const sub_res = await api_base.api.send({ ticks: symbol, subscribe: 1 });
-                    if (sub_res?.subscription?.id) subscriptionIdRef.current = sub_res.subscription.id;
-                } catch (sub_error: any) {
-                    // Another part of the app (e.g. a running bot) may already hold
-                    // a subscription for this symbol. Ticks still arrive on the shared
-                    // onMessage stream in that case, so this isn't fatal — only bail
-                    // out for genuinely unexpected errors.
-                    if (sub_error?.error?.code !== 'AlreadySubscribed') throw sub_error;
-                }
+                await subscribeToTicks();
+
+                // Watchdog: volatility indices tick roughly every 1-2 seconds.
+                // If nothing has arrived for 8s after we believe we're
+                // subscribed, the feed has silently stalled — force a clean
+                // resubscribe rather than sitting frozen while still
+                // displaying "LIVE".
+                watchdog = setInterval(() => {
+                    if (is_cancelled) return;
+                    const silent_for = Date.now() - lastTickAtRef.current;
+                    if (silent_for > 8000) {
+                        subscribeToTicks();
+                    }
+                }, 4000);
             } catch (e) {
                 if (!is_cancelled) setStats(prev => ({ ...prev, is_loading: false }));
             }
@@ -289,6 +338,7 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
         return () => {
             is_cancelled = true;
             message_subscription?.unsubscribe();
+            if (watchdog) clearInterval(watchdog);
             if (subscriptionIdRef.current) {
                 api_base.api.send({ forget: subscriptionIdRef.current }).catch(() => {});
                 subscriptionIdRef.current = null;
