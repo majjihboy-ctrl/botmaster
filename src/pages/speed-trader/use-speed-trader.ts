@@ -174,9 +174,25 @@ export const useSpeedTrader = (currency: string) => {
 
                         buyPriceRef.current = typeof buy.buy_price === 'number' ? buy.buy_price : ask_price;
                         payoutRef.current = real_payout; // verified, not guessed
-                        contractIdRef.current = buy.contract_id ?? null; // may be missing; fallback settlement still works
+                        contractIdRef.current = buy.contract_id ?? null;
                         pendingRef.current = false;
                         awaitingResultRef.current = true;
+
+                        // Actively subscribe to this contract so Deriv pushes us
+                        // the real settlement (is_sold=1) instead of us guessing
+                        // the outcome from the tick stream ourselves.
+                        if (buy.contract_id) {
+                            api_base.api
+                                .send({
+                                    proposal_open_contract: 1,
+                                    contract_id: buy.contract_id,
+                                    subscribe: 1,
+                                })
+                                .catch(() => {
+                                    // Subscription failed to establish — fallback
+                                    // settlement in handleTick will still catch it.
+                                });
+                        }
                     })
                     .catch((e: any) => {
                         resetToVirtual();
@@ -328,17 +344,23 @@ export const useSpeedTrader = (currency: string) => {
 
             messageSubscriptionRef.current = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
                 if (data?.msg_type === 'buy') return; // handled via the .then() on the send() call itself
-                
-                // Wait for contract settlement result from Deriv
-                if (data?.msg_type === 'contract' && awaitingResultRef.current && contractIdRef.current) {
-                    if (data.contract?.contract_id === contractIdRef.current) {
-                        const win = data.contract?.win === 1;
-                        const payout = data.contract?.payout || payoutRef.current;
-                        
-                        settleRealTradeFromResult({
-                            won: win,
-                            payout: payout
-                        });
+
+                // Real Deriv settlement: proposal_open_contract pushes updates
+                // for the subscribed contract; is_sold=1 means it has settled.
+                if (data?.msg_type === 'proposal_open_contract') {
+                    const poc = data.proposal_open_contract;
+                    if (poc && contractIdRef.current && String(poc.contract_id) === String(contractIdRef.current) && poc.is_sold) {
+                        if (awaitingResultRef.current) {
+                            const won = poc.status === 'won' || Number(poc.profit) > 0;
+                            const payout = typeof poc.payout === 'number' ? poc.payout : payoutRef.current;
+                            settleRealTradeFromResult({ won, payout });
+                        }
+                        // Always clean up the subscription for this contract,
+                        // whether we used this update to settle or the fallback
+                        // (tick-based) settlement already handled it first.
+                        if (poc.subscription?.id) {
+                            api_base.api.send({ forget: poc.subscription.id }).catch(() => {});
+                        }
                         contractIdRef.current = null;
                     }
                     return;
