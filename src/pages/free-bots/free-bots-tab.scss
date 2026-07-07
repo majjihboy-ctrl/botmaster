@@ -6,23 +6,31 @@
     height: var(--tab-content-height);
     overflow-y: auto;
     display: flex;
-    gap: 1.6rem;
-    align-items: flex-start;
+    flex-direction: column;
+    gap: 2.4rem;
 
     @include mobile-or-tablet-screen {
         height: var(--tab-content-height-mobile);
-        flex-direction: column;
         padding-bottom: 8rem;
     }
 
-    &__main {
-        flex: 1;
-        min-width: 0;
+    &__section {
+        width: 100%;
     }
 
-    &__grid {
+    &__section-title {
+        font-size: var(--text-size-xs);
+        font-weight: 700;
+        color: var(--text-prominent);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 1.2rem;
+    }
+
+    &__grid,
+    &__premium-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(25rem, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));
         gap: 1.6rem;
     }
 
@@ -216,26 +224,6 @@
     &__empty-text {
         font-size: var(--text-size-xs);
         color: var(--text-less-prominent);
-    }
-
-    &__sidebar {
-        width: 27rem;
-        flex-shrink: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 1.2rem;
-
-        @include mobile-or-tablet-screen {
-            width: 100%;
-        }
-    }
-
-    &__sidebar-title {
-        font-size: var(--text-size-xs);
-        font-weight: 700;
-        color: var(--text-prominent);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
     }
 
     &__premium-card {
