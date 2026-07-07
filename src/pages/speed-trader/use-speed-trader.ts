@@ -34,10 +34,12 @@ export type TSpeedTraderParams = {
     max_martingale_steps: number;
     stop_loss: number;
     take_profit: number;
+    virtual_loss_mode: TVirtualLossMode; // 'random' = 3-5 randomized (default), 'fixed' = always 5
 };
 
 type TSide = 'even' | 'odd';
 type TMode = 'virtual' | 'real';
+type TVirtualLossMode = 'random' | 'fixed';
 
 type TPerSymbolState = {
     side: TSide;
@@ -48,6 +50,7 @@ type TPerSymbolState = {
 
 const VIRTUAL_LOSS_MIN = 3;
 const VIRTUAL_LOSS_MAX = 5;
+const FIXED_VIRTUAL_LOSS_TARGET = 5;
 
 const EMPTY_STATE: TSpeedTraderState = {
     is_armed: false,
@@ -65,16 +68,18 @@ let log_id_counter = 0;
 
 const randomTarget = () => Math.floor(Math.random() * (VIRTUAL_LOSS_MAX - VIRTUAL_LOSS_MIN + 1)) + VIRTUAL_LOSS_MIN;
 
+const getLossTarget = (mode: TVirtualLossMode) => (mode === 'fixed' ? FIXED_VIRTUAL_LOSS_TARGET : randomTarget());
+
 const winsSide = (digit: number, side: TSide) => (side === 'even' ? digit % 2 === 0 : digit % 2 === 1);
 
 // Format the quote with the symbol's pip precision so trailing zeros
 // survive (663.10 -> digit 0, NOT 1). String(663.10) drops the zero.
 const extractLastDigit = (quote: number, pip_size: number) => Number(quote.toFixed(pip_size).slice(-1));
 
-const freshSymbolState = (): TPerSymbolState => ({
+const freshSymbolState = (mode: TVirtualLossMode): TPerSymbolState => ({
     side: 'even',
     virtual_loss_count: 0,
-    virtual_loss_target: randomTarget(),
+    virtual_loss_target: getLossTarget(mode),
     martingale_step: 0,
 });
 
@@ -129,7 +134,7 @@ export const useSpeedTrader = (currency: string) => {
             if (!p || !active_symbol) return;
             if (!awaitingResultRef.current) return; // already settled — never double count
 
-            const symbol_state = perSymbolRef.current.get(active_symbol) ?? freshSymbolState();
+            const symbol_state = perSymbolRef.current.get(active_symbol) ?? freshSymbolState(p.virtual_loss_mode);
             const won = result.won;
             const pnl_change = won ? result.payout - buyPriceRef.current : -buyPriceRef.current;
             totalPnlRef.current += pnl_change;
@@ -153,7 +158,7 @@ export const useSpeedTrader = (currency: string) => {
                 // and resume scanning across the whole set.
                 modeRef.current = 'virtual';
                 currentStakeRef.current = p.initial_stake;
-                watchedSymbolsRef.current.forEach(sym => perSymbolRef.current.set(sym, freshSymbolState()));
+                watchedSymbolsRef.current.forEach(sym => perSymbolRef.current.set(sym, freshSymbolState(p.virtual_loss_mode)));
                 activeSymbolRef.current = null;
                 pushLog(
                     watchedSymbolsRef.current.length > 1
@@ -253,7 +258,7 @@ export const useSpeedTrader = (currency: string) => {
         const active_symbol = activeSymbolRef.current;
         if (!p || !active_symbol) return;
 
-        const symbol_state = perSymbolRef.current.get(active_symbol) ?? freshSymbolState();
+        const symbol_state = perSymbolRef.current.get(active_symbol) ?? freshSymbolState(p.virtual_loss_mode);
         const side = symbol_state.side;
         const stake = currentStakeRef.current;
         pendingRef.current = true;
@@ -264,7 +269,7 @@ export const useSpeedTrader = (currency: string) => {
             pendingRef.current = false;
             awaitingResultRef.current = false;
             modeRef.current = 'virtual';
-            perSymbolRef.current.set(active_symbol, freshSymbolState());
+            perSymbolRef.current.set(active_symbol, freshSymbolState(p.virtual_loss_mode));
             activeSymbolRef.current = null;
             currentStakeRef.current = p.initial_stake;
             publishProgress();
@@ -471,7 +476,7 @@ export const useSpeedTrader = (currency: string) => {
             isArmedRef.current = true;
 
             watchedSymbolsRef.current = symbols;
-            perSymbolRef.current = new Map(symbols.map(sym => [sym, freshSymbolState()]));
+            perSymbolRef.current = new Map(symbols.map(sym => [sym, freshSymbolState(finalParams.virtual_loss_mode)]));
             activeSymbolRef.current = null;
 
             setState({

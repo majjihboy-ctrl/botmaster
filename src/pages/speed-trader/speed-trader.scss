@@ -12,6 +12,31 @@
         padding-bottom: 8rem;
     }
 
+    &__layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+        align-items: start;
+        gap: 1.6rem;
+        width: 100%;
+
+        @include mobile-or-tablet-screen {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    &__col-main,
+    &__col-side {
+        display: flex;
+        flex-direction: column;
+        gap: 1.6rem;
+        min-width: 0;
+    }
+
+    &__col-main &__panel,
+    &__col-side &__panel {
+        margin-bottom: 0;
+    }
+
     &__panel {
         background: var(--general-main-1);
         border: 1px solid var(--border-divider);
