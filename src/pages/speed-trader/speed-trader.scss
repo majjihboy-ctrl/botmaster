@@ -266,4 +266,83 @@
         justify-content: flex-end;
         gap: 1.2rem;
     }
+
+    &__checkbox-field {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        grid-column: 1 / -1;
+
+        input[type='checkbox'] {
+            width: 1.6rem;
+            height: 1.6rem;
+            accent-color: var(--status-info);
+            cursor: pointer;
+        }
+
+        span {
+            font-size: var(--text-size-xs);
+            font-weight: 500;
+            color: var(--text-prominent);
+            cursor: pointer;
+        }
+    }
+
+    &__race-panel {
+        margin-top: 1.6rem;
+    }
+
+    &__race-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+        max-height: 32rem;
+        overflow-y: auto;
+    }
+
+    &__race-row {
+        display: grid;
+        grid-template-columns: 12rem 1fr 6rem;
+        align-items: center;
+        gap: 1.2rem;
+        padding: 0.6rem 0.8rem;
+        border-radius: 6px;
+
+        &.active {
+            background: rgb(59 130 246 / 12%);
+        }
+    }
+
+    &__race-name {
+        font-size: var(--text-size-xxs);
+        color: var(--text-less-prominent);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__race-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--status-disabled);
+        overflow: hidden;
+    }
+
+    &__race-bar-fill {
+        height: 100%;
+        background: var(--status-info);
+        transition: width 0.3s ease;
+    }
+
+    &__race-row.active &__race-bar-fill {
+        background: var(--status-danger);
+    }
+
+    &__race-count {
+        font-size: var(--text-size-xxs);
+        font-weight: 600;
+        color: var(--text-prominent);
+        text-align: right;
+        white-space: nowrap;
+    }
 }

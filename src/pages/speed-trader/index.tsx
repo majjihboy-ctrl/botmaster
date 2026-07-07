@@ -1,7 +1,7 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
-import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import { useStore } from '@/hooks/useStore';
+import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import { localize } from '@deriv-com/translations';
 import { useSpeedTrader } from './use-speed-trader';
 import './speed-trader.scss';
@@ -11,6 +11,7 @@ const SpeedTrader = observer(() => {
     const symbol_options = useSyntheticSymbols();
 
     const [symbol, setSymbol] = React.useState('1HZ100V');
+    const [watch_all_markets, setWatchAllMarkets] = React.useState(false);
     const [initial_stake, setInitialStake] = React.useState(0.35);
     const [martingale_mult, setMartingaleMult] = React.useState(1.5);
     const [stop_loss, setStopLoss] = React.useState(50);
@@ -28,8 +29,16 @@ const SpeedTrader = observer(() => {
 
     const confirmStart = () => {
         setShowConfirm(false);
-        start({ symbol, initial_stake, martingale_mult, stop_loss, take_profit });
+        const symbols = watch_all_markets ? symbol_options.map(s => s.symbol) : [symbol];
+        start({ symbols, initial_stake, martingale_mult, stop_loss, take_profit });
     };
+
+    const displayName = (sym: string) => symbol_options.find(s => s.symbol === sym)?.display_name || sym;
+
+    // Sort so the closest-to-triggering markets float to the top of the race panel.
+    const race_rows = Object.entries(state.virtual_progress).sort(
+        ([, a], [, b]) => b.count / b.target - a.count / a.target
+    );
 
     return (
         <div className='speed-trader'>
@@ -40,7 +49,9 @@ const SpeedTrader = observer(() => {
                         {state.is_armed
                             ? state.is_loading
                                 ? localize('Connecting…')
-                                : localize('LIVE — firing every tick')
+                                : state.active_symbol
+                                  ? localize('LIVE — trading {{symbol}}', { symbol: displayName(state.active_symbol) })
+                                  : localize('SCANNING — {{count}} markets', { count: state.watching.length })
                             : localize('Stopped')}
                     </span>
                 </div>
@@ -51,9 +62,22 @@ const SpeedTrader = observer(() => {
                 </p>
 
                 <div className='speed-trader__controls-grid'>
+                    <label className='speed-trader__checkbox-field'>
+                        <input
+                            type='checkbox'
+                            checked={watch_all_markets}
+                            disabled={state.is_armed}
+                            onChange={e => setWatchAllMarkets(e.target.checked)}
+                        />
+                        <span>{localize('Trade all markets (race mode)')}</span>
+                    </label>
                     <label>
                         <span>{localize('Symbol')}</span>
-                        <select value={symbol} disabled={state.is_armed} onChange={e => setSymbol(e.target.value)}>
+                        <select
+                            value={symbol}
+                            disabled={state.is_armed || watch_all_markets}
+                            onChange={e => setSymbol(e.target.value)}
+                        >
                             {symbol_options.map(s => (
                                 <option key={s.symbol} value={s.symbol}>
                                     {s.display_name}
@@ -132,6 +156,34 @@ const SpeedTrader = observer(() => {
                 </div>
             </div>
 
+            {state.is_armed && race_rows.length > 1 && (
+                <div className='speed-trader__panel speed-trader__race-panel'>
+                    <h2>{localize('Market race')}</h2>
+                    <div className='speed-trader__race-list'>
+                        {race_rows.map(([sym, progress]) => {
+                            const is_active = state.active_symbol === sym;
+                            const pct = Math.min(100, (progress.count / progress.target) * 100);
+                            return (
+                                <div
+                                    key={sym}
+                                    className={`speed-trader__race-row ${is_active ? 'active' : ''}`}
+                                    aria-label={`${displayName(sym)}: ${progress.count} of ${progress.target} virtual losses`}
+                                >
+                                    <span className='speed-trader__race-name'>{displayName(sym)}</span>
+                                    <div className='speed-trader__race-bar'>
+                                        <div className='speed-trader__race-bar-fill' style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <span className='speed-trader__race-count'>
+                                        {progress.count}/{progress.target}
+                                        {is_active ? ` ${localize('LIVE')}` : ''}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             <div className='speed-trader__panel speed-trader__log-panel'>
                 <h2>{localize('Live log')}</h2>
                 <div className='speed-trader__log'>
@@ -158,7 +210,11 @@ const SpeedTrader = observer(() => {
                             )}{' '}
                             ${initial_stake.toFixed(2)}, {localize('martingale')} {martingale_mult}x,{' '}
                             {localize('stop loss')} ${stop_loss}, {localize('take profit')} ${take_profit}{' '}
-                            {localize('on')} {symbol}.
+                            {watch_all_markets
+                                ? localize('across all {{count}} markets — first to hit the loss target trades.', {
+                                      count: symbol_options.length,
+                                  })
+                                : `${localize('on')} ${symbol}.`}
                         </p>
                         <div className='speed-trader__confirm-actions'>
                             <button
