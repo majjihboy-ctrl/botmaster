@@ -8,6 +8,8 @@ export type TSpeedTraderLogEntry = {
     kind: 'info' | 'win' | 'loss' | 'warn' | 'error';
 };
 
+export type TVirtualProgress = { count: number; target: number };
+
 export type TSpeedTraderState = {
     is_armed: boolean;
     is_loading: boolean;
@@ -15,10 +17,18 @@ export type TSpeedTraderState = {
     current_stake: number;
     logs: TSpeedTraderLogEntry[];
     stop_reason: 'stop_loss' | 'take_profit' | 'manual' | null;
+    // Race-mode additions:
+    watching: string[]; // every symbol currently subscribed/scanned
+    active_symbol: string | null; // the market currently mid real-trade cycle, or null while scanning
+    virtual_progress: Record<string, TVirtualProgress>; // per-symbol loss-count race state
 };
 
 export type TSpeedTraderParams = {
-    symbol: string;
+    // One entry = classic single-market mode. Several entries = race mode:
+    // every symbol is scanned virtually at once, and whichever hits its
+    // loss target first takes over as the sole active market until its
+    // real-trade recovery streak resolves in a win.
+    symbols: string[];
     initial_stake: number;
     martingale_mult: number;
     max_martingale_steps: number;
@@ -28,6 +38,13 @@ export type TSpeedTraderParams = {
 
 type TSide = 'even' | 'odd';
 type TMode = 'virtual' | 'real';
+
+type TPerSymbolState = {
+    side: TSide;
+    virtual_loss_count: number;
+    virtual_loss_target: number;
+    martingale_step: number;
+};
 
 const VIRTUAL_LOSS_MIN = 3;
 const VIRTUAL_LOSS_MAX = 5;
@@ -39,6 +56,9 @@ const EMPTY_STATE: TSpeedTraderState = {
     current_stake: 0,
     logs: [],
     stop_reason: null,
+    watching: [],
+    active_symbol: null,
+    virtual_progress: {},
 };
 
 let log_id_counter = 0;
@@ -51,6 +71,13 @@ const winsSide = (digit: number, side: TSide) => (side === 'even' ? digit % 2 ==
 // survive (663.10 -> digit 0, NOT 1). String(663.10) drops the zero.
 const extractLastDigit = (quote: number, pip_size: number) => Number(quote.toFixed(pip_size).slice(-1));
 
+const freshSymbolState = (): TPerSymbolState => ({
+    side: 'even',
+    virtual_loss_count: 0,
+    virtual_loss_target: randomTarget(),
+    martingale_step: 0,
+});
+
 export const useSpeedTrader = (currency: string) => {
     const [state, setState] = useState<TSpeedTraderState>(EMPTY_STATE);
 
@@ -59,12 +86,13 @@ export const useSpeedTrader = (currency: string) => {
     const totalPnlRef = useRef(0);
     const currentStakeRef = useRef(0);
     const isArmedRef = useRef(false);
-
-    const sideRef = useRef<TSide>('even');
     const modeRef = useRef<TMode>('virtual');
-    const virtualLossCountRef = useRef(0);
-    const virtualLossTargetRef = useRef(randomTarget());
-    const martingaleStepRef = useRef(0);
+
+    // Race-mode state.
+    const watchedSymbolsRef = useRef<string[]>([]);
+    const perSymbolRef = useRef<Map<string, TPerSymbolState>>(new Map());
+    const activeSymbolRef = useRef<string | null>(null);
+
     const pendingRef = useRef(false); // buy sent, awaiting confirmation
     const awaitingResultRef = useRef(false); // buy confirmed, awaiting contract settlement
     const contractIdRef = useRef<string | null>(null); // track the contract we're waiting for
@@ -73,7 +101,7 @@ export const useSpeedTrader = (currency: string) => {
     const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
-    const tickSubscriptionIdRef = useRef<string | null>(null);
+    const tickSubscriptionIdsRef = useRef<Map<string, string>>(new Map());
 
     useEffect(() => {
         currencyRef.current = currency;
@@ -85,18 +113,29 @@ export const useSpeedTrader = (currency: string) => {
         setState(prev => ({ ...prev, logs: [...prev.logs.slice(-199), entry] }));
     }, []);
 
+    // Snapshot every watched symbol's current race progress into state for the UI.
+    const publishProgress = useCallback(() => {
+        const progress: Record<string, TVirtualProgress> = {};
+        perSymbolRef.current.forEach((st, sym) => {
+            progress[sym] = { count: st.virtual_loss_count, target: st.virtual_loss_target };
+        });
+        setState(prev => ({ ...prev, virtual_progress: progress, active_symbol: activeSymbolRef.current }));
+    }, []);
+
     const settleRealTradeFromResult = useCallback(
         (result: { won: boolean; payout: number }) => {
             const p = paramsRef.current;
-            if (!p) return;
+            const active_symbol = activeSymbolRef.current;
+            if (!p || !active_symbol) return;
             if (!awaitingResultRef.current) return; // already settled — never double count
 
+            const symbol_state = perSymbolRef.current.get(active_symbol) ?? freshSymbolState();
             const won = result.won;
             const pnl_change = won ? result.payout - buyPriceRef.current : -buyPriceRef.current;
             totalPnlRef.current += pnl_change;
 
             pushLog(
-                `${won ? '🟢 WIN' : '🔴 LOSS'} | Payout $${result.payout.toFixed(2)} | PnL $${pnl_change.toFixed(2)} | Total $${totalPnlRef.current.toFixed(2)}`,
+                `[${active_symbol}] ${won ? '🟢 WIN' : '🔴 LOSS'} | Payout $${result.payout.toFixed(2)} | PnL $${pnl_change.toFixed(2)} | Total $${totalPnlRef.current.toFixed(2)}`,
                 won ? 'win' : 'loss'
             );
 
@@ -110,26 +149,40 @@ export const useSpeedTrader = (currency: string) => {
             payoutRef.current = 0;
 
             if (won) {
+                // Recovery streak resolved. Reset every watched market fresh
+                // and resume scanning across the whole set.
                 modeRef.current = 'virtual';
-                virtualLossCountRef.current = 0;
-                virtualLossTargetRef.current = randomTarget();
                 currentStakeRef.current = p.initial_stake;
-                martingaleStepRef.current = 0;
+                watchedSymbolsRef.current.forEach(sym => perSymbolRef.current.set(sym, freshSymbolState()));
+                activeSymbolRef.current = null;
+                pushLog(
+                    watchedSymbolsRef.current.length > 1
+                        ? `Recovered. Resuming scan across ${watchedSymbolsRef.current.length} markets.`
+                        : 'Recovered. Resuming scan.',
+                    'info'
+                );
             } else {
                 const newStake = currentStakeRef.current * p.martingale_mult;
-
-                if (martingaleStepRef.current >= p.max_martingale_steps) {
-                    martingaleStepRef.current = 0;
+                if (symbol_state.martingale_step >= p.max_martingale_steps) {
+                    symbol_state.martingale_step = 0;
                     currentStakeRef.current = p.initial_stake;
                 } else {
-                    martingaleStepRef.current += 1;
+                    symbol_state.martingale_step += 1;
                     currentStakeRef.current = Number(newStake.toFixed(2));
                 }
-
+                perSymbolRef.current.set(active_symbol, symbol_state);
                 modeRef.current = 'real';
+                // active_symbol stays locked in — martingale continues on
+                // this same market until it wins, stop-loss, or take-profit.
             }
 
-            setState(prev => ({ ...prev, total_pnl: totalPnlRef.current, current_stake: currentStakeRef.current }));
+            setState(prev => ({
+                ...prev,
+                total_pnl: totalPnlRef.current,
+                current_stake: currentStakeRef.current,
+                active_symbol: activeSymbolRef.current,
+            }));
+            publishProgress();
 
             if (totalPnlRef.current <= -p.stop_loss) {
                 isArmedRef.current = false;
@@ -144,7 +197,7 @@ export const useSpeedTrader = (currency: string) => {
                 return;
             }
         },
-        [pushLog]
+        [pushLog, publishProgress]
     );
 
     // Shared by both the push subscription and the poller below — the ONLY
@@ -197,20 +250,24 @@ export const useSpeedTrader = (currency: string) => {
 
     const placeRealTrade = useCallback(() => {
         const p = paramsRef.current;
-        if (!p) return;
+        const active_symbol = activeSymbolRef.current;
+        if (!p || !active_symbol) return;
 
-        const side = sideRef.current;
+        const symbol_state = perSymbolRef.current.get(active_symbol) ?? freshSymbolState();
+        const side = symbol_state.side;
         const stake = currentStakeRef.current;
         pendingRef.current = true;
 
-        pushLog(`Trading ${side.toUpperCase()} — waiting for result…`, 'info');
+        pushLog(`[${active_symbol}] Trading ${side.toUpperCase()} — waiting for result…`, 'info');
 
         const resetToVirtual = () => {
             pendingRef.current = false;
             awaitingResultRef.current = false;
             modeRef.current = 'virtual';
-            virtualLossCountRef.current = 0;
-            virtualLossTargetRef.current = randomTarget();
+            perSymbolRef.current.set(active_symbol, freshSymbolState());
+            activeSymbolRef.current = null;
+            currentStakeRef.current = p.initial_stake;
+            publishProgress();
         };
 
         // Step 1: proposal — this is the ONLY reliable source of the real
@@ -238,20 +295,20 @@ export const useSpeedTrader = (currency: string) => {
                 currency: currencyRef.current || 'USD',
                 duration: 1,
                 duration_unit: 't',
-                underlying_symbol: p.symbol,
+                underlying_symbol: active_symbol,
             })
             .then((prop_res: any) => {
                 if (prop_res?.error) {
                     resetToVirtual();
                     const err = prop_res.error;
-                    pushLog(`Proposal rejected: [${err.code || '?'}] ${err.message || 'unknown'}`, 'error');
+                    pushLog(`[${active_symbol}] Proposal rejected: [${err.code || '?'}] ${err.message || 'unknown'}`, 'error');
                     return;
                 }
                 const proposal = prop_res?.proposal;
                 if (!proposal || !proposal.id) {
                     resetToVirtual();
                     const keys = prop_res ? Object.keys(prop_res).join(',') : 'null response';
-                    pushLog(`Trade setup failed - unexpected response [${keys}]`, 'error');
+                    pushLog(`[${active_symbol}] Trade setup failed - unexpected response [${keys}]`, 'error');
                     return;
                 }
 
@@ -270,7 +327,7 @@ export const useSpeedTrader = (currency: string) => {
                         if (buy_res?.error) {
                             resetToVirtual();
                             const err = buy_res.error;
-                            pushLog(`Trade rejected: [${err.code || '?'}] ${err.message || 'unknown'}`, 'error');
+                            pushLog(`[${active_symbol}] Trade rejected: [${err.code || '?'}] ${err.message || 'unknown'}`, 'error');
                             return;
                         }
                         const buy = buy_res?.buy;
@@ -279,7 +336,7 @@ export const useSpeedTrader = (currency: string) => {
                         if (!buy) {
                             resetToVirtual();
                             const keys = buy_res ? Object.keys(buy_res).join(',') : 'null response';
-                            pushLog(`Buy failed - unexpected response [${keys}]`, 'error');
+                            pushLog(`[${active_symbol}] Buy failed - unexpected response [${keys}]`, 'error');
                             return;
                         }
 
@@ -313,51 +370,72 @@ export const useSpeedTrader = (currency: string) => {
                     })
                     .catch((e: any) => {
                         resetToVirtual();
-                        pushLog(`Trade failed: ${e?.message || e?.error?.message || 'network error'}`, 'error');
+                        pushLog(`[${active_symbol}] Trade failed: ${e?.message || e?.error?.message || 'network error'}`, 'error');
                     });
             })
             .catch((e: any) => {
                 resetToVirtual();
-                pushLog(`Trade failed: ${e?.message || e?.error?.message || 'network error'}`, 'error');
+                pushLog(`[${active_symbol}] Trade failed: ${e?.message || e?.error?.message || 'network error'}`, 'error');
             });
-    }, [pushLog, pollContractStatus]);
+    }, [pushLog, pollContractStatus, publishProgress]);
 
-    const handleVirtualTick = useCallback((digit: number) => {
-        const won = winsSide(digit, sideRef.current);
-        if (won) {
-            virtualLossCountRef.current = 0;
-            return false;
-        }
-        virtualLossCountRef.current += 1;
-        return virtualLossCountRef.current >= virtualLossTargetRef.current;
-    }, []);
+    const handleVirtualTick = useCallback(
+        (symbol: string, digit: number) => {
+            const st = perSymbolRef.current.get(symbol);
+            if (!st) return;
+
+            const won = winsSide(digit, st.side);
+            if (won) {
+                if (st.virtual_loss_count !== 0) {
+                    st.virtual_loss_count = 0;
+                    publishProgress();
+                }
+                return;
+            }
+            st.virtual_loss_count += 1;
+
+            if (st.virtual_loss_count >= st.virtual_loss_target) {
+                // This market wins the race — lock it in and go real.
+                activeSymbolRef.current = symbol;
+                modeRef.current = 'real';
+                pushLog(`[${symbol}] Hit ${st.virtual_loss_count} virtual losses — going real.`, 'warn');
+                publishProgress();
+                placeRealTrade();
+            } else {
+                publishProgress();
+            }
+        },
+        [publishProgress, pushLog, placeRealTrade]
+    );
 
     const handleTick = useCallback(
-        (quote: number, pip_size: number) => {
+        (symbol: string, quote: number, pip_size: number) => {
             if (!isArmedRef.current) return;
 
             const digit = extractLastDigit(quote, pip_size);
+            const active_symbol = activeSymbolRef.current;
 
-            // We no longer guess the outcome from the tick stream — that was
-            // causing false WIN reports that didn't match the real account
-            // balance (an off-by-one on which tick actually settles the
-            // contract). While awaiting a result, do nothing here; the
-            // proposal_open_contract subscription (or the poller below) is
-            // the only thing allowed to settle a real trade now.
-            if (awaitingResultRef.current) return;
+            if (active_symbol !== null) {
+                // Locked onto one market's real-trade cycle — every other
+                // watched market's ticks are ignored until this resolves.
+                if (symbol !== active_symbol) return;
 
-            if (pendingRef.current) return; // mid-flight on the buy confirmation, do nothing this tick
+                // We no longer guess the outcome from the tick stream — that was
+                // causing false WIN reports that didn't match the real account
+                // balance. While awaiting a result, do nothing here; the
+                // proposal_open_contract subscription (or the poller above) is
+                // the only thing allowed to settle a real trade now.
+                if (awaitingResultRef.current) return;
+                if (pendingRef.current) return; // mid-flight on the buy confirmation
 
-            if (modeRef.current === 'real') {
-                placeRealTrade();
+                if (modeRef.current === 'real') {
+                    placeRealTrade();
+                }
                 return;
             }
 
-            const should_go_real = handleVirtualTick(digit);
-            if (should_go_real) {
-                modeRef.current = 'real';
-                placeRealTrade();
-            }
+            // Scanning mode: every watched symbol counts virtual losses independently.
+            handleVirtualTick(symbol, digit);
         },
         [handleVirtualTick, placeRealTrade]
     );
@@ -365,10 +443,10 @@ export const useSpeedTrader = (currency: string) => {
     const cleanupSubscriptions = useCallback(() => {
         messageSubscriptionRef.current?.unsubscribe();
         messageSubscriptionRef.current = null;
-        if (tickSubscriptionIdRef.current) {
-            api_base.api.send({ forget: tickSubscriptionIdRef.current }).catch(() => {});
-            tickSubscriptionIdRef.current = null;
-        }
+        tickSubscriptionIdsRef.current.forEach(id => {
+            api_base.api.send({ forget: id }).catch(() => {});
+        });
+        tickSubscriptionIdsRef.current.clear();
         if (pollTimerRef.current) {
             clearTimeout(pollTimerRef.current);
             pollTimerRef.current = null;
@@ -377,21 +455,24 @@ export const useSpeedTrader = (currency: string) => {
 
     const start = useCallback(
         async (params: TSpeedTraderParams) => {
-            // Clean up any existing subscription from a previous run first
+            // Clean up any existing subscriptions from a previous run first.
             cleanupSubscriptions();
+
+            const symbols = Array.from(new Set(params.symbols)).filter(Boolean);
+            if (!symbols.length) return;
 
             const finalParams = { ...params, max_martingale_steps: params.max_martingale_steps ?? 5 };
             paramsRef.current = finalParams;
             currentStakeRef.current = params.initial_stake;
             totalPnlRef.current = 0;
-            sideRef.current = 'even';
             modeRef.current = 'virtual';
-            virtualLossCountRef.current = 0;
-            virtualLossTargetRef.current = randomTarget();
-            martingaleStepRef.current = 0;
             pendingRef.current = false;
             awaitingResultRef.current = false;
             isArmedRef.current = true;
+
+            watchedSymbolsRef.current = symbols;
+            perSymbolRef.current = new Map(symbols.map(sym => [sym, freshSymbolState()]));
+            activeSymbolRef.current = null;
 
             setState({
                 is_armed: true,
@@ -400,9 +481,17 @@ export const useSpeedTrader = (currency: string) => {
                 current_stake: params.initial_stake,
                 logs: [],
                 stop_reason: null,
+                watching: symbols,
+                active_symbol: null,
+                virtual_progress: Object.fromEntries(
+                    symbols.map(sym => [sym, { count: 0, target: perSymbolRef.current.get(sym)!.virtual_loss_target }])
+                ),
             });
 
-            pushLog(`Scanning the market on ${params.symbol}…`, 'info');
+            pushLog(
+                symbols.length > 1 ? `Scanning ${symbols.length} markets…` : `Scanning the market on ${symbols[0]}…`,
+                'info'
+            );
 
             messageSubscriptionRef.current = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
                 if (data?.msg_type === 'buy') return; // handled via the .then() on the send() call itself
@@ -413,31 +502,53 @@ export const useSpeedTrader = (currency: string) => {
                     handleContractUpdate(data.proposal_open_contract);
                     return;
                 }
-                
-                if (data?.msg_type === 'tick' && data?.tick?.symbol === params.symbol) {
-                    if (data.tick.id) tickSubscriptionIdRef.current = data.tick.id;
-                    handleTick(Number(data.tick.quote), Number(data.tick.pip_size ?? 2));
+
+                if (data?.msg_type === 'tick' && data?.tick?.symbol && watchedSymbolsRef.current.includes(data.tick.symbol)) {
+                    if (data.tick.id) tickSubscriptionIdsRef.current.set(data.tick.symbol, data.tick.id);
+                    handleTick(data.tick.symbol, Number(data.tick.quote), Number(data.tick.pip_size ?? 2));
                 }
             });
 
-            let sub_res: any = null;
-            try {
-                sub_res = await api_base.api.send({ ticks: params.symbol, subscribe: 1 });
-            } catch (e: any) {
-                isArmedRef.current = false;
-                pushLog(`Connection failed`, 'error');
-                setState(prev => ({ ...prev, is_armed: false, is_loading: false }));
-                return;
-            }
-            if (sub_res?.error) {
-                isArmedRef.current = false;
-                pushLog(`Connection failed`, 'error');
-                setState(prev => ({ ...prev, is_armed: false, is_loading: false }));
-                return;
-            }
-            if (sub_res?.subscription?.id) tickSubscriptionIdRef.current = sub_res.subscription.id;
+            // Subscribe to every watched symbol. One rejected/duplicate
+            // subscription (e.g. AlreadySubscribed from a running bot)
+            // shouldn't take down the whole race — ticks for that symbol
+            // still arrive on the shared onMessage stream in that case.
+            const results = await Promise.all(
+                symbols.map(async sym => {
+                    try {
+                        const sub_res = await api_base.api.send({ ticks: sym, subscribe: 1 });
+                        if (sub_res?.subscription?.id) tickSubscriptionIdsRef.current.set(sym, sub_res.subscription.id);
+                        return { sym, ok: true, error: null as any };
+                    } catch (e: any) {
+                        if (e?.error?.code === 'AlreadySubscribed') return { sym, ok: true, error: null as any };
+                        return { sym, ok: false, error: e };
+                    }
+                })
+            );
 
-            pushLog('Ready — scanning for trades…', 'info');
+            const failed = results.filter(r => !r.ok);
+            if (failed.length) {
+                failed.forEach(f => pushLog(`[${f.sym}] Connection failed`, 'error'));
+                // Drop failed symbols from the watch list rather than aborting
+                // the whole run — the remaining markets still race normally.
+                watchedSymbolsRef.current = watchedSymbolsRef.current.filter(sym => !failed.some(f => f.sym === sym));
+                failed.forEach(f => perSymbolRef.current.delete(f.sym));
+                setState(prev => ({ ...prev, watching: watchedSymbolsRef.current }));
+            }
+
+            if (!watchedSymbolsRef.current.length) {
+                isArmedRef.current = false;
+                pushLog('All connections failed. Stopped.', 'error');
+                setState(prev => ({ ...prev, is_armed: false, is_loading: false }));
+                return;
+            }
+
+            pushLog(
+                watchedSymbolsRef.current.length > 1
+                    ? `Ready — scanning ${watchedSymbolsRef.current.length} markets for the first to hit its loss target…`
+                    : 'Ready — scanning for trades…',
+                'info'
+            );
             setState(prev => ({ ...prev, is_loading: false }));
         },
         [handleTick, pushLog, cleanupSubscriptions, handleContractUpdate]
