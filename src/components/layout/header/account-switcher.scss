@@ -126,34 +126,44 @@
         flex-direction: column;
         justify-content: center;
         margin-inline-start: 1rem;
+
+        &--flat {
+            flex-direction: row;
+            align-items: center;
+        }
     }
 
-    &__account-type-header {
+    &__icon {
         display: flex;
         align-items: center;
-        gap: 0.4rem;
-        margin-bottom: 0.2rem;
-    }
+        justify-content: center;
+        width: 2.4rem;
+        height: 2.4rem;
+        flex-shrink: 0;
 
-    &__account-type {
-        line-height: 1;
-        margin: 0;
-        font-size: var(--text-size-xxs);
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        color: #fff;
-        background: $color-green-4;
-        padding: 0.2rem 0.7rem;
-        border-radius: 10px;
-        display: inline-flex;
-        align-items: center;
-    }
-
-    &--is-virtual {
-        .acc-info__account-type {
-            background: $color-yellow;
+        svg {
+            width: 100%;
+            height: 100%;
         }
+    }
+
+    &__balance-amount {
+        font-size: var(--text-size-xs);
+        font-weight: 700;
+        color: var(--text-prominent);
+        white-space: nowrap;
+
+        &--no-currency {
+            font-weight: 500;
+            font-size: var(--text-size-xxs);
+            color: var(--text-less-prominent);
+        }
+    }
+
+    &__balance-currency {
+        font-size: var(--text-size-xxs);
+        font-weight: 500;
+        color: var(--text-less-prominent);
     }
 
     &__balance-section {
@@ -742,7 +752,9 @@
 
     &__account {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
+        align-items: center;
+        gap: 1rem;
         padding: .8rem 1.6rem;
         cursor: pointer;
         background: var(--general-main-2);
@@ -759,6 +771,26 @@
             background: var(--state-active);
             cursor: default;
         }
+    }
+
+    &__account-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.4rem;
+        height: 2.4rem;
+        flex-shrink: 0;
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+    }
+
+    &__account-details {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
     }
 
     &__account-type {

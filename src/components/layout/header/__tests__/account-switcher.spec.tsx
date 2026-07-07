@@ -88,7 +88,7 @@ describe('AccountSwitcher', () => {
 
     it('renders active account type and balance', () => {
         render(<AccountSwitcher activeAccount={mockActiveAccount} />);
-        expect(screen.getByText('Real account')).toBeInTheDocument();
+        expect(screen.getByTestId('dt_acc_info')).toHaveAttribute('aria-label', expect.stringContaining('Real account'));
         expect(screen.getByTestId('dt_balance')).toHaveTextContent('100.00 USD');
     });
 

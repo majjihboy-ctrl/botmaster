@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
+import { CurrencyIcon } from '@/components/currency/currency-icon';
 import { addComma, getCurrencyDisplayCode, getDecimalPlaces } from '@/components/shared';
 import Text from '@/components/shared_ui/text';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
@@ -67,8 +68,9 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
 
     if (!activeAccount) return null;
 
-    const { currency, isVirtual, balance } = activeAccount;
+    const { currency, isVirtual, balance, icon } = activeAccount;
     const showChevron = !isSingleAccount && !is_bot_running;
+    const accountTypeLabel = isVirtual ? 'Demo account' : 'Real account';
 
     return (
         <div className='acc-info__wrapper' ref={wrapperRef}>
@@ -80,6 +82,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                     tabIndex={showChevron ? 0 : -1}
                     aria-expanded={showChevron ? isOpen : undefined}
                     aria-haspopup={showChevron ? 'listbox' : undefined}
+                    aria-label={`${accountTypeLabel}${currency ? `, ${balance} ${getCurrencyDisplayCode(currency)}` : ''}`}
                     className={classNames('acc-info', {
                         'acc-info--is-virtual': isVirtual,
                         'acc-info--interactive': showChevron,
@@ -93,50 +96,44 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                     }}
                 >
                     <span className='acc-info__id' aria-hidden='true'></span>
-                    <div className='acc-info__content'>
-                        <div className='acc-info__account-type-header'>
-                            <Text as='p' size='xs' className='acc-info__account-type'>
-                                {isVirtual ? (
-                                    <Localize i18n_default_text='Demo' />
-                                ) : (
-                                    <Localize i18n_default_text='Real' />
-                                )}
-                            </Text>
-                            {showChevron && (
-                                <span
-                                    className={classNames('acc-info__select-arrow', {
-                                        'acc-info__select-arrow--invert': isOpen,
-                                    })}
-                                >
-                                    <svg width='12' height='12' viewBox='0 0 12 12' fill='none'>
-                                        <path
-                                            d='M2 4L6 8L10 4'
-                                            stroke='currentColor'
-                                            strokeWidth='1.5'
-                                            strokeLinecap='round'
-                                            strokeLinejoin='round'
-                                        />
-                                    </svg>
-                                </span>
-                            )}
-                        </div>
+                    <div className='acc-info__icon' aria-hidden='true'>
+                        {icon}
+                    </div>
+                    <div className='acc-info__content acc-info__content--flat'>
                         {(typeof balance !== 'undefined' || !currency) && (
-                            <div className='acc-info__balance-section'>
-                                <p
-                                    data-testid='dt_balance'
-                                    className={classNames('acc-info__balance', {
-                                        'acc-info__balance--no-currency': !currency && !isVirtual,
-                                    })}
-                                >
-                                    {!currency ? (
+                            <div className='acc-info__balance-section' data-testid='dt_balance'>
+                                {!currency ? (
+                                    <span className='acc-info__balance-amount acc-info__balance-amount--no-currency'>
                                         <Localize i18n_default_text='No currency assigned' />
-                                    ) : (
-                                        `${balance} ${getCurrencyDisplayCode(currency)}`
-                                    )}
-                                </p>
+                                    </span>
+                                ) : (
+                                    <>
+                                        <span className='acc-info__balance-amount'>{balance}</span>{' '}
+                                        <span className='acc-info__balance-currency'>
+                                            {getCurrencyDisplayCode(currency)}
+                                        </span>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>
+                    {showChevron && (
+                        <span
+                            className={classNames('acc-info__select-arrow', {
+                                'acc-info__select-arrow--invert': isOpen,
+                            })}
+                        >
+                            <svg width='12' height='12' viewBox='0 0 12 12' fill='none'>
+                                <path
+                                    d='M2 4L6 8L10 4'
+                                    stroke='currentColor'
+                                    strokeWidth='1.5'
+                                    strokeLinecap='round'
+                                    strokeLinejoin='round'
+                                />
+                            </svg>
+                        </span>
+                    )}
                 </div>
             </AccountInfoWrapper>
             {isOpen && (
@@ -159,25 +156,30 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                 }
                             }}
                         >
-                            <Text
-                                size='xxxs'
-                                className={classNames('acc-dropdown__account-type', {
-                                    'acc-dropdown__account-type--virtual': account.isVirtual,
-                                })}
-                            >
-                                {account.isVirtual ? (
-                                    <Localize i18n_default_text='Demo account' />
-                                ) : (
-                                    <Localize i18n_default_text='Real account' />
-                                )}
-                            </Text>
-                            <Text size='xs' weight='bold' className='acc-dropdown__balance'>
-                                {account.currency ? (
-                                    `${account.balance} ${getCurrencyDisplayCode(account.currency)}`
-                                ) : (
-                                    <Localize i18n_default_text='No currency assigned' />
-                                )}
-                            </Text>
+                            <div className='acc-dropdown__account-icon' aria-hidden='true'>
+                                <CurrencyIcon currency={account.currency?.toLowerCase()} isVirtual={account.isVirtual} />
+                            </div>
+                            <div className='acc-dropdown__account-details'>
+                                <Text
+                                    size='xxxs'
+                                    className={classNames('acc-dropdown__account-type', {
+                                        'acc-dropdown__account-type--virtual': account.isVirtual,
+                                    })}
+                                >
+                                    {account.isVirtual ? (
+                                        <Localize i18n_default_text='Demo account' />
+                                    ) : (
+                                        <Localize i18n_default_text='Real account' />
+                                    )}
+                                </Text>
+                                <Text size='xs' weight='bold' className='acc-dropdown__balance'>
+                                    {account.currency ? (
+                                        `${account.balance} ${getCurrencyDisplayCode(account.currency)}`
+                                    ) : (
+                                        <Localize i18n_default_text='No currency assigned' />
+                                    )}
+                                </Text>
+                            </div>
                         </div>
                     ))}
                 </div>
