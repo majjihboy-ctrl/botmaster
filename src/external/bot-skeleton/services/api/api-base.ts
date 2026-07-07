@@ -117,10 +117,10 @@ class APIBase {
         // Check if we have an account_id from URL or localStorage
         let activeAccountId: string | null = getAccountId();
 
-        // If no account_id in localStorage, check sessionStorage for accounts
+        // If no account_id in localStorage, check the stored accounts list
         if (!activeAccountId) {
             try {
-                const storedAccounts = sessionStorage.getItem('deriv_accounts');
+                const storedAccounts = localStorage.getItem('deriv_accounts');
                 if (storedAccounts) {
                     const accounts = JSON.parse(storedAccounts);
                     if (accounts && accounts.length > 0 && accounts[0].account_id) {

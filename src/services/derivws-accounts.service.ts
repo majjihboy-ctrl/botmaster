@@ -69,20 +69,24 @@ export class DerivWSAccountsService {
     }
 
     /**
-     * Stores accounts list in sessionStorage
+     * Stores accounts list in localStorage (survives new tabs and browser
+     * restarts, unlike sessionStorage — the full multi-account list is
+     * only ever fetched once, right after the OAuth callback, so it must
+     * persist beyond a single tab/session for account switching to work
+     * on subsequent visits).
      * @param accounts Array of DerivAccount objects
      */
     static storeAccounts(accounts: DerivAccount[]): void {
-        sessionStorage.setItem('deriv_accounts', JSON.stringify(accounts));
+        localStorage.setItem('deriv_accounts', JSON.stringify(accounts));
     }
 
     /**
-     * Retrieves accounts list from sessionStorage
+     * Retrieves accounts list from localStorage
      * @returns Array of DerivAccount objects or null if not found
      */
     static getStoredAccounts(): DerivAccount[] | null {
         try {
-            const accountsStr = sessionStorage.getItem('deriv_accounts');
+            const accountsStr = localStorage.getItem('deriv_accounts');
             if (!accountsStr) {
                 return null;
             }
@@ -106,10 +110,10 @@ export class DerivWSAccountsService {
     }
 
     /**
-     * Clears stored accounts from sessionStorage
+     * Clears stored accounts from localStorage
      */
     static clearStoredAccounts(): void {
-        sessionStorage.removeItem('deriv_accounts');
+        localStorage.removeItem('deriv_accounts');
     }
 
     /**
