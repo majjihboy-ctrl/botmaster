@@ -34,6 +34,7 @@ import {
     LabelPairedChartCandlestickCaptionRegularIcon,
     LabelPairedChartLineCaptionRegularIcon,
     LabelPairedChartTrendUpCaptionRegularIcon,
+    LabelPairedMagnifyingGlassPlusCaptionRegularIcon,
     LabelPairedObjectsColumnCaptionRegularIcon,
     LabelPairedPlaybackSpeedCaptionRegularIcon,
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
@@ -46,9 +47,10 @@ import AnalysisTool from '../analysis-tool';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
+import FreeBotsTab from '../free-bots/free-bots-tab';
+import RNGAnalyzer from '../rng-analyzer';
 import SpeedTrader from '../speed-trader';
 import UpsDownsTool from '../ups-downs-tool';
-import FreeBotsTab from '../free-bots/free-bots-tab';
 import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
@@ -479,6 +481,21 @@ const AppWrapper = observer(() => {
                                 id='id-speed-trader'
                             >
                                 <SpeedTrader />
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedMagnifyingGlassPlusCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='currentColor'
+                                        />
+                                        <Localize i18n_default_text='RNG Analyzer' />
+                                    </>
+                                }
+                                id='id-rng-analyzer'
+                            >
+                                <RNGAnalyzer />
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
