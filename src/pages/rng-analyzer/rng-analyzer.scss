@@ -132,6 +132,30 @@
     letter-spacing: 0.03em;
 }
 
+.rng__select {
+    background: #030509;
+    border: 1px solid #1e2937;
+    border-radius: 8px;
+    padding: 0.8rem 1.2rem;
+    color: #cdd8e3;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: var(--text-size-xxs);
+
+    &:focus {
+        outline: none;
+        border-color: rgb(34 211 238 / 50%);
+    }
+}
+
+.rng__live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 8px #4ade80;
+    animation: rng-pulse 1.2s ease-in-out infinite;
+}
+
 // --- Shared module building blocks ---
 .rng__module {
     display: flex;

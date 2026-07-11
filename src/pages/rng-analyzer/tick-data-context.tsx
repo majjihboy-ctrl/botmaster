@@ -1,6 +1,10 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-export type TTickSource = 'none' | 'crypto-random' | 'flawed-lcg' | 'pasted';
+export type TTickSource = 'none' | 'crypto-random' | 'flawed-lcg' | 'pasted' | 'live-deriv';
+
+// Caps the buffer so a long-running live session doesn't slowly degrade the
+// chi-square/autocorrelation recompute (both re-run on every new tick).
+const MAX_TICKS = 5000;
 
 type TTickDataContextValue = {
     ticks: number[];
@@ -41,7 +45,10 @@ export const TickDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [source, setSource] = useState<TTickSource>('none');
 
     const addTicks = useCallback((newTicks: number[], src: TTickSource = 'pasted') => {
-        setTicksState(prev => [...prev, ...newTicks]);
+        setTicksState(prev => {
+            const combined = [...prev, ...newTicks];
+            return combined.length > MAX_TICKS ? combined.slice(combined.length - MAX_TICKS) : combined;
+        });
         setSource(src);
     }, []);
 

@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import LCGCracker from './lcg-cracker';
 import LSTMPredictor from './lstm-predictor';
 import StatisticalAnalysis from './statistical-analysis';
 import { generateCryptoRandomDigits, generateFlawedLCGDigits, TickDataProvider, useTickData } from './tick-data-context';
 import TimeSyncPredictor from './time-sync-predictor';
+import { useLiveDerivTicks } from './use-live-deriv-ticks';
 import './rng-analyzer.scss';
 
 type TModuleId = 'stats' | 'lcg' | 'time-sync' | 'lstm';
@@ -19,16 +21,43 @@ const DataIngestion: React.FC = () => {
     const { ticks, source, setTicks, addTicks, clearTicks } = useTickData();
     const [pasteText, setPasteText] = useState('');
     const [pasteError, setPasteError] = useState<string | null>(null);
+    const symbol_options = useSyntheticSymbols();
+    const [liveSymbol, setLiveSymbol] = useState('1HZ100V');
+
+    const { state: liveState, start: startLive, stop: stopLive } = useLiveDerivTicks(digit => addTicks([digit], 'live-deriv'));
+
+    // Tear down the live subscription if the whole tab unmounts while connected.
+    useEffect(() => stopLive, [stopLive]);
 
     const handleGenerateCryptoRandom = () => {
+        stopLive();
         setTicks(generateCryptoRandomDigits(1000), 'crypto-random');
     };
 
     const handleGenerateFlawedLCG = () => {
+        stopLive();
         setTicks(generateFlawedLCGDigits(1000), 'flawed-lcg');
     };
 
+    const handleToggleLive = () => {
+        if (liveState.isConnected || liveState.isConnecting) {
+            stopLive();
+        } else {
+            setTicks([], 'live-deriv');
+            startLive(liveSymbol);
+        }
+    };
+
+    const handleLiveSymbolChange = (newSymbol: string) => {
+        setLiveSymbol(newSymbol);
+        if (liveState.isConnected || liveState.isConnecting) {
+            setTicks([], 'live-deriv');
+            startLive(newSymbol);
+        }
+    };
+
     const handlePasteAdd = () => {
+        stopLive();
         setPasteError(null);
         const parsed = pasteText
             .split(',')
@@ -57,7 +86,15 @@ const DataIngestion: React.FC = () => {
                 <button type='button' className='rng__btn' onClick={handleGenerateFlawedLCG}>
                     Generate 1,000 Flawed LCG
                 </button>
-                <button type='button' className='rng__btn danger' onClick={clearTicks} disabled={ticks.length === 0}>
+                <button
+                    type='button'
+                    className='rng__btn danger'
+                    onClick={() => {
+                        stopLive();
+                        clearTicks();
+                    }}
+                    disabled={ticks.length === 0}
+                >
                     Clear
                 </button>
                 <div className='rng__ingestion-status'>
@@ -65,6 +102,42 @@ const DataIngestion: React.FC = () => {
                     <span className='rng__stat-value'>{ticks.length} ticks</span>
                     {source !== 'none' && <span className='rng__source-tag'>{source}</span>}
                 </div>
+            </div>
+            <div className='rng__ingestion-row'>
+                <select
+                    className='rng__select'
+                    value={liveSymbol}
+                    onChange={e => handleLiveSymbolChange(e.target.value)}
+                    disabled={liveState.isConnecting}
+                >
+                    {symbol_options.map(s => (
+                        <option key={s.symbol} value={s.symbol}>
+                            {s.display_name}
+                        </option>
+                    ))}
+                </select>
+                <button
+                    type='button'
+                    className={`rng__btn ${liveState.isConnected ? 'danger' : 'primary'}`}
+                    onClick={handleToggleLive}
+                    disabled={liveState.isConnecting}
+                >
+                    {liveState.isConnecting
+                        ? 'Connecting…'
+                        : liveState.isConnected
+                          ? 'Stop Live Feed'
+                          : 'Start Live Deriv Ticks'}
+                </button>
+                {liveState.isConnected && (
+                    <div className='rng__ingestion-status'>
+                        <span className='rng__live-dot' />
+                        <span className='rng__stat-label'>last digit</span>
+                        <span className='rng__stat-value'>{liveState.lastDigit ?? '—'}</span>
+                        <span className='rng__stat-label'>received</span>
+                        <span className='rng__stat-value'>{liveState.tickCount}</span>
+                    </div>
+                )}
+                {liveState.error && <div className='rng__error'>{liveState.error}</div>}
             </div>
             <div className='rng__ingestion-row'>
                 <textarea
