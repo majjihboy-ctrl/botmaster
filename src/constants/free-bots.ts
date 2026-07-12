@@ -46,4 +46,9 @@ export const FREE_BOTS: TFreeBot[] = [
         title: 'Savior Bot',
         description: 'Rise & Equals strategy with martingale recovery. Engineered to recover losses fast.',
     },
+    {
+        id: 'kichele-v1-9',
+        title: 'Kichele V1.9',
+        description: 'Digit Under 8 strategy, entry-gated on a last digit of 1, with a Digit Over 3 martingale recovery arm on loss.',
+    },
 ];
