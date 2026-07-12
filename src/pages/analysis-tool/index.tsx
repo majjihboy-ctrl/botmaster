@@ -3,20 +3,67 @@ import { observer } from 'mobx-react-lite';
 import { useDigitStats, useSyntheticSymbols } from './use-digit-stats';
 import './analysis-tool.scss';
 
+const STORAGE_KEY = 'analysis_tool_settings';
+
+type TStoredSettings = {
+    symbol?: string;
+    tickCount?: number;
+    overUnderDigit?: number;
+    selectedDigit?: number | null;
+};
+
+const loadStoredSettings = (): TStoredSettings => {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+};
+
+const saveStoredSettings = (partial: TStoredSettings) => {
+    try {
+        const current = loadStoredSettings();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...partial }));
+    } catch {
+        // localStorage unavailable (private browsing, etc.) — fail silently,
+        // the tool still works, it just won't remember the selection.
+    }
+};
+
 const AnalysisTool = observer(() => {
     const symbol_options = useSyntheticSymbols();
-    const [symbol, setSymbol] = React.useState('R_100');
-    const [tickCount, setTickCount] = React.useState(1000);
-    const [overUnderDigit, setOverUnderDigit] = React.useState(5);
-    const [selectedDigit, setSelectedDigit] = React.useState<number | null>(null);
+    const stored = React.useMemo(() => loadStoredSettings(), []);
+    const [symbol, setSymbolState] = React.useState(stored.symbol ?? 'R_100');
+    const [tickCount, setTickCountState] = React.useState(stored.tickCount ?? 1000);
+    const [overUnderDigit, setOverUnderDigitState] = React.useState(stored.overUnderDigit ?? 5);
+    const [selectedDigit, setSelectedDigitState] = React.useState<number | null>(stored.selectedDigit ?? null);
+
+    const setSymbol = (value: string) => {
+        setSymbolState(value);
+        saveStoredSettings({ symbol: value });
+    };
+    const setTickCount = (value: number) => {
+        setTickCountState(value);
+        saveStoredSettings({ tickCount: value });
+    };
+    const setOverUnderDigit = (value: number) => {
+        setOverUnderDigitState(value);
+        saveStoredSettings({ overUnderDigit: value });
+    };
+    const setSelectedDigit = (value: number | null) => {
+        setSelectedDigitState(value);
+        saveStoredSettings({ selectedDigit: value });
+    };
 
     const stats = useDigitStats(symbol, tickCount, overUnderDigit);
     const maxCount = Math.max(...stats.digit_counts, 1);
     const totalCount = stats.digit_counts.reduce((a, b) => a + b, 0) || 1;
 
     // Default the picked digit to whichever is currently "most" once data loads,
-    // but never override a digit the person has actually clicked on.
-    const hasUserPicked = React.useRef(false);
+    // but never override a digit the person has actually clicked on (or one
+    // restored from a previous visit).
+    const hasUserPicked = React.useRef(stored.selectedDigit != null);
     React.useEffect(() => {
         if (!hasUserPicked.current && !stats.is_loading && stats.digits.length) {
             setSelectedDigit(stats.most_idx);
@@ -100,47 +147,18 @@ const AnalysisTool = observer(() => {
                 </div>
             </div>
 
-            <div className='analysis-tool__panel analysis-tool__panel--matches'>
-                <div className='analysis-tool__chart-header'>
-                    <h2>Digit Matches</h2>
-                    <span className='analysis-tool__matches-hint'>Tap a digit in the chart below to target it</span>
+            <div className='analysis-tool__panel'>
+                <h2>Recent ticks</h2>
+                <div className='analysis-tool__ticks-row'>
+                    {stats.recent_digits.map((d, i) => (
+                        <div
+                            className={`analysis-tool__tick-chip ${i === stats.recent_digits.length - 1 ? 'latest' : ''}`}
+                            key={i}
+                        >
+                            {d}
+                        </div>
+                    ))}
                 </div>
-                {selectedDigit === null ? (
-                    <div className='analysis-tool__chart-empty'>Waiting for data…</div>
-                ) : (
-                    <div className='analysis-tool__matches-body'>
-                        <div className='analysis-tool__matches-digit'>{selectedDigit}</div>
-                        <div className='analysis-tool__matches-stats'>
-                            <div className='analysis-tool__matches-stat'>
-                                <span className='analysis-tool__matches-stat-val'>{matchStats.match_pct}%</span>
-                                <span className='analysis-tool__matches-stat-label'>Match rate</span>
-                            </div>
-                            <div className='analysis-tool__matches-stat'>
-                                <span className='analysis-tool__matches-stat-val'>{matchStats.count}</span>
-                                <span className='analysis-tool__matches-stat-label'>Matches seen</span>
-                            </div>
-                            <div className='analysis-tool__matches-stat'>
-                                <span className='analysis-tool__matches-stat-val'>
-                                    {matchStats.since_last === -1 ? '—' : matchStats.since_last}
-                                </span>
-                                <span className='analysis-tool__matches-stat-label'>Ticks since last</span>
-                            </div>
-                            <div className='analysis-tool__matches-stat'>
-                                <span className='analysis-tool__matches-stat-val'>{matchStats.avg_gap || '—'}</span>
-                                <span className='analysis-tool__matches-stat-label'>Avg gap</span>
-                            </div>
-                            <div className='analysis-tool__matches-stat'>
-                                <span className='analysis-tool__matches-stat-val'>{matchStats.max_gap || '—'}</span>
-                                <span className='analysis-tool__matches-stat-label'>Longest gap</span>
-                            </div>
-                        </div>
-                        <div className={`analysis-tool__matches-flag ${is_overdue ? 'due' : ''}`}>
-                            {is_overdue
-                                ? `Overdue — it's gone ${matchStats.since_last} ticks without a match vs an average gap of ${matchStats.avg_gap}`
-                                : `On pace — average gap for this digit is ${matchStats.avg_gap || '—'} ticks`}
-                        </div>
-                    </div>
-                )}
             </div>
 
             <div className='analysis-tool__grid'>
@@ -286,18 +304,47 @@ const AnalysisTool = observer(() => {
                 </div>
             </div>
 
-            <div className='analysis-tool__panel'>
-                <h2>Recent ticks</h2>
-                <div className='analysis-tool__ticks-row'>
-                    {stats.recent_digits.map((d, i) => (
-                        <div
-                            className={`analysis-tool__tick-chip ${i === stats.recent_digits.length - 1 ? 'latest' : ''}`}
-                            key={i}
-                        >
-                            {d}
-                        </div>
-                    ))}
+            <div className='analysis-tool__panel analysis-tool__panel--matches'>
+                <div className='analysis-tool__chart-header'>
+                    <h2>Digit Matches</h2>
+                    <span className='analysis-tool__matches-hint'>Tap a digit in the chart below to target it</span>
                 </div>
+                {selectedDigit === null ? (
+                    <div className='analysis-tool__chart-empty'>Waiting for data…</div>
+                ) : (
+                    <div className='analysis-tool__matches-body'>
+                        <div className='analysis-tool__matches-digit'>{selectedDigit}</div>
+                        <div className='analysis-tool__matches-stats'>
+                            <div className='analysis-tool__matches-stat'>
+                                <span className='analysis-tool__matches-stat-val'>{matchStats.match_pct}%</span>
+                                <span className='analysis-tool__matches-stat-label'>Match rate</span>
+                            </div>
+                            <div className='analysis-tool__matches-stat'>
+                                <span className='analysis-tool__matches-stat-val'>{matchStats.count}</span>
+                                <span className='analysis-tool__matches-stat-label'>Matches seen</span>
+                            </div>
+                            <div className='analysis-tool__matches-stat'>
+                                <span className='analysis-tool__matches-stat-val'>
+                                    {matchStats.since_last === -1 ? '—' : matchStats.since_last}
+                                </span>
+                                <span className='analysis-tool__matches-stat-label'>Ticks since last</span>
+                            </div>
+                            <div className='analysis-tool__matches-stat'>
+                                <span className='analysis-tool__matches-stat-val'>{matchStats.avg_gap || '—'}</span>
+                                <span className='analysis-tool__matches-stat-label'>Avg gap</span>
+                            </div>
+                            <div className='analysis-tool__matches-stat'>
+                                <span className='analysis-tool__matches-stat-val'>{matchStats.max_gap || '—'}</span>
+                                <span className='analysis-tool__matches-stat-label'>Longest gap</span>
+                            </div>
+                        </div>
+                        <div className={`analysis-tool__matches-flag ${is_overdue ? 'due' : ''}`}>
+                            {is_overdue
+                                ? `Overdue — it's gone ${matchStats.since_last} ticks without a match vs an average gap of ${matchStats.avg_gap}`
+                                : `On pace — average gap for this digit is ${matchStats.avg_gap || '—'} ticks`}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className='analysis-tool__panel'>
