@@ -4,7 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { NOTIFICATION_TYPE } from '@/components/bot-notification/bot-notification-utils';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { FREE_BOTS, TFreeBot } from '@/constants/free-bots';
-import { PREMIUM_BOTS } from '@/constants/premium-bots';
+import { PREMIUM_BOTS, TPremiumBot } from '@/constants/premium-bots';
 import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import './free-bots-tab.scss';
@@ -27,76 +27,50 @@ const FreeBotsTab = observer(() => {
         }
     };
 
+    const hasBots = FREE_BOTS.length > 0 || PREMIUM_BOTS.length > 0;
+
     return (
         <div className='free-bots-tab'>
-            <div className='free-bots-tab__section'>
-                {FREE_BOTS.length === 0 ? (
-                    <div className='free-bots-tab__empty'>
-                        <div className='free-bots-tab__empty-title'>{localize('New bots coming soon')}</div>
-                        <div className='free-bots-tab__empty-text'>
-                            {localize("We're refreshing this collection — check back shortly.")}
+            {!hasBots ? (
+                <div className='free-bots-tab__empty'>
+                    <div className='free-bots-tab__empty-title'>{localize('New bots coming soon')}</div>
+                    <div className='free-bots-tab__empty-text'>
+                        {localize("We're refreshing this collection — check back shortly.")}
+                    </div>
+                </div>
+            ) : (
+                <div className='free-bots-tab__grid'>
+                    {FREE_BOTS.map(bot => (
+                        <div key={bot.id} className='free-bots-tab__card'>
+                            <div className='free-bots-tab__card-title'>{bot.title}</div>
+                            <div className='free-bots-tab__card-description'>{bot.description}</div>
+                            <button
+                                type='button'
+                                className='free-bots-tab__card-load'
+                                data-testid={`dt_free-bots-tab__load-${bot.id}`}
+                                disabled={loading_id === bot.id}
+                                onClick={() => handleLoad(bot)}
+                            >
+                                {loading_id === bot.id ? localize('Loading...') : localize('Load')}
+                            </button>
                         </div>
-                    </div>
-                ) : (
-                    <div className='free-bots-tab__grid'>
-                        {FREE_BOTS.map(bot => (
-                            bot.featured ? (
-                                <div key={bot.id} className='free-bots-tab__savior-card'>
-                                    <div className='free-bots-tab__savior-glow' />
-                                    <div className='free-bots-tab__savior-badge'>⚡ FEATURED</div>
-                                    <div className='free-bots-tab__savior-title'>{bot.title}</div>
-                                    <div className='free-bots-tab__savior-desc'>{bot.description}</div>
-                                    <button
-                                        type='button'
-                                        className='free-bots-tab__savior-load'
-                                        data-testid={`dt_free-bots-tab__load-${bot.id}`}
-                                        disabled={loading_id === bot.id}
-                                        onClick={() => handleLoad(bot)}
-                                    >
-                                        {loading_id === bot.id ? localize('Loading...') : localize('⚡ Load Savior Bot')}
-                                    </button>
-                                </div>
-                            ) : (
-                                <div key={bot.id} className='free-bots-tab__card'>
-                                    <div className='free-bots-tab__card-title'>{bot.title}</div>
-                                    <div className='free-bots-tab__card-description'>{bot.description}</div>
-                                    <button
-                                        type='button'
-                                        className='free-bots-tab__card-load'
-                                        data-testid={`dt_free-bots-tab__load-${bot.id}`}
-                                        disabled={loading_id === bot.id}
-                                        onClick={() => handleLoad(bot)}
-                                    >
-                                        {loading_id === bot.id ? localize('Loading...') : localize('Load')}
-                                    </button>
-                                </div>
-                            )
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {PREMIUM_BOTS.length > 0 && (
-                <div className='free-bots-tab__section'>
-                    <div className='free-bots-tab__section-title'>{localize('Premium bots')}</div>
-                    <div className='free-bots-tab__premium-grid'>
-                        {PREMIUM_BOTS.map(bot => (
-                            <div key={bot.id} className='free-bots-tab__premium-card'>
-                                <div className='free-bots-tab__premium-badge'>{localize('PREMIUM')}</div>
-                                <div className='free-bots-tab__card-title'>{bot.title}</div>
-                                <div className='free-bots-tab__card-description'>{bot.description}</div>
-                                <a
-                                    className='free-bots-tab__premium-cta'
-                                    href={bot.whatsapp_url}
-                                    target='_blank'
-                                    rel='noopener noreferrer'
-                                    data-testid={`dt_free-bots-tab__premium-${bot.id}`}
-                                >
-                                    {localize('Get access on WhatsApp')}
-                                </a>
-                            </div>
-                        ))}
-                    </div>
+                    ))}
+                    {PREMIUM_BOTS.map((bot: TPremiumBot) => (
+                        <div key={bot.id} className='free-bots-tab__card'>
+                            <div className='free-bots-tab__card-badge'>{localize('PREMIUM')}</div>
+                            <div className='free-bots-tab__card-title'>{bot.title}</div>
+                            <div className='free-bots-tab__card-description'>{bot.description}</div>
+                            <a
+                                className='free-bots-tab__card-load'
+                                href={bot.whatsapp_url}
+                                target='_blank'
+                                rel='noopener noreferrer'
+                                data-testid={`dt_free-bots-tab__premium-${bot.id}`}
+                            >
+                                {localize('Get access on WhatsApp')}
+                            </a>
+                        </div>
+                    ))}
                 </div>
             )}
         </div>

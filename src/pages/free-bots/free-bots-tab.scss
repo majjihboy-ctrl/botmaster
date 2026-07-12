@@ -5,30 +5,13 @@
     padding-bottom: 6rem;
     height: var(--tab-content-height);
     overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 2.4rem;
 
     @include mobile-or-tablet-screen {
         height: var(--tab-content-height-mobile);
         padding-bottom: 8rem;
     }
 
-    &__section {
-        width: 100%;
-    }
-
-    &__section-title {
-        font-size: var(--text-size-xs);
-        font-weight: 700;
-        color: var(--text-prominent);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        margin-bottom: 1.2rem;
-    }
-
-    &__grid,
-    &__premium-grid {
+    &__grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));
         gap: 1.6rem;
@@ -70,129 +53,54 @@
                 0 0 0 1px rgba(99, 102, 241, 0.6),
                 0 12px 32px rgba(99, 102, 241, 0.2);
         }
-
-        &-title {
-            font-size: var(--text-size-s);
-            font-weight: bold;
-            color: #f1f5f9;
-            position: relative;
-        }
-
-        &-description {
-            font-size: var(--text-size-xs);
-            color: #94a3b8;
-            flex: 1;
-            position: relative;
-        }
-
-        &-load {
-            align-self: stretch;
-            margin-top: 0.4rem;
-            padding: 0.8rem 1.2rem;
-            font-size: var(--text-size-xs);
-            font-weight: bold;
-            color: #fff;
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            position: relative;
-            transition:
-                opacity 0.15s ease,
-                transform 0.1s ease;
-
-            &:hover:not(:disabled) {
-                opacity: 0.92;
-            }
-
-            &:active:not(:disabled) {
-                transform: scale(0.98);
-            }
-
-            &:disabled {
-                cursor: not-allowed;
-                opacity: 0.6;
-            }
-        }
     }
 
-    &__savior-card {
-        position: relative;
-        grid-column: 1 / -1; // spans the full width so it stands out
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.8rem;
-        padding: 2rem;
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-        border: 1px solid transparent;
-        border-radius: 16px;
-        overflow: hidden;
-        box-shadow:
-            0 0 0 1px rgba(99, 102, 241, 0.4),
-            0 8px 32px rgba(99, 102, 241, 0.15);
-
-        &:hover {
-            box-shadow:
-                0 0 0 1px rgba(99, 102, 241, 0.7),
-                0 12px 40px rgba(99, 102, 241, 0.25);
-        }
-    }
-
-    &__savior-glow {
-        position: absolute;
-        top: -40px;
-        right: -40px;
-        width: 200px;
-        height: 200px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%);
-        pointer-events: none;
-    }
-
-    &__savior-badge {
+    &__card-badge {
         font-size: var(--text-size-xxs);
         font-weight: 700;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.06em;
         color: #818cf8;
         background: rgba(99, 102, 241, 0.12);
         border: 1px solid rgba(99, 102, 241, 0.3);
-        padding: 0.3rem 0.9rem;
+        padding: 0.25rem 0.8rem;
         border-radius: 20px;
         position: relative;
     }
 
-    &__savior-title {
-        font-size: var(--text-size-m);
-        font-weight: 700;
+    &__card-title {
+        font-size: var(--text-size-s);
+        font-weight: bold;
         color: #f1f5f9;
         position: relative;
     }
 
-    &__savior-desc {
+    &__card-description {
         font-size: var(--text-size-xs);
         color: #94a3b8;
-        line-height: 1.55;
+        flex: 1;
         position: relative;
     }
 
-    &__savior-load {
+    &__card-load {
         align-self: stretch;
         margin-top: 0.4rem;
-        padding: 1rem 1.2rem;
+        padding: 0.8rem 1.2rem;
+        text-align: center;
         font-size: var(--text-size-xs);
-        font-weight: 700;
+        font-weight: bold;
         color: #fff;
         background: linear-gradient(135deg, #4f46e5, #7c3aed);
         border: none;
-        border-radius: 10px;
+        border-radius: 8px;
+        text-decoration: none;
         cursor: pointer;
         position: relative;
-        transition: opacity 0.15s ease, transform 0.1s ease;
+        transition:
+            opacity 0.15s ease,
+            transform 0.1s ease;
 
         &:hover:not(:disabled) {
             opacity: 0.92;
-            transform: translateY(-1px);
         }
 
         &:active:not(:disabled) {
@@ -224,54 +132,5 @@
     &__empty-text {
         font-size: var(--text-size-xs);
         color: var(--text-less-prominent);
-    }
-
-    &__premium-card {
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.7rem;
-        padding: 1.6rem;
-        background: linear-gradient(155deg, #2a2110 0%, #14110a 100%);
-        border: 1px solid #5a4520;
-        border-radius: 12px;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
-
-        .free-bots-tab__card-title {
-            color: #f5d98b;
-        }
-
-        .free-bots-tab__card-description {
-            color: #c2b08c;
-        }
-    }
-
-    &__premium-badge {
-        font-size: 1rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        color: #1a1206;
-        background: linear-gradient(135deg, #f0c75e, #c9952f);
-        padding: 0.3rem 0.8rem;
-        border-radius: 4px;
-    }
-
-    &__premium-cta {
-        align-self: stretch;
-        margin-top: 0.4rem;
-        padding: 0.9rem 1.2rem;
-        text-align: center;
-        font-size: var(--text-size-xs);
-        font-weight: 700;
-        color: #1a1206;
-        background: linear-gradient(135deg, #f0c75e, #c9952f);
-        border-radius: 8px;
-        text-decoration: none;
-        transition: opacity 0.15s ease;
-
-        &:hover {
-            opacity: 0.9;
-        }
     }
 }

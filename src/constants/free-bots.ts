@@ -2,7 +2,6 @@ export type TFreeBot = {
     id: string;
     title: string;
     description: string;
-    featured?: boolean;
 };
 
 // Each `id` must match a file name (without extension) in `src/xml/free-bots/`.
@@ -46,6 +45,5 @@ export const FREE_BOTS: TFreeBot[] = [
         id: 'savior-bot',
         title: 'Savior Bot',
         description: 'Rise & Equals strategy with martingale recovery. Engineered to recover losses fast.',
-        featured: true,
     },
 ];
