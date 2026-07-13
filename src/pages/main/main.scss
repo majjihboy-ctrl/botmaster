@@ -137,7 +137,18 @@
                 &--main {
                     &__tabs {
                         display: flex;
+                        width: 100%;
                         justify-content: space-between;
+
+                        // Only one tab's content is ever mounted here at a time
+                        // (Tabs.tsx filters out every inactive tab), so this flex
+                        // row's lone child must be told to actually take up the
+                        // full row - otherwise it sizes to its own content width
+                        // instead of stretching, leaving the right side empty.
+                        > * {
+                            width: 100%;
+                            min-width: 0;
+                        }
 
                         @include mobile-or-tablet-screen {
                             flex-direction: column;
