@@ -1,6 +1,8 @@
 @use 'components/shared/styles/mixins' as *;
 
 .free-bots-tab {
+    width: 100%;
+    box-sizing: border-box;
     padding: 1.6rem;
     padding-bottom: 6rem;
     height: var(--tab-content-height);
@@ -13,8 +15,10 @@
 
     &__grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr));
+        justify-content: stretch;
         gap: 1.6rem;
+        width: 100%;
     }
 
     &__card {

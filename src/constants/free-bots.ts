@@ -51,4 +51,9 @@ export const FREE_BOTS: TFreeBot[] = [
         title: 'Kichele V1.9',
         description: 'Digit Under 8 strategy, entry-gated on a last digit of 1, with a Digit Over 3 martingale recovery arm on loss.',
     },
+    {
+        id: 'fable-v1-pro',
+        title: 'Fable V1 Pro',
+        description: 'Digit Over/Under recovery strategy with martingale.',
+    },
 ];
