@@ -229,6 +229,7 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
     const subscriptionIdRef = useRef<string | null>(null);
     const overUnderDigitRef = useRef<number>(over_under_digit);
     const lastTickAtRef = useRef<number>(0);
+    const lastEpochRef = useRef<number | null>(null);
 
     useEffect(() => {
         overUnderDigitRef.current = over_under_digit;
@@ -287,6 +288,7 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
 
         const start = async () => {
             setStats(prev => ({ ...prev, is_loading: true }));
+            lastEpochRef.current = null;
 
             const pip_size_lookup = api_base?.pip_sizes?.[symbol];
 
@@ -320,6 +322,15 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
 
                 message_subscription = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
                     if (data?.msg_type === 'tick' && normalize(data?.tick?.symbol) === target_symbol) {
+                        // Guards against the brief window (on resubscribe, when
+                        // symbol/tick_count changes) where the old subscription's
+                        // `forget` is still in flight and a new one is already
+                        // live — Deriv then delivers the same tick twice, which
+                        // otherwise shows up as every digit doubled in a row.
+                        const epoch = Number(data.tick.epoch);
+                        if (epoch && epoch === lastEpochRef.current) return;
+                        lastEpochRef.current = epoch || null;
+
                         if (data.tick.id) subscriptionIdRef.current = data.tick.id;
                         lastTickAtRef.current = Date.now();
                         quotesRef.current = [...quotesRef.current, Number(data.tick.quote)].slice(-tick_count);

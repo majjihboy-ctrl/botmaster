@@ -198,8 +198,12 @@ export const useUpDownStats = (symbol: string, tick_window: number, reset_key: n
                 engine.seed(prices);
                 setStats(engine.getStats());
 
+                const lastEpochRef = { current: null as number | null };
                 message_subscription = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
                     if (data?.msg_type !== 'tick' || data?.tick?.symbol !== symbol) return;
+                    const epoch = Number(data.tick.epoch);
+                    if (epoch && epoch === lastEpochRef.current) return; // duplicate delivery from a concurrent subscription (e.g. a running bot) on this symbol
+                    lastEpochRef.current = epoch || null;
                     if (data.tick.id) subscriptionIdRef.current = data.tick.id;
                     engine.addTick(Number(data.tick.quote));
                     setStats(engine.getStats());

@@ -28,6 +28,7 @@ export const useLiveDerivTicks = (onDigit: (digit: number) => void) => {
 
     const symbolRef = useRef<string | null>(null);
     const subscriptionIdRef = useRef<string | null>(null);
+    const lastEpochRef = useRef<number | null>(null);
     const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
 
     const stop = useCallback(() => {
@@ -45,10 +46,14 @@ export const useLiveDerivTicks = (onDigit: (digit: number) => void) => {
         async (symbol: string) => {
             stop();
             symbolRef.current = symbol;
+            lastEpochRef.current = null;
             setState({ ...EMPTY_STATE, isConnecting: true });
 
             messageSubscriptionRef.current = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
                 if (data?.msg_type === 'tick' && data?.tick?.symbol === symbol) {
+                    const epoch = Number(data.tick.epoch);
+                    if (epoch && epoch === lastEpochRef.current) return; // duplicate delivery from a concurrent subscription on this symbol
+                    lastEpochRef.current = epoch || null;
                     if (data.tick.id) subscriptionIdRef.current = data.tick.id;
                     const digit = extractLastDigit(Number(data.tick.quote), Number(data.tick.pip_size ?? 2));
                     onDigitRef.current(digit);

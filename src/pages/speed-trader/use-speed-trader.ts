@@ -107,6 +107,7 @@ export const useSpeedTrader = (currency: string) => {
 
     const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
     const tickSubscriptionIdsRef = useRef<Map<string, string>>(new Map());
+    const lastEpochBySymbolRef = useRef<Map<string, number>>(new Map());
 
     useEffect(() => {
         currencyRef.current = currency;
@@ -509,8 +510,12 @@ export const useSpeedTrader = (currency: string) => {
                 }
 
                 if (data?.msg_type === 'tick' && data?.tick?.symbol && watchedSymbolsRef.current.includes(data.tick.symbol)) {
-                    if (data.tick.id) tickSubscriptionIdsRef.current.set(data.tick.symbol, data.tick.id);
-                    handleTick(data.tick.symbol, Number(data.tick.quote), Number(data.tick.pip_size ?? 2));
+                    const sym = data.tick.symbol;
+                    const epoch = Number(data.tick.epoch);
+                    if (epoch && lastEpochBySymbolRef.current.get(sym) === epoch) return; // duplicate delivery, don't double-count toward a fire condition
+                    if (epoch) lastEpochBySymbolRef.current.set(sym, epoch);
+                    if (data.tick.id) tickSubscriptionIdsRef.current.set(sym, data.tick.id);
+                    handleTick(sym, Number(data.tick.quote), Number(data.tick.pip_size ?? 2));
                 }
             });
 
