@@ -1,0 +1,14 @@
+.disclaimer-banner {
+    flex-shrink: 0;
+    padding: 0.4rem 1.6rem;
+    background: var(--general-main-1);
+    border-top: 1px solid var(--border-normal, rgba(0, 0, 0, 0.08));
+
+    &__text {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.3rem;
+        color: var(--text-less-prominent, #999);
+        text-align: center;
+    }
+}
