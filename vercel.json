@@ -5,5 +5,9 @@
   "framework": null,
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "env": {
+    "NEXT_PUBLIC_DERIV_ENV": "production",
+    "NEXT_PUBLIC_DERIV_APP_ID": "33tBOzpSL6sof82084fVd"
+  }
 }
