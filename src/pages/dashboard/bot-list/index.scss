@@ -369,10 +369,11 @@
     }
 
     &__wrapper {
-        width: 623px;
+        width: 100%;
+        max-width: 1400px;
 
         @include tablet-screen {
-            width: 600px;
+            width: 100%;
         }
 
         @include mobile-screen {
