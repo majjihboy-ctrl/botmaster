@@ -6,6 +6,7 @@ import { botNotification } from '@/components/bot-notification/bot-notification'
 import useLiveChat from '@/components/chat/useLiveChat';
 import BrandedChunkLoader from '@/components/loader/branded-chunk-loader';
 import { getUrlBase } from '@/components/shared';
+import RiskDisclaimer from '@/components/risk-disclaimer/risk-disclaimer';
 import TransactionDetailsModal from '@/components/transaction-details';
 import { api_base, ApiHelpers, ServerTime } from '@/external/bot-skeleton';
 import { CONNECTION_STATUS } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
@@ -205,6 +206,7 @@ const AppContent = observer(() => {
                     </ThemeProvider>
                 </AuthLoadingWrapper>
             )}
+            <RiskDisclaimer />
         </React.Fragment>
     );
 });
