@@ -111,6 +111,7 @@
     &__dashboard {
         display: flex;
         width: 100%;
+        box-sizing: border-box;
 
         &--tour-active {
             width: calc(100% - 36rem);
@@ -174,6 +175,7 @@
             background: var(--general-main-1);
             overflow: hidden;
             position: relative;
+            box-sizing: border-box;
 
             @include mobile-or-tablet-screen {
                 display: unset;
@@ -192,6 +194,7 @@
             .quick-panel {
                 flex: 1 1 100%;
                 width: 100%;
+                box-sizing: border-box;
             }
 
             .preview-panel {

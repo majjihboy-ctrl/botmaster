@@ -362,6 +362,7 @@
         display: flex;
         justify-content: center;
         width: 100%;
+        box-sizing: border-box;
 
         @include mobile-screen {
             display: unset;
@@ -371,6 +372,7 @@
     &__wrapper {
         width: 100%;
         max-width: 1400px;
+        box-sizing: border-box;
 
         @include tablet-screen {
             width: 100%;
