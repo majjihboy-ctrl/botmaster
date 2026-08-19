@@ -28,6 +28,23 @@
 }
 
 .main {
+    // The shared Tabs component renders its content wrapper as
+    // "dc-tabs__content--main__tabs" (from its className prop "main__tabs").
+    // Only one tab's content is ever mounted here at a time (Tabs.tsx filters
+    // out every inactive tab via React.Children.map), so this flex row's lone
+    // child must be told to actually take up the full row - otherwise it
+    // sizes to its own content width instead of stretching, leaving a gap
+    // between the tab content and the run panel on the right.
+    .dc-tabs__content--main__tabs {
+        display: flex;
+        width: 100%;
+
+        > * {
+            width: 100%;
+            min-width: 0;
+        }
+    }
+
     display: flex;
     overflow: hidden;
     width: 100%;
@@ -140,11 +157,6 @@
                         width: 100%;
                         justify-content: space-between;
 
-                        // Only one tab's content is ever mounted here at a time
-                        // (Tabs.tsx filters out every inactive tab), so this flex
-                        // row's lone child must be told to actually take up the
-                        // full row - otherwise it sizes to its own content width
-                        // instead of stretching, leaving the right side empty.
                         > * {
                             width: 100%;
                             min-width: 0;
