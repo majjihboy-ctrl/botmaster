@@ -28,33 +28,6 @@
 }
 
 .main {
-    // The shared Tabs component renders its content wrapper as
-    // "dc-tabs__content--main__tabs" (from its className prop "main__tabs").
-    // Only one tab's content is ever mounted here at a time (Tabs.tsx filters
-    // out every inactive tab via React.Children.map), so this flex row's lone
-    // child must be told to actually take up the full row - otherwise it
-    // sizes to its own content width instead of stretching, leaving a gap
-    // between the tab content and the run panel on the right.
-    .dc-tabs__content--main__tabs {
-        display: flex;
-        width: 100%;
-
-        // Target only the actual page-layout wrapper, not every sibling.
-        // Some tabs (e.g. Dashboard) render extra siblings alongside their
-        // layout div (info panels, tour overlays) via a Fragment, so a blanket
-        // "> *" rule turns those into competing flex items and squeezes the
-        // real content instead of fixing it.
-        > .tab__dashboard,
-        > .free-bots-tab,
-        > .bot-builder,
-        > .analysis-tool,
-        > .updown-tool,
-        > .speed-trader {
-            width: 100%;
-            min-width: 0;
-        }
-    }
-
     display: flex;
     overflow: hidden;
     width: 100%;
@@ -167,6 +140,11 @@
                         width: 100%;
                         justify-content: space-between;
 
+                        // Only one tab's content is ever mounted here at a time
+                        // (Tabs.tsx filters out every inactive tab), so this flex
+                        // row's lone child must be told to actually take up the
+                        // full row - otherwise it sizes to its own content width
+                        // instead of stretching, leaving the right side empty.
                         > * {
                             width: 100%;
                             min-width: 0;
