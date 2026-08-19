@@ -39,7 +39,17 @@
         display: flex;
         width: 100%;
 
-        > * {
+        // Target only the actual page-layout wrapper, not every sibling.
+        // Some tabs (e.g. Dashboard) render extra siblings alongside their
+        // layout div (info panels, tour overlays) via a Fragment, so a blanket
+        // "> *" rule turns those into competing flex items and squeezes the
+        // real content instead of fixing it.
+        > .tab__dashboard,
+        > .free-bots-tab,
+        > .bot-builder,
+        > .analysis-tool,
+        > .updown-tool,
+        > .speed-trader {
             width: 100%;
             min-width: 0;
         }
