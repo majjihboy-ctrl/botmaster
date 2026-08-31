@@ -35,9 +35,11 @@ export type TSpeedTraderParams = {
     stop_loss: number;
     take_profit: number;
     virtual_loss_mode: TVirtualLossMode; // 'random' = 3-5 randomized (default), 'fixed' = always 5
+    contract_type: TSide; // 'even', 'odd', 'over4', 'over5', 'rise', 'fall'
 };
 
-type TSide = 'even' | 'odd';
+type TSide = 'even' | 'odd' | 'over4' | 'over5' | 'rise' | 'fall';
+export type { TSide };
 type TMode = 'virtual' | 'real';
 type TVirtualLossMode = 'random' | 'fixed';
 
@@ -70,14 +72,49 @@ const randomTarget = () => Math.floor(Math.random() * (VIRTUAL_LOSS_MAX - VIRTUA
 
 const getLossTarget = (mode: TVirtualLossMode) => (mode === 'fixed' ? FIXED_VIRTUAL_LOSS_TARGET : randomTarget());
 
-const winsSide = (digit: number, side: TSide) => (side === 'even' ? digit % 2 === 0 : digit % 2 === 1);
+const getContractType = (side: TSide): string => {
+    const typeMap: Record<TSide, string> = {
+        even: 'DIGITEVEN',
+        odd: 'DIGITODD',
+        over4: 'DIGITOVER',
+        over5: 'DIGITOVER',
+        rise: 'RISE',
+        fall: 'FALL',
+    };
+    return typeMap[side];
+};
+
+const getContractParams = (side: TSide) => {
+    if (side === 'over4') return { barrier: '4' };
+    if (side === 'over5') return { barrier: '5' };
+    return {};
+};
+
+const winsSide = (digit: number, side: TSide, prevDigit?: number) => {
+    switch (side) {
+        case 'even':
+            return digit % 2 === 0;
+        case 'odd':
+            return digit % 2 === 1;
+        case 'over4':
+            return digit > 4;
+        case 'over5':
+            return digit > 5;
+        case 'rise':
+            return prevDigit !== undefined && digit > prevDigit;
+        case 'fall':
+            return prevDigit !== undefined && digit < prevDigit;
+        default:
+            return false;
+    }
+};
 
 // Format the quote with the symbol's pip precision so trailing zeros
 // survive (663.10 -> digit 0, NOT 1). String(663.10) drops the zero.
 const extractLastDigit = (quote: number, pip_size: number) => Number(quote.toFixed(pip_size).slice(-1));
 
-const freshSymbolState = (mode: TVirtualLossMode): TPerSymbolState => ({
-    side: 'even',
+const freshSymbolState = (mode: TVirtualLossMode, side: TSide): TPerSymbolState => ({
+    side,
     virtual_loss_count: 0,
     virtual_loss_target: getLossTarget(mode),
     martingale_step: 0,
@@ -97,6 +134,7 @@ export const useSpeedTrader = (currency: string) => {
     const watchedSymbolsRef = useRef<string[]>([]);
     const perSymbolRef = useRef<Map<string, TPerSymbolState>>(new Map());
     const activeSymbolRef = useRef<string | null>(null);
+    const lastDigitRef = useRef<Map<string, number>>(new Map()); // track last digit per symbol for rise/fall
 
     const pendingRef = useRef(false); // buy sent, awaiting confirmation
     const awaitingResultRef = useRef(false); // buy confirmed, awaiting contract settlement
@@ -159,7 +197,7 @@ export const useSpeedTrader = (currency: string) => {
                 // and resume scanning across the whole set.
                 modeRef.current = 'virtual';
                 currentStakeRef.current = p.initial_stake;
-                watchedSymbolsRef.current.forEach(sym => perSymbolRef.current.set(sym, freshSymbolState(p.virtual_loss_mode)));
+                watchedSymbolsRef.current.forEach(sym => perSymbolRef.current.set(sym, freshSymbolState(p.virtual_loss_mode, p.contract_type)));
                 activeSymbolRef.current = null;
                 pushLog(
                     watchedSymbolsRef.current.length > 1
@@ -259,7 +297,7 @@ export const useSpeedTrader = (currency: string) => {
         const active_symbol = activeSymbolRef.current;
         if (!p || !active_symbol) return;
 
-        const symbol_state = perSymbolRef.current.get(active_symbol) ?? freshSymbolState(p.virtual_loss_mode);
+        const symbol_state = perSymbolRef.current.get(active_symbol) ?? freshSymbolState(p.virtual_loss_mode, p.contract_type);
         const side = symbol_state.side;
         const stake = currentStakeRef.current;
         pendingRef.current = true;
@@ -270,7 +308,7 @@ export const useSpeedTrader = (currency: string) => {
             pendingRef.current = false;
             awaitingResultRef.current = false;
             modeRef.current = 'virtual';
-            perSymbolRef.current.set(active_symbol, freshSymbolState(p.virtual_loss_mode));
+            perSymbolRef.current.set(active_symbol, freshSymbolState(p.virtual_loss_mode, p.contract_type));
             activeSymbolRef.current = null;
             currentStakeRef.current = p.initial_stake;
             publishProgress();
@@ -297,7 +335,8 @@ export const useSpeedTrader = (currency: string) => {
                 proposal: 1,
                 amount: stake,
                 basis: 'stake',
-                contract_type: side === 'even' ? 'DIGITEVEN' : 'DIGITODD',
+                contract_type: getContractType(side),
+                ...getContractParams(side),
                 currency: currencyRef.current || 'USD',
                 duration: 1,
                 duration_unit: 't',
@@ -390,7 +429,10 @@ export const useSpeedTrader = (currency: string) => {
             const st = perSymbolRef.current.get(symbol);
             if (!st) return;
 
-            const won = winsSide(digit, st.side);
+            const prevDigit = lastDigitRef.current.get(symbol);
+            lastDigitRef.current.set(symbol, digit);
+
+            const won = winsSide(digit, st.side, prevDigit);
             if (won) {
                 if (st.virtual_loss_count !== 0) {
                     st.virtual_loss_count = 0;
@@ -477,7 +519,7 @@ export const useSpeedTrader = (currency: string) => {
             isArmedRef.current = true;
 
             watchedSymbolsRef.current = symbols;
-            perSymbolRef.current = new Map(symbols.map(sym => [sym, freshSymbolState(finalParams.virtual_loss_mode)]));
+            perSymbolRef.current = new Map(symbols.map(sym => [sym, freshSymbolState(finalParams.virtual_loss_mode, finalParams.contract_type)]));
             activeSymbolRef.current = null;
 
             setState({
