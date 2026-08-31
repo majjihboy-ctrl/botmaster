@@ -10,7 +10,7 @@ const CONTRACT_TYPES: { value: TSide; label: string; description: string }[] = [
     { value: 'even', label: 'Even', description: 'Last digit is even (0,2,4,6,8)' },
     { value: 'odd', label: 'Odd', description: 'Last digit is odd (1,3,5,7,9)' },
     { value: 'over4', label: 'Over 4', description: 'Last digit > 4 (5,6,7,8,9)' },
-    { value: 'over5', label: 'Over 5', description: 'Last digit > 5 (6,7,8,9)' },
+    { value: 'under5', label: 'Under 5', description: 'Last digit < 5 (0,1,2,3,4)' },
     { value: 'rise', label: 'Rise', description: 'Digit rises from previous' },
     { value: 'fall', label: 'Fall', description: 'Digit falls from previous' },
 ];

@@ -38,7 +38,7 @@ export type TSpeedTraderParams = {
     contract_type: TSide; // 'even', 'odd', 'over4', 'over5', 'rise', 'fall'
 };
 
-type TSide = 'even' | 'odd' | 'over4' | 'over5' | 'rise' | 'fall';
+type TSide = 'even' | 'odd' | 'over4' | 'under5' | 'rise' | 'fall';
 export type { TSide };
 type TMode = 'virtual' | 'real';
 type TVirtualLossMode = 'random' | 'fixed';
@@ -77,7 +77,7 @@ const getContractType = (side: TSide): string => {
         even: 'DIGITEVEN',
         odd: 'DIGITODD',
         over4: 'DIGITOVER',
-        over5: 'DIGITOVER',
+        under5: 'DIGITUNDER',
         rise: 'RISE',
         fall: 'FALL',
     };
@@ -86,7 +86,7 @@ const getContractType = (side: TSide): string => {
 
 const getContractParams = (side: TSide) => {
     if (side === 'over4') return { barrier: '4' };
-    if (side === 'over5') return { barrier: '5' };
+    if (side === 'under5') return { barrier: '5' };
     return {};
 };
 
@@ -98,8 +98,8 @@ const winsSide = (digit: number, side: TSide, prevDigit?: number) => {
             return digit % 2 === 1;
         case 'over4':
             return digit > 4;
-        case 'over5':
-            return digit > 5;
+        case 'under5':
+            return digit < 5;
         case 'rise':
             return prevDigit !== undefined && digit > prevDigit;
         case 'fall':
