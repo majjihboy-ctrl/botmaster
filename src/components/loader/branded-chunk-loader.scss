@@ -1,21 +1,166 @@
 .branded-chunk-loader {
+    position: relative;
     height: 100vh;
     width: 100vw;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.6rem;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
     background: #060a12;
 
+    // Soft blurred color blobs drifting behind the glass panel.
+    &__ambient {
+        position: absolute;
+        width: 38vmax;
+        height: 38vmax;
+        border-radius: 50%;
+        opacity: 0.22;
+        filter: blur(60px);
+        animation: branded-ambient-drift 10s ease-in-out infinite;
+        pointer-events: none;
+    }
+
+    &__ambient--one {
+        background: #00e5ff;
+        top: 4%;
+        left: 4%;
+    }
+
+    &__ambient--two {
+        background: #1a6fff;
+        bottom: 6%;
+        right: 2%;
+        animation-delay: -1.5s;
+    }
+
+    &__panel {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: clamp(22px, 5vw, 42px);
+        padding: clamp(24px, 4vw, 40px) clamp(28px, 5vw, 48px);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.04);
+        backdrop-filter: blur(22px) saturate(150%);
+        -webkit-backdrop-filter: blur(22px) saturate(150%);
+        box-shadow:
+            0 24px 64px rgba(0, 0, 0, 0.35),
+            inset 0 1px rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+
+        // Diagonal light sweep across the glass.
+        &::before {
+            content: '';
+            position: absolute;
+            top: -40%;
+            bottom: -40%;
+            width: 40%;
+            background: linear-gradient(
+                100deg,
+                transparent,
+                rgba(255, 255, 255, 0.08),
+                transparent
+            );
+            transform: translate(-80%) rotate(18deg);
+            animation: branded-glass-sweep 3.6s ease-in-out infinite;
+        }
+    }
+
+    &__copy {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    &__topline {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.72rem;
+        font-weight: 900;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.62);
+    }
+
+    &__dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #00e5ff;
+        animation: branded-dot-pulse 1.6s ease-in-out infinite;
+    }
+
     &__message {
-        margin-top: 4rem;
-        color: rgba(0, 229, 255, 0.6);
         font-family: 'Share Tech Mono', monospace;
         font-size: 1.2rem;
         letter-spacing: 0.05em;
         text-transform: uppercase;
-        text-align: center;
-        padding: 0 2rem;
+        color: rgba(0, 229, 255, 0.75);
+    }
+
+    &__progress {
+        width: min(220px, 40vw);
+        height: 4px;
+        border-radius: 99px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    &__progress-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #00e5ff, #fff, #1a6fff);
+        box-shadow: 0 0 18px rgba(0, 229, 255, 0.6);
+        animation: branded-progress-indeterminate 1.8s ease-in-out infinite;
+    }
+}
+
+@keyframes branded-ambient-drift {
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+    50% {
+        transform: translate(3%, -3%) scale(1.08);
+    }
+}
+
+@keyframes branded-glass-sweep {
+    0%,
+    55% {
+        transform: translate(-80%) rotate(18deg);
+    }
+    85%,
+    100% {
+        transform: translate(360%) rotate(18deg);
+    }
+}
+
+@keyframes branded-dot-pulse {
+    0%,
+    100% {
+        opacity: 0.4;
+        transform: scale(0.85);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.15);
+    }
+}
+
+@keyframes branded-progress-indeterminate {
+    0% {
+        width: 15%;
+        margin-left: 0%;
+    }
+    50% {
+        width: 55%;
+        margin-left: 30%;
+    }
+    100% {
+        width: 15%;
+        margin-left: 100%;
     }
 }
