@@ -64,291 +64,301 @@ const SpeedTrader = observer(() => {
 
     return (
         <div className='speed-trader'>
-            <div className='speed-trader__layout'>
-                {/* Left Column - Controls & Status */}
-                <div className='speed-trader__col-controls'>
-                    {/* Header */}
-                    <div className='speed-trader__header'>
-                        <h1 className='speed-trader__title'>{localize('Speed Trader')}</h1>
-                        <div className={`speed-trader__badge ${state.is_armed ? 'live' : 'stopped'}`}>
-                            {state.is_armed ? (state.is_loading ? '🔄 Connecting' : '🟢 LIVE') : '⏹️ Stopped'}
-                        </div>
-                    </div>
+            <div className='speed-trader__topbar'>
+                <div className='speed-trader__title'>
+                    <h1>{localize('Speed Trader')}</h1>
+                    <span className={`speed-trader__live ${!state.is_armed ? 'stale' : ''}`}>
+                        <span className='speed-trader__pulse' />
+                        {state.is_armed
+                            ? state.is_loading
+                                ? localize('CONNECTING')
+                                : state.active_symbol
+                                  ? localize('LIVE')
+                                  : localize('SCANNING')
+                            : localize('STOPPED')}
+                    </span>
+                </div>
+            </div>
 
-                    {/* Status Info */}
+            <div className='speed-trader__layout'>
+                <div className='speed-trader__col-main'>
                     {state.is_armed && (
-                        <div className='speed-trader__status-card'>
-                            <div className='status-row'>
-                                <span className='label'>Status:</span>
-                                <span className='value'>
-                                    {state.active_symbol ? (
-                                        <>Trading {displayName(state.active_symbol)}</>
-                                    ) : (
-                                        <>Scanning {state.watching.length} markets</>
-                                    )}
-                                </span>
-                            </div>
-                            <div className='status-row'>
-                                <span className='label'>Strategy:</span>
-                                <span className='value'>{contractLabel}</span>
-                            </div>
-                            <div className='status-row'>
-                                <span className='label'>Current Stake:</span>
-                                <span className='value'>${state.current_stake.toFixed(2)}</span>
-                            </div>
-                            <div className='status-row'>
-                                <span className={`value ${state.total_pnl >= 0 ? 'profit' : 'loss'}`}>
-                                    ${state.total_pnl.toFixed(2)} P&L
-                                </span>
+                        <div className='speed-trader__panel'>
+                            <h2>{localize('Status')}</h2>
+                            <div className='speed-trader__status-grid'>
+                                <div className='speed-trader__stat-row'>
+                                    <span className='speed-trader__field-label'>{localize('Status')}</span>
+                                    <span className='speed-trader__stat-value'>
+                                        {state.active_symbol ? (
+                                            <>{localize('Trading {{symbol}}', { symbol: displayName(state.active_symbol) })}</>
+                                        ) : (
+                                            <>{localize('Scanning {{count}} markets', { count: state.watching.length })}</>
+                                        )}
+                                    </span>
+                                </div>
+                                <div className='speed-trader__stat-row'>
+                                    <span className='speed-trader__field-label'>{localize('Strategy')}</span>
+                                    <span className='speed-trader__stat-value'>{contractLabel}</span>
+                                </div>
+                                <div className='speed-trader__stat-row'>
+                                    <span className='speed-trader__field-label'>{localize('Current stake')}</span>
+                                    <span className='speed-trader__stat-value'>${state.current_stake.toFixed(2)}</span>
+                                </div>
+                                <div className='speed-trader__stat-row'>
+                                    <span className='speed-trader__field-label'>{localize('P&L')}</span>
+                                    <span
+                                        className={`speed-trader__stat-value ${state.total_pnl >= 0 ? 'up' : 'down'}`}
+                                    >
+                                        ${state.total_pnl.toFixed(2)}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Controls */}
-                    <div className='speed-trader__controls'>
-                        <div className='control-section'>
-                            <h3 className='section-title'>{localize('Strategy')}</h3>
+                    <div className='speed-trader__panel'>
+                        <h2>{localize('Strategy')}</h2>
 
-                            <div className='control-group'>
-                                <label>{localize('Contract Type')}</label>
+                        <div className='speed-trader__controls'>
+                            <label className='speed-trader__field-label' htmlFor='speed-trader-contract-type'>
+                                {localize('Contract type')}
+                            </label>
+                            <select
+                                id='speed-trader-contract-type'
+                                value={contract_type}
+                                disabled={state.is_armed}
+                                onChange={e => setContractType(e.target.value as TSide)}
+                            >
+                                {CONTRACT_TYPES.map(ct => (
+                                    <option key={ct.value} value={ct.value}>
+                                        {ct.label} — {ct.description}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className='speed-trader__checkbox-field'>
+                            <input
+                                type='checkbox'
+                                id='speed-trader-watch-all'
+                                checked={watch_all_markets}
+                                disabled={state.is_armed}
+                                onChange={e => setWatchAllMarkets(e.target.checked)}
+                            />
+                            <label htmlFor='speed-trader-watch-all'>{localize('Trade all markets (race mode)')}</label>
+                        </div>
+
+                        {!watch_all_markets && (
+                            <div className='speed-trader__controls'>
+                                <label className='speed-trader__field-label' htmlFor='speed-trader-symbol'>
+                                    {localize('Symbol')}
+                                </label>
                                 <select
-                                    value={contract_type}
+                                    id='speed-trader-symbol'
+                                    value={symbol}
                                     disabled={state.is_armed}
-                                    className='contract-select'
-                                    onChange={e => setContractType(e.target.value as TSide)}
+                                    onChange={e => setSymbol(e.target.value)}
                                 >
-                                    {CONTRACT_TYPES.map(ct => (
-                                        <option key={ct.value} value={ct.value}>
-                                            {ct.label} - {ct.description}
+                                    {symbol_options.map(s => (
+                                        <option key={s.symbol} value={s.symbol}>
+                                            {s.display_name}
                                         </option>
                                     ))}
                                 </select>
                             </div>
+                        )}
+                    </div>
 
-                            <div className='control-group'>
-                                <label>
-                                    <input
-                                        type='checkbox'
-                                        checked={watch_all_markets}
-                                        disabled={state.is_armed}
-                                        onChange={e => setWatchAllMarkets(e.target.checked)}
-                                    />
-                                    <span>{localize('Trade all markets (race mode)')}</span>
-                                </label>
-                            </div>
+                    <div className='speed-trader__panel'>
+                        <h2>{localize('Entry & recovery')}</h2>
 
-                            {!watch_all_markets && (
-                                <div className='control-group'>
-                                    <label>{localize('Symbol')}</label>
-                                    <select
-                                        value={symbol}
-                                        disabled={state.is_armed}
-                                        onChange={e => setSymbol(e.target.value)}
-                                    >
-                                        {symbol_options.map(s => (
-                                            <option key={s.symbol} value={s.symbol}>
-                                                {s.display_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
+                        <div className='speed-trader__controls'>
+                            <label className='speed-trader__field-label' htmlFor='speed-trader-loss-mode'>
+                                {localize('Virtual loss target')}
+                            </label>
+                            <select
+                                id='speed-trader-loss-mode'
+                                value={virtual_loss_mode}
+                                disabled={state.is_armed}
+                                onChange={e => setVirtualLossMode(e.target.value as 'random' | 'fixed')}
+                            >
+                                <option value='random'>{localize('Randomized (3-5)')}</option>
+                                <option value='fixed'>{localize('Fixed (5)')}</option>
+                            </select>
                         </div>
 
-                        <div className='control-section'>
-                            <h3 className='section-title'>{localize('Entry & Recovery')}</h3>
-
-                            <div className='control-group'>
-                                <label>{localize('Virtual Loss Target')}</label>
-                                <select
-                                    value={virtual_loss_mode}
-                                    disabled={state.is_armed}
-                                    onChange={e => setVirtualLossMode(e.target.value as 'random' | 'fixed')}
-                                >
-                                    <option value='random'>{localize('Randomized (3-5)')}</option>
-                                    <option value='fixed'>{localize('Fixed (5)')}</option>
-                                </select>
+                        <div className='speed-trader__slider-field'>
+                            <div className='speed-trader__slider-label-row'>
+                                <span className='speed-trader__field-label'>{localize('Initial stake')}</span>
+                                <span className='speed-trader__slider-value'>${initial_stake.toFixed(2)}</span>
                             </div>
-
-                            <div className='control-group'>
-                                <label>
-                                    {localize('Initial Stake')}{' '}
-                                    <span className='value'>${initial_stake.toFixed(2)}</span>
-                                </label>
-                                <input
-                                    type='range'
-                                    min='0.1'
-                                    max='10'
-                                    step='0.05'
-                                    value={initial_stake}
-                                    disabled={state.is_armed}
-                                    onChange={e => setInitialStake(parseFloat(e.target.value))}
-                                />
-                            </div>
-
-                            <div className='control-group'>
-                                <label>
-                                    {localize('Martingale Multiplier')}{' '}
-                                    <span className='value'>{martingale_mult.toFixed(1)}x</span>
-                                </label>
-                                <input
-                                    type='range'
-                                    min='1.5'
-                                    max='5'
-                                    step='0.1'
-                                    value={martingale_mult}
-                                    disabled={state.is_armed}
-                                    onChange={e => setMartingaleMult(parseFloat(e.target.value))}
-                                />
-                            </div>
-
-                            <div className='control-group'>
-                                <label>
-                                    {localize('Max Martingale Steps')}{' '}
-                                    <span className='value'>{max_martingale_steps}</span>
-                                </label>
-                                <input
-                                    type='range'
-                                    min='2'
-                                    max='10'
-                                    step='1'
-                                    value={max_martingale_steps}
-                                    disabled={state.is_armed}
-                                    onChange={e => setMaxMartingaleSteps(parseInt(e.target.value))}
-                                />
-                            </div>
+                            <input
+                                type='range'
+                                min='0.1'
+                                max='10'
+                                step='0.05'
+                                value={initial_stake}
+                                disabled={state.is_armed}
+                                onChange={e => setInitialStake(parseFloat(e.target.value))}
+                            />
                         </div>
 
-                        <div className='control-section'>
-                            <h3 className='section-title'>{localize('Risk Management')}</h3>
-
-                            <div className='control-group'>
-                                <label>
-                                    {localize('Stop Loss')}{' '}
-                                    <span className='value'>${stop_loss.toFixed(2)}</span>
-                                </label>
-                                <input
-                                    type='range'
-                                    min='1'
-                                    max='100'
-                                    step='1'
-                                    value={stop_loss}
-                                    disabled={state.is_armed}
-                                    onChange={e => setStopLoss(parseFloat(e.target.value))}
-                                />
+                        <div className='speed-trader__slider-field'>
+                            <div className='speed-trader__slider-label-row'>
+                                <span className='speed-trader__field-label'>{localize('Martingale multiplier')}</span>
+                                <span className='speed-trader__slider-value'>{martingale_mult.toFixed(1)}x</span>
                             </div>
-
-                            <div className='control-group'>
-                                <label>
-                                    {localize('Take Profit')}{' '}
-                                    <span className='value'>${take_profit.toFixed(2)}</span>
-                                </label>
-                                <input
-                                    type='range'
-                                    min='10'
-                                    max='500'
-                                    step='10'
-                                    value={take_profit}
-                                    disabled={state.is_armed}
-                                    onChange={e => setTakeProfit(parseFloat(e.target.value))}
-                                />
-                            </div>
+                            <input
+                                type='range'
+                                min='1.5'
+                                max='5'
+                                step='0.1'
+                                value={martingale_mult}
+                                disabled={state.is_armed}
+                                onChange={e => setMartingaleMult(parseFloat(e.target.value))}
+                            />
                         </div>
 
-                        {/* Action Buttons */}
+                        <div className='speed-trader__slider-field'>
+                            <div className='speed-trader__slider-label-row'>
+                                <span className='speed-trader__field-label'>{localize('Max martingale steps')}</span>
+                                <span className='speed-trader__slider-value'>{max_martingale_steps}</span>
+                            </div>
+                            <input
+                                type='range'
+                                min='2'
+                                max='10'
+                                step='1'
+                                value={max_martingale_steps}
+                                disabled={state.is_armed}
+                                onChange={e => setMaxMartingaleSteps(parseInt(e.target.value, 10))}
+                            />
+                        </div>
+                    </div>
+
+                    <div className='speed-trader__panel'>
+                        <h2>{localize('Risk management')}</h2>
+
+                        <div className='speed-trader__slider-field'>
+                            <div className='speed-trader__slider-label-row'>
+                                <span className='speed-trader__field-label'>{localize('Stop loss')}</span>
+                                <span className='speed-trader__slider-value'>${stop_loss.toFixed(2)}</span>
+                            </div>
+                            <input
+                                type='range'
+                                min='1'
+                                max='100'
+                                step='1'
+                                value={stop_loss}
+                                disabled={state.is_armed}
+                                onChange={e => setStopLoss(parseFloat(e.target.value))}
+                            />
+                        </div>
+
+                        <div className='speed-trader__slider-field'>
+                            <div className='speed-trader__slider-label-row'>
+                                <span className='speed-trader__field-label'>{localize('Take profit')}</span>
+                                <span className='speed-trader__slider-value'>${take_profit.toFixed(2)}</span>
+                            </div>
+                            <input
+                                type='range'
+                                min='10'
+                                max='500'
+                                step='10'
+                                value={take_profit}
+                                disabled={state.is_armed}
+                                onChange={e => setTakeProfit(parseFloat(e.target.value))}
+                            />
+                        </div>
+
                         <div className='speed-trader__actions'>
                             {!state.is_armed ? (
-                                <button onClick={handleStartClick} className='btn btn-primary'>
-                                    {localize('Start Trading')}
+                                <button type='button' className='speed-trader__btn start' onClick={handleStartClick}>
+                                    {localize('Start trading')}
                                 </button>
                             ) : (
-                                <button onClick={stop} className='btn btn-danger'>
-                                    {localize('Stop Trading')}
+                                <button type='button' className='speed-trader__btn stop' onClick={stop}>
+                                    {localize('Stop trading')}
                                 </button>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* Right Column - Race Progress & Logs */}
-                <div className='speed-trader__col-output'>
-                    {/* Race Progress */}
+                <div className='speed-trader__col-side'>
                     {watch_all_markets && state.is_armed && (
-                        <div className='speed-trader__race-panel'>
-                            <h3>{localize('Race Progress')}</h3>
-                            <div className='race-list'>
+                        <div className='speed-trader__panel speed-trader__race-panel'>
+                            <h2>{localize('Race progress')}</h2>
+                            <div className='speed-trader__race-list'>
                                 {race_rows.length > 0 ? (
-                                    race_rows.map(([sym, progress]) => (
-                                        <div key={sym} className={`race-item ${sym === state.active_symbol ? 'active' : ''}`}>
-                                            <div className='race-header'>
-                                                <span className='symbol'>{displayName(sym)}</span>
-                                                <span className='progress-text'>
+                                    race_rows.map(([sym, progress]) => {
+                                        const is_active = sym === state.active_symbol;
+                                        const pct = Math.min(100, (progress.count / progress.target) * 100);
+                                        return (
+                                            <div
+                                                key={sym}
+                                                className={`speed-trader__race-row ${is_active ? 'active' : ''}`}
+                                                aria-label={`${displayName(sym)}: ${progress.count} of ${progress.target} virtual losses`}
+                                            >
+                                                <span className='speed-trader__race-name'>{displayName(sym)}</span>
+                                                <div className='speed-trader__race-bar'>
+                                                    <div className='speed-trader__race-bar-fill' style={{ width: `${pct}%` }} />
+                                                </div>
+                                                <span className='speed-trader__race-count'>
                                                     {progress.count}/{progress.target}
+                                                    {is_active ? ` ${localize('LIVE')}` : ''}
                                                 </span>
                                             </div>
-                                            <div className='progress-bar'>
-                                                <div
-                                                    className='progress-fill'
-                                                    style={{
-                                                        width: `${Math.min(100, (progress.count / progress.target) * 100)}%`,
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                    ))
+                                        );
+                                    })
                                 ) : (
-                                    <div className='empty-state'>{localize('Waiting for market data...')}</div>
+                                    <div className='speed-trader__empty-state'>{localize('Waiting for market data…')}</div>
                                 )}
                             </div>
                         </div>
                     )}
 
-                    {/* Logs */}
-                    <div className='speed-trader__logs-panel'>
-                        <h3>{localize('Activity Log')}</h3>
-                        <div className='logs-container'>
-                            {state.logs.length > 0 ? (
-                                state.logs.map(log => (
-                                    <div key={log.id} className={`log-entry log-${log.kind}`}>
-                                        <span className='time'>{log.time}</span>
-                                        <span className='text'>{log.text}</span>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className='empty-state'>{localize('Waiting for activity...')}</div>
+                    <div className='speed-trader__panel speed-trader__log-panel'>
+                        <h2>{localize('Live log')}</h2>
+                        <div className='speed-trader__log'>
+                            {state.logs.length === 0 && (
+                                <div className='speed-trader__log-empty'>{localize('No activity yet.')}</div>
                             )}
+                            {state.logs.map(log => (
+                                <div key={log.id} className={`speed-trader__log-row ${log.kind}`}>
+                                    <span className='speed-trader__log-time'>{log.time}</span>
+                                    <span>{log.text}</span>
+                                </div>
+                            ))}
                             <div ref={logEndRef} />
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Confirmation Modal */}
             {show_confirm && (
-                <div className='modal-overlay' onClick={() => setShowConfirm(false)}>
-                    <div className='modal-content' onClick={e => e.stopPropagation()}>
-                        <h2>{localize('Confirm Trade Settings')}</h2>
-                        <div className='confirm-details'>
-                            <p>
-                                <strong>Strategy:</strong> {contractLabel}
-                            </p>
-                            <p>
-                                <strong>Markets:</strong>{' '}
-                                {watch_all_markets ? `${state.watching.length} markets (race mode)` : displayName(symbol)}
-                            </p>
-                            <p>
-                                <strong>Initial Stake:</strong> ${initial_stake.toFixed(2)}
-                            </p>
-                            <p>
-                                <strong>Max Loss/Trade:</strong> ${(initial_stake * Math.pow(martingale_mult, max_martingale_steps - 1)).toFixed(2)}
-                            </p>
-                        </div>
-                        <div className='modal-actions'>
-                            <button onClick={() => setShowConfirm(false)} className='btn btn-secondary'>
+                <div className='speed-trader__confirm-overlay' onClick={() => setShowConfirm(false)}>
+                    <div className='speed-trader__confirm-box' onClick={e => e.stopPropagation()}>
+                        <h3>{localize('Confirm trade settings')}</h3>
+                        <p>
+                            <strong>{localize('Strategy')}:</strong> {contractLabel}
+                            <br />
+                            <strong>{localize('Markets')}:</strong>{' '}
+                            {watch_all_markets
+                                ? localize('{{count}} markets (race mode)', { count: state.watching.length })
+                                : displayName(symbol)}
+                            <br />
+                            <strong>{localize('Initial stake')}:</strong> ${initial_stake.toFixed(2)}
+                            <br />
+                            <strong>{localize('Max loss per trade')}:</strong> $
+                            {(initial_stake * Math.pow(martingale_mult, max_martingale_steps - 1)).toFixed(2)}
+                        </p>
+                        <div className='speed-trader__confirm-actions'>
+                            <button type='button' className='speed-trader__btn-secondary' onClick={() => setShowConfirm(false)}>
                                 {localize('Cancel')}
                             </button>
-                            <button onClick={confirmStart} className='btn btn-primary'>
-                                {localize('Confirm & Start')}
+                            <button type='button' className='speed-trader__btn start' onClick={confirmStart}>
+                                {localize('Confirm & start')}
                             </button>
                         </div>
                     </div>
