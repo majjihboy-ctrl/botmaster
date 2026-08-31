@@ -28,6 +28,30 @@
 }
 
 .main {
+    // The shared Tabs component renders its content wrapper as
+    // "dc-tabs__content--main__tabs" (from its className prop "main__tabs").
+    // Only one tab's page content is ever visible at a time, but Dashboard
+    // specifically renders extra siblings alongside its layout div (an info
+    // panel and an onboarding-tour overlay) via a React Fragment, so those
+    // become siblings of ".tab__dashboard" inside this wrapper. A blanket
+    // "> *" rule would turn those into competing flex items and squeeze the
+    // real content - instead we target only the actual page-layout div for
+    // each tab by its known root class.
+    .dc-tabs__content--main__tabs {
+        display: flex;
+        width: 100%;
+
+        > .tab__dashboard,
+        > .free-bots-tab,
+        > .bot-builder,
+        > .analysis-tool,
+        > .updown-tool,
+        > .speed-trader {
+            width: 100%;
+            min-width: 0;
+        }
+    }
+
     display: flex;
     overflow: hidden;
     width: 100%;
