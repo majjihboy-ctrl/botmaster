@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import { localize } from '@deriv-com/translations';
-import { useSpeedTrader, TSide } from './use-speed-trader';
+import { useSpeedTrader, TSide, TResultMode } from './use-speed-trader';
 import { SliderField, ToggleSwitch } from './speed-trader-fields';
 import './speed-trader.scss';
 
@@ -25,6 +25,7 @@ const SpeedTrader = observer(() => {
     const [contract_type, setContractType] = React.useState<TSide>('even');
     const [virtual_loss_mode, setVirtualLossMode] = React.useState<'random' | 'fixed'>('random');
     const [require_confirmation, setRequireConfirmation] = React.useState(false);
+    const [result_mode, setResultMode] = React.useState<TResultMode>('wait');
     const [initial_stake, setInitialStake] = React.useState(0.35);
     const [martingale_mult, setMartingaleMult] = React.useState(2);
     const [max_martingale_steps, setMaxMartingaleSteps] = React.useState(5);
@@ -54,6 +55,7 @@ const SpeedTrader = observer(() => {
             virtual_loss_mode,
             contract_type,
             require_confirmation,
+            result_mode,
         });
     };
 
@@ -201,6 +203,24 @@ const SpeedTrader = observer(() => {
                                 {localize(
                                     'After the loss streak hits target, wait for the streak to actually break (a real winning tick) before trading — instead of firing the instant the target is reached.'
                                 )}
+                            </p>
+                        </div>
+
+                        <div className='speed-trader__controls'>
+                            <ToggleSwitch
+                                checked={result_mode === 'calculate'}
+                                disabled={state.is_armed}
+                                onChange={checked => setResultMode(checked ? 'calculate' : 'wait')}
+                                label={localize('Calculate results instantly')}
+                            />
+                            <p className='speed-trader__field-hint'>
+                                {result_mode === 'calculate'
+                                    ? localize(
+                                          'On: the outcome is computed the instant the deciding tick arrives, so no ticks are missed while waiting on the network. The real result is still fetched in the background and silently corrects your total if it ever disagrees.'
+                                      )
+                                    : localize(
+                                          'Off (safest): after each trade, wait for Deriv to confirm the real result before reacting to the next tick. Never wrong, but the bot pauses briefly between trades.'
+                                      )}
                             </p>
                         </div>
 
