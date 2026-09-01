@@ -37,6 +37,7 @@ import {
     LabelPairedObjectsColumnCaptionRegularIcon,
     LabelPairedPlaybackSpeedCaptionRegularIcon,
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
+    LabelPairedSignalCaptionRegularIcon,
     LabelPairedStarCaptionRegularIcon,
 } from '@deriv/quill-icons/LabelPaired';
 import { Localize, localize } from '@deriv-com/translations';
@@ -47,6 +48,7 @@ import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
 import FreeBotsTab from '../free-bots/free-bots-tab';
+import Signals from '../signals';
 import SpeedTrader from '../speed-trader';
 import UpsDownsTool from '../ups-downs-tool';
 import './main.scss';
@@ -479,6 +481,21 @@ const AppWrapper = observer(() => {
                                 id='id-speed-trader'
                             >
                                 <SpeedTrader />
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedSignalCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='currentColor'
+                                        />
+                                        <Localize i18n_default_text='Signals' />
+                                    </>
+                                }
+                                id='id-signals'
+                            >
+                                <Signals />
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
