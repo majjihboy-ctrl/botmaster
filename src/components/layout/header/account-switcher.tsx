@@ -11,6 +11,7 @@ import { isDemoAccount } from '@/utils/account-helpers';
 import { Localize } from '@deriv-com/translations';
 import { TAccountSwitcher } from './common/types';
 import AccountInfoWrapper from './account-info-wrapper';
+import RefreshBalanceButton from './refresh-balance-button';
 import './account-switcher.scss';
 
 const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
@@ -112,6 +113,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                         <span className='acc-info__balance-currency'>
                                             {getCurrencyDisplayCode(currency)}
                                         </span>
+                                        <RefreshBalanceButton />
                                     </>
                                 )}
                             </div>

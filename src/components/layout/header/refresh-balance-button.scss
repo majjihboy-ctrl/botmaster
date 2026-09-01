@@ -1,0 +1,43 @@
+.refresh-balance-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 0.5rem;
+    transition: all 0.2s ease;
+    color: var(--text-general);
+
+    &:hover:not(:disabled) {
+        color: #0066cc;
+        transform: rotate(-20deg);
+    }
+
+    &:active:not(:disabled) {
+        opacity: 0.7;
+    }
+
+    &:disabled,
+    &--loading {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    &--loading {
+        animation: spin-refresh 1s linear infinite;
+    }
+}
+
+@keyframes spin-refresh {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
