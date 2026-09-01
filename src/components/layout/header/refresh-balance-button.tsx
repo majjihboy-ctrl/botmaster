@@ -17,22 +17,21 @@ const RefreshBalanceButton = observer(() => {
         return null;
     }
 
-    const handleRefreshBalance = async () => {
+    const handleResetBalance = async () => {
         if (!api || isLoading) return;
 
         setIsLoading(true);
         try {
-            // Make API call to refresh balance
-            const response = await api.send({ balance: 1 });
+            // Make API call to reset virtual account balance to 10,000
+            const response = await api.send({ topup_virtual: 1 });
             
-            if (response?.balance) {
-                client.setBalance(response.balance.toString());
-                // Optional: Show success toast notification
-                console.log('Balance refreshed:', response.balance);
+            if (response?.topup_virtual) {
+                // Update client balance with new/reset balance
+                client.setBalance(response.topup_virtual.toString());
+                console.log('Demo balance reset to:', response.topup_virtual);
             }
         } catch (error) {
-            console.error('Failed to refresh balance:', error);
-            // Optional: Show error notification
+            console.error('Failed to reset demo balance:', error);
         } finally {
             setIsLoading(false);
         }
@@ -41,14 +40,15 @@ const RefreshBalanceButton = observer(() => {
     return (
         <Tooltip
             position='bottom'
-            message={<Localize i18n_default_text='Refresh demo balance' />}
+            message={<Localize i18n_default_text='Reset demo balance to 10,000' />}
             alignment='center'
         >
             <button
                 className={`refresh-balance-button ${isLoading ? 'refresh-balance-button--loading' : ''}`}
-                onClick={handleRefreshBalance}
+                onClick={handleResetBalance}
                 disabled={isLoading}
-                aria-label='Refresh demo balance'
+                aria-label='Reset demo balance to 10,000'
+                title='Reset demo balance to 10,000'
             >
                 <LegacyRefresh1pxIcon width={16} height={16} />
             </button>
