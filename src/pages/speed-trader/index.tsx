@@ -23,6 +23,7 @@ const SpeedTrader = observer(() => {
     const [watch_all_markets, setWatchAllMarkets] = React.useState(false);
     const [contract_type, setContractType] = React.useState<TSide>('even');
     const [virtual_loss_mode, setVirtualLossMode] = React.useState<'random' | 'fixed'>('random');
+    const [require_confirmation, setRequireConfirmation] = React.useState(false);
     const [initial_stake, setInitialStake] = React.useState(0.35);
     const [martingale_mult, setMartingaleMult] = React.useState(2);
     const [max_martingale_steps, setMaxMartingaleSteps] = React.useState(5);
@@ -51,6 +52,7 @@ const SpeedTrader = observer(() => {
             take_profit,
             virtual_loss_mode,
             contract_type,
+            require_confirmation,
         });
     };
 
@@ -187,6 +189,23 @@ const SpeedTrader = observer(() => {
                             </select>
                         </div>
 
+                        <div className='speed-trader__controls'>
+                            <label className='speed-trader__checkbox-label'>
+                                <input
+                                    type='checkbox'
+                                    checked={require_confirmation}
+                                    disabled={state.is_armed}
+                                    onChange={e => setRequireConfirmation(e.target.checked)}
+                                />
+                                <span>{localize('Require confirmation tick')}</span>
+                            </label>
+                            <p className='speed-trader__field-hint'>
+                                {localize(
+                                    'After the loss streak hits target, wait for the streak to actually break (a real winning tick) before trading — instead of firing the instant the target is reached.'
+                                )}
+                            </p>
+                        </div>
+
                         <div className='speed-trader__slider-field'>
                             <div className='speed-trader__slider-label-row'>
                                 <span className='speed-trader__field-label'>{localize('Initial stake')}</span>
@@ -297,7 +316,7 @@ const SpeedTrader = observer(() => {
                                         return (
                                             <div
                                                 key={sym}
-                                                className={`speed-trader__race-row ${is_active ? 'active' : ''}`}
+                                                className={`speed-trader__race-row ${is_active ? 'active' : ''} ${progress.awaiting_confirmation ? 'confirming' : ''}`}
                                                 aria-label={`${displayName(sym)}: ${progress.count} of ${progress.target} virtual losses`}
                                             >
                                                 <span className='speed-trader__race-name'>{displayName(sym)}</span>
@@ -305,7 +324,9 @@ const SpeedTrader = observer(() => {
                                                     <div className='speed-trader__race-bar-fill' style={{ width: `${pct}%` }} />
                                                 </div>
                                                 <span className='speed-trader__race-count'>
-                                                    {progress.count}/{progress.target}
+                                                    {progress.awaiting_confirmation
+                                                        ? localize('confirming…')
+                                                        : `${progress.count}/${progress.target}`}
                                                     {is_active ? ` ${localize('LIVE')}` : ''}
                                                 </span>
                                             </div>
@@ -352,6 +373,9 @@ const SpeedTrader = observer(() => {
                             <br />
                             <strong>{localize('Max loss per trade')}:</strong> $
                             {(initial_stake * Math.pow(martingale_mult, max_martingale_steps - 1)).toFixed(2)}
+                            <br />
+                            <strong>{localize('Confirmation tick')}:</strong>{' '}
+                            {require_confirmation ? localize('Required') : localize('Off — trades instantly at target')}
                         </p>
                         <div className='speed-trader__confirm-actions'>
                             <button type='button' className='speed-trader__btn-secondary' onClick={() => setShowConfirm(false)}>

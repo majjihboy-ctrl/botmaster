@@ -8,7 +8,7 @@ export type TSpeedTraderLogEntry = {
     kind: 'info' | 'win' | 'loss' | 'warn' | 'error';
 };
 
-export type TVirtualProgress = { count: number; target: number };
+export type TVirtualProgress = { count: number; target: number; awaiting_confirmation?: boolean };
 
 export type TSpeedTraderState = {
     is_armed: boolean;
@@ -36,6 +36,10 @@ export type TSpeedTraderParams = {
     take_profit: number;
     virtual_loss_mode: TVirtualLossMode; // 'random' = 3-5 randomized (default), 'fixed' = always 5
     contract_type: TSide; // 'even', 'odd', 'over4', 'over5', 'rise', 'fall'
+    // When true, hitting the loss target doesn't fire the trade immediately.
+    // Instead we wait for one real winning tick (the streak actually breaking)
+    // before entering, e.g. odd odd odd odd -> wait -> even (confirms) -> trade even.
+    require_confirmation: boolean;
 };
 
 type TSide = 'even' | 'odd' | 'over4' | 'under5' | 'rise' | 'fall';
@@ -48,6 +52,7 @@ type TPerSymbolState = {
     virtual_loss_count: number;
     virtual_loss_target: number;
     martingale_step: number;
+    awaiting_confirmation: boolean; // true once loss target is hit; waits for a real winning tick before trading
 };
 
 const VIRTUAL_LOSS_MIN = 3;
@@ -118,6 +123,7 @@ const freshSymbolState = (mode: TVirtualLossMode, side: TSide): TPerSymbolState 
     virtual_loss_count: 0,
     virtual_loss_target: getLossTarget(mode),
     martingale_step: 0,
+    awaiting_confirmation: false,
 });
 
 export const useSpeedTrader = (currency: string) => {
@@ -161,7 +167,11 @@ export const useSpeedTrader = (currency: string) => {
     const publishProgress = useCallback(() => {
         const progress: Record<string, TVirtualProgress> = {};
         perSymbolRef.current.forEach((st, sym) => {
-            progress[sym] = { count: st.virtual_loss_count, target: st.virtual_loss_target };
+            progress[sym] = {
+                count: st.virtual_loss_count,
+                target: st.virtual_loss_target,
+                awaiting_confirmation: st.awaiting_confirmation,
+            };
         });
         setState(prev => ({ ...prev, virtual_progress: progress, active_symbol: activeSymbolRef.current }));
     }, []);
@@ -427,12 +437,33 @@ export const useSpeedTrader = (currency: string) => {
     const handleVirtualTick = useCallback(
         (symbol: string, digit: number) => {
             const st = perSymbolRef.current.get(symbol);
-            if (!st) return;
+            const p = paramsRef.current;
+            if (!st || !p) return;
 
             const prevDigit = lastDigitRef.current.get(symbol);
             lastDigitRef.current.set(symbol, digit);
 
             const won = winsSide(digit, st.side, prevDigit);
+
+            // Already past the loss target and waiting for the streak to
+            // actually break before entering. Keep watching until a real
+            // winning tick shows up — losses in the meantime just extend
+            // the streak we log, they don't reset anything.
+            if (st.awaiting_confirmation) {
+                if (won) {
+                    activeSymbolRef.current = symbol;
+                    modeRef.current = 'real';
+                    st.awaiting_confirmation = false;
+                    pushLog(`[${symbol}] Confirmed — streak broke, trading ${st.side.toUpperCase()} now.`, 'warn');
+                    publishProgress();
+                    placeRealTrade();
+                } else {
+                    st.virtual_loss_count += 1;
+                    publishProgress();
+                }
+                return;
+            }
+
             if (won) {
                 if (st.virtual_loss_count !== 0) {
                     st.virtual_loss_count = 0;
@@ -443,12 +474,20 @@ export const useSpeedTrader = (currency: string) => {
             st.virtual_loss_count += 1;
 
             if (st.virtual_loss_count >= st.virtual_loss_target) {
-                // This market wins the race — lock it in and go real.
-                activeSymbolRef.current = symbol;
-                modeRef.current = 'real';
-                pushLog(`[${symbol}] Hit ${st.virtual_loss_count} virtual losses — going real.`, 'warn');
-                publishProgress();
-                placeRealTrade();
+                if (p.require_confirmation) {
+                    // Don't trade yet — wait for the next tick that actually
+                    // wins before entering.
+                    st.awaiting_confirmation = true;
+                    pushLog(`[${symbol}] Hit ${st.virtual_loss_count} virtual losses — waiting for confirmation tick.`, 'warn');
+                    publishProgress();
+                } else {
+                    // This market wins the race — lock it in and go real.
+                    activeSymbolRef.current = symbol;
+                    modeRef.current = 'real';
+                    pushLog(`[${symbol}] Hit ${st.virtual_loss_count} virtual losses — going real.`, 'warn');
+                    publishProgress();
+                    placeRealTrade();
+                }
             } else {
                 publishProgress();
             }
