@@ -384,7 +384,6 @@ export const ToolboxItems = () =>
                     <Block type='ticks' />
                     <Block type='lastDigitList' />
                     <Block type='check_direction' />
-                    <Block type='check_percentage_match' />
                     <Block type='is_candle_black' />
                     <Block type='read_ohlc'>
                         <Field name='OHLCFIELD_LIST'>open</Field>
@@ -423,6 +422,10 @@ export const ToolboxItems = () =>
                     <Block type='total_profit' />
                     <Block type='total_runs' />
                 </Category>
+            </Category>
+
+            <Category id='custom_blocks' name={localize('Custom')}>
+                <Block type='check_percentage_match' />
             </Category>
 
             <Category id='utility' name={localize('Utility')}>

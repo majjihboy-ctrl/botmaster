@@ -10,4 +10,3 @@ import './last_digit';
 import './lastDigitList';
 import './stat';
 import './stat_list';
-import './check_percentage_match';
