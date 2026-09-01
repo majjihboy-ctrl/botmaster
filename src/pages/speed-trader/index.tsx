@@ -216,7 +216,7 @@ const SpeedTrader = observer(() => {
                             <p className='speed-trader__field-hint'>
                                 {result_mode === 'calculate'
                                     ? localize(
-                                          'On: the outcome is computed the instant the deciding tick arrives, so no ticks are missed while waiting on the network. P&L may briefly be off until the real result confirms it in the background.'
+                                          'On: the win/loss is computed directly from the deciding tick — e.g. Even/Odd is known the instant the digit lands, since that\'s the same rule Deriv itself settles by. No waiting on the network, no ticks missed.'
                                       )
                                     : localize(
                                           'Off (safest): after each trade, wait for Deriv to confirm the real result before reacting to the next tick. Never wrong, but the bot pauses briefly between trades.'

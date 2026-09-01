@@ -161,13 +161,6 @@ export const useSpeedTrader = (currency: string) => {
     const entryDigitRef = useRef<number | undefined>(undefined); // digit at the moment of entry, for Rise/Fall calculation
     const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const resultModeRef = useRef<TResultMode>('wait');
-    // Contracts settled instantly by calculation, keyed by contract_id, kept
-    // around only until the real Deriv settlement arrives to confirm or
-    // correct them. Lets trading continue immediately in 'calculate' mode
-    // while still reconciling every trade against the true outcome.
-    const pendingReconciliationRef = useRef<
-        Map<string, { symbol: string; calculated_won: boolean; calculated_pnl_change: number }>
-    >(new Map());
 
     const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
     const tickSubscriptionIdsRef = useRef<Map<string, string>>(new Map());
@@ -203,28 +196,16 @@ export const useSpeedTrader = (currency: string) => {
             if (!p || !active_symbol) return;
             if (!awaitingResultRef.current) return; // already settled — never double count
 
-            const settling_contract_id = contractIdRef.current;
             const symbol_state = perSymbolRef.current.get(active_symbol) ?? freshSymbolState(p.virtual_loss_mode, p.contract_type);
             const won = result.won;
             const pnl_change = won ? result.payout - buyPriceRef.current : -buyPriceRef.current;
             totalPnlRef.current += pnl_change;
 
-            const tag = source === 'calculated' ? ' (calculated, confirming…)' : '';
+            const tag = source === 'calculated' ? ' (calculated)' : '';
             pushLog(
                 `[${active_symbol}] ${won ? '🟢 WIN' : '🔴 LOSS'}${tag} | Payout $${result.payout.toFixed(2)} | PnL $${pnl_change.toFixed(2)} | Total $${totalPnlRef.current.toFixed(2)}`,
                 won ? 'win' : 'loss'
             );
-
-            // In calculate mode we move on immediately, but keep this contract
-            // tracked so the real Deriv settlement (arriving separately, in the
-            // background) can still confirm or correct it once it lands.
-            if (source === 'calculated' && settling_contract_id) {
-                pendingReconciliationRef.current.set(settling_contract_id, {
-                    symbol: active_symbol,
-                    calculated_won: won,
-                    calculated_pnl_change: pnl_change,
-                });
-            }
 
             awaitingResultRef.current = false;
             contractIdRef.current = null;
@@ -292,53 +273,19 @@ export const useSpeedTrader = (currency: string) => {
     // neither guesses from the tick stream.
     const handleContractUpdate = useCallback(
         (poc: any) => {
-            if (!poc || !poc.is_sold) return false;
-            const poc_contract_id = String(poc.contract_id ?? '');
+            if (!poc || !poc.is_sold || !contractIdRef.current) return false;
+            if (String(poc.contract_id ?? '') !== String(contractIdRef.current)) return false;
 
-            // Path 1: this is the trade we're actively blocked on (wait mode,
-            // or calculate mode where the real result beat the next tick in).
-            if (contractIdRef.current && poc_contract_id === String(contractIdRef.current)) {
-                const won = poc.status === 'won' || Number(poc.profit) > 0;
-                const payout = typeof poc.payout === 'number' ? poc.payout : payoutRef.current;
-                settleRealTradeFromResult({ won, payout }, 'confirmed');
+            const won = poc.status === 'won' || Number(poc.profit) > 0;
+            const payout = typeof poc.payout === 'number' ? poc.payout : payoutRef.current;
+            settleRealTradeFromResult({ won, payout }, 'confirmed');
 
-                if (poc.subscription?.id) {
-                    api_base.api.send({ forget: poc.subscription.id }).catch(() => {});
-                }
-                return true;
+            if (poc.subscription?.id) {
+                api_base.api.send({ forget: poc.subscription.id }).catch(() => {});
             }
-
-            // Path 2: this trade was already settled instantly by calculation
-            // and the bot has moved on. Reconcile: if the real outcome agrees,
-            // nothing to do. If it disagrees, correct total P&L so the balance
-            // shown never drifts from what Deriv actually settled.
-            const pending = pendingReconciliationRef.current.get(poc_contract_id);
-            if (pending) {
-                pendingReconciliationRef.current.delete(poc_contract_id);
-                const real_won = poc.status === 'won' || Number(poc.profit) > 0;
-                const real_pnl_change = Number(poc.profit) || 0; // Deriv's own net P&L for this contract
-
-                if (real_won === pending.calculated_won) {
-                    pushLog(`[${pending.symbol}] Confirmed - calculated result matched the real outcome.`, 'info');
-                } else {
-                    const correction = real_pnl_change - pending.calculated_pnl_change;
-                    totalPnlRef.current += correction;
-                    pushLog(
-                        `[${pending.symbol}] ⚠️ Correction: calculated ${pending.calculated_won ? 'WIN' : 'LOSS'} but real result was ${real_won ? 'WIN' : 'LOSS'}. Adjusted total by $${correction.toFixed(2)} -> $${totalPnlRef.current.toFixed(2)}.`,
-                        'warn'
-                    );
-                    setState(prev => ({ ...prev, total_pnl: totalPnlRef.current }));
-                }
-
-                if (poc.subscription?.id) {
-                    api_base.api.send({ forget: poc.subscription.id }).catch(() => {});
-                }
-                return true;
-            }
-
-            return false;
+            return true;
         },
-        [settleRealTradeFromResult, pushLog]
+        [settleRealTradeFromResult]
     );
 
     // Safety net for when the push subscription is dropped or delayed.
@@ -468,7 +415,7 @@ export const useSpeedTrader = (currency: string) => {
                         pendingRef.current = false;
                         awaitingResultRef.current = true;
 
-                        if (buy.contract_id) {
+                        if (buy.contract_id && resultModeRef.current === 'wait') {
                             // Actively subscribe to this contract so Deriv pushes us
                             // the real settlement (is_sold=1) instead of us guessing
                             // the outcome from the tick stream ourselves.
@@ -639,7 +586,6 @@ export const useSpeedTrader = (currency: string) => {
             pendingRef.current = false;
             awaitingResultRef.current = false;
             resultModeRef.current = finalParams.result_mode ?? 'wait';
-            pendingReconciliationRef.current.clear();
             isArmedRef.current = true;
 
             watchedSymbolsRef.current = symbols;
@@ -735,13 +681,6 @@ export const useSpeedTrader = (currency: string) => {
         pendingRef.current = false;
         awaitingResultRef.current = false;
         cleanupSubscriptions();
-        if (pendingReconciliationRef.current.size > 0) {
-            pushLog(
-                `${pendingReconciliationRef.current.size} calculated result(s) could not be confirmed against the real outcome before stopping.`,
-                'warn'
-            );
-            pendingReconciliationRef.current.clear();
-        }
         pushLog('Stopped manually.', 'info');
         setState(prev => ({ ...prev, is_armed: false, stop_reason: 'manual' }));
     }, [pushLog, cleanupSubscriptions]);
