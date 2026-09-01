@@ -32,26 +32,22 @@ window.Blockly.Blocks.check_percentage_match = {
                     name: 'PERCENTAGE',
                     value: 1000,
                     min: 1,
-                    precision: 1,
                 },
                 {
                     type: 'field_number',
                     name: 'TICK_COUNT',
                     value: 100,
                     min: 1,
-                    precision: 1,
                 },
             ],
             output: 'Boolean',
             outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
-            colour: window.Blockly.Colours.Binary.colour,
-            colourSecondary: window.Blockly.Colours.Binary.colourSecondary,
-            colourTertiary: window.Blockly.Colours.Binary.colourTertiary,
+            colour: window.Blockly.Colours.Base.colour,
+            colourSecondary: window.Blockly.Colours.Base.colourSecondary,
+            colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
                 'Check if the last N ticks match the contract type for at least X% of the time'
             ),
-            category: window.Blockly.Categories.Tick_Analysis,
-            helpUrl: '',
         };
     },
     meta() {
