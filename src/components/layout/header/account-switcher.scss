@@ -133,6 +133,15 @@
         }
     }
 
+    &__account-type {
+        margin: 0;
+        line-height: 1.2;
+        font-size: var(--text-size-xxs);
+        font-weight: 500;
+        color: var(--text-less-prominent);
+        text-transform: capitalize;
+    }
+
     &__icon {
         display: flex;
         align-items: center;
