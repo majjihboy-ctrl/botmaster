@@ -4,6 +4,7 @@ import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import { localize } from '@deriv-com/translations';
 import { useSpeedTrader, TSide } from './use-speed-trader';
+import { SliderField, ToggleSwitch } from './speed-trader-fields';
 import './speed-trader.scss';
 
 const CONTRACT_TYPES: { value: TSide; label: string; description: string }[] = [
@@ -190,15 +191,12 @@ const SpeedTrader = observer(() => {
                         </div>
 
                         <div className='speed-trader__controls'>
-                            <label className='speed-trader__checkbox-label'>
-                                <input
-                                    type='checkbox'
-                                    checked={require_confirmation}
-                                    disabled={state.is_armed}
-                                    onChange={e => setRequireConfirmation(e.target.checked)}
-                                />
-                                <span>{localize('Require confirmation tick')}</span>
-                            </label>
+                            <ToggleSwitch
+                                checked={require_confirmation}
+                                disabled={state.is_armed}
+                                onChange={setRequireConfirmation}
+                                label={localize('Require confirmation tick')}
+                            />
                             <p className='speed-trader__field-hint'>
                                 {localize(
                                     'After the loss streak hits target, wait for the streak to actually break (a real winning tick) before trading — instead of firing the instant the target is reached.'
@@ -206,89 +204,68 @@ const SpeedTrader = observer(() => {
                             </p>
                         </div>
 
-                        <div className='speed-trader__slider-field'>
-                            <div className='speed-trader__slider-label-row'>
-                                <span className='speed-trader__field-label'>{localize('Initial stake')}</span>
-                                <span className='speed-trader__slider-value'>${initial_stake.toFixed(2)}</span>
-                            </div>
-                            <input
-                                type='range'
-                                min='0.1'
-                                max='10'
-                                step='0.05'
-                                value={initial_stake}
-                                disabled={state.is_armed}
-                                onChange={e => setInitialStake(parseFloat(e.target.value))}
-                            />
-                        </div>
+                        <SliderField
+                            label={localize('Initial stake')}
+                            value={initial_stake}
+                            min={0.1}
+                            max={10}
+                            step={0.05}
+                            disabled={state.is_armed}
+                            onChange={setInitialStake}
+                            prefix='$'
+                            decimals={2}
+                        />
 
-                        <div className='speed-trader__slider-field'>
-                            <div className='speed-trader__slider-label-row'>
-                                <span className='speed-trader__field-label'>{localize('Martingale multiplier')}</span>
-                                <span className='speed-trader__slider-value'>{martingale_mult.toFixed(1)}x</span>
-                            </div>
-                            <input
-                                type='range'
-                                min='1.5'
-                                max='5'
-                                step='0.1'
-                                value={martingale_mult}
-                                disabled={state.is_armed}
-                                onChange={e => setMartingaleMult(parseFloat(e.target.value))}
-                            />
-                        </div>
+                        <SliderField
+                            label={localize('Martingale multiplier')}
+                            value={martingale_mult}
+                            min={1.5}
+                            max={5}
+                            step={0.1}
+                            disabled={state.is_armed}
+                            onChange={setMartingaleMult}
+                            suffix='x'
+                            decimals={1}
+                        />
 
-                        <div className='speed-trader__slider-field'>
-                            <div className='speed-trader__slider-label-row'>
-                                <span className='speed-trader__field-label'>{localize('Max martingale steps')}</span>
-                                <span className='speed-trader__slider-value'>{max_martingale_steps}</span>
-                            </div>
-                            <input
-                                type='range'
-                                min='2'
-                                max='10'
-                                step='1'
-                                value={max_martingale_steps}
-                                disabled={state.is_armed}
-                                onChange={e => setMaxMartingaleSteps(parseInt(e.target.value, 10))}
-                            />
-                        </div>
+                        <SliderField
+                            label={localize('Max martingale steps')}
+                            value={max_martingale_steps}
+                            min={2}
+                            max={10}
+                            step={1}
+                            disabled={state.is_armed}
+                            onChange={v => setMaxMartingaleSteps(Math.round(v))}
+                            decimals={0}
+                        />
                     </div>
 
                     <div className='speed-trader__panel'>
                         <h2>{localize('Risk management')}</h2>
 
-                        <div className='speed-trader__slider-field'>
-                            <div className='speed-trader__slider-label-row'>
-                                <span className='speed-trader__field-label'>{localize('Stop loss')}</span>
-                                <span className='speed-trader__slider-value'>${stop_loss.toFixed(2)}</span>
-                            </div>
-                            <input
-                                type='range'
-                                min='1'
-                                max='100'
-                                step='1'
-                                value={stop_loss}
-                                disabled={state.is_armed}
-                                onChange={e => setStopLoss(parseFloat(e.target.value))}
-                            />
-                        </div>
+                        <SliderField
+                            label={localize('Stop loss')}
+                            value={stop_loss}
+                            min={1}
+                            max={100}
+                            step={1}
+                            disabled={state.is_armed}
+                            onChange={setStopLoss}
+                            prefix='$'
+                            decimals={2}
+                        />
 
-                        <div className='speed-trader__slider-field'>
-                            <div className='speed-trader__slider-label-row'>
-                                <span className='speed-trader__field-label'>{localize('Take profit')}</span>
-                                <span className='speed-trader__slider-value'>${take_profit.toFixed(2)}</span>
-                            </div>
-                            <input
-                                type='range'
-                                min='10'
-                                max='500'
-                                step='10'
-                                value={take_profit}
-                                disabled={state.is_armed}
-                                onChange={e => setTakeProfit(parseFloat(e.target.value))}
-                            />
-                        </div>
+                        <SliderField
+                            label={localize('Take profit')}
+                            value={take_profit}
+                            min={10}
+                            max={500}
+                            step={10}
+                            disabled={state.is_armed}
+                            onChange={setTakeProfit}
+                            prefix='$'
+                            decimals={2}
+                        />
 
                         <div className='speed-trader__actions'>
                             {!state.is_armed ? (

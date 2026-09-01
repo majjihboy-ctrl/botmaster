@@ -129,6 +129,105 @@
         }
     }
 
+    &__toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    &__toggle {
+        position: relative;
+        flex-shrink: 0;
+        width: 40px;
+        height: 22px;
+        border-radius: 999px;
+        border: 1px solid var(--border-divider);
+        background: var(--general-main-2);
+        cursor: pointer;
+        padding: 0;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        &.on {
+            background: var(--brand-red-coral);
+            border-color: var(--brand-red-coral);
+        }
+    }
+
+    &__toggle-knob {
+        position: absolute;
+        top: 1px;
+        left: 1px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgb(0 0 0 / 30%);
+        transition: transform 0.2s ease;
+    }
+
+    &__toggle.on &__toggle-knob {
+        transform: translateX(18px);
+    }
+
+    &__toggle-label {
+        font-size: var(--text-size-xs);
+        font-weight: 500;
+        color: var(--text-prominent);
+        cursor: pointer;
+    }
+
+    &__value-input-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: var(--general-main-1);
+        border: 1px solid var(--border-divider);
+        border-radius: 6px;
+        padding: 0.2rem 0.7rem;
+
+        &:focus-within {
+            border-color: var(--brand-red-coral);
+        }
+    }
+
+    &__value-affix {
+        font-size: var(--text-size-xs);
+        font-weight: 600;
+        color: var(--text-less-prominent);
+    }
+
+    &__value-input {
+        width: 6.5ch;
+        border: none;
+        background: transparent;
+        outline: none;
+        font-size: var(--text-size-xs);
+        font-weight: 700;
+        color: var(--brand-red-coral);
+        text-align: right;
+        padding: 0.3rem 0;
+
+        /* Hide native number spinner arrows for a cleaner look */
+        appearance: textfield;
+        -moz-appearance: textfield;
+
+        &::-webkit-outer-spin-button,
+        &::-webkit-inner-spin-button {
+            appearance: none;
+            margin: 0;
+        }
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    }
+
     &__status-grid {
         display: flex;
         flex-direction: column;
