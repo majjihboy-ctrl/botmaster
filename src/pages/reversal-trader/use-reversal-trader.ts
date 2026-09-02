@@ -12,7 +12,13 @@ export type TReversalTraderParams = {
     // takes over as the sole active market until its recovery streak
     // resolves in a win.
     symbols: string[];
-    reference_digit: number; // 0-9 — the digit that triggers a check
+    // A single digit (0-9), or 'all' to track every digit 0-9 in parallel on
+    // every watched symbol simultaneously - whichever (symbol, digit) pair
+    // hits the streak target first wins the race. This is what keeps signal
+    // frequency high even at a longer streak_target: a longer streak is
+    // rarer per tracker, but 'all' runs up to 10x more trackers per symbol
+    // to compensate.
+    reference_digit: number | 'all';
     mode: TReversalMode;
     threshold_digit: number; // over/under barrier, ignored in evenodd mode
     streak_target: number; // once this many same-direction outcomes in a row build up, bet the reversal
@@ -31,7 +37,7 @@ type TPerSymbolState = {
     is_pending_trigger: boolean; // streak just completed: fire on the very next reappearance of the reference digit
 };
 
-export type TRaceProgress = { direction: TDirection | null; count: number; target: number };
+export type TRaceProgress = { direction: TDirection | null; count: number; target: number; digit?: number };
 
 export type TLogEntry = { id: number; time: string; text: string; kind: 'info' | 'warn' | 'win' | 'loss' | 'error' };
 
@@ -101,8 +107,13 @@ export const useReversalTrader = (currency: string) => {
     const modeRef = useRef<TMode>('virtual');
 
     const watchedSymbolsRef = useRef<string[]>([]);
-    const perSymbolRef = useRef<Map<string, TPerSymbolState>>(new Map());
+    // symbol -> digit (0-9) -> streak state. In fixed-digit mode only one
+    // digit key ever exists per symbol; in 'all' mode all 10 exist and are
+    // updated in parallel, since a tick's prevDigit is itself a valid
+    // reference digit whichever value it happens to be.
+    const perSymbolRef = useRef<Map<string, Map<number, TPerSymbolState>>>(new Map());
     const activeSymbolRef = useRef<string | null>(null);
+    const activeDigitRef = useRef<number | null>(null); // which reference digit triggered/is being recovered
     const lastDigitRef = useRef<Map<string, number>>(new Map());
 
     const pendingRef = useRef(false); // proposal+buy network calls in flight
@@ -127,8 +138,34 @@ export const useReversalTrader = (currency: string) => {
         const p = paramsRef.current;
         if (!p) return;
         const progress: Record<string, TRaceProgress> = {};
-        perSymbolRef.current.forEach((st, sym) => {
-            progress[sym] = { direction: st.run_direction, count: st.run_length, target: p.streak_target };
+        perSymbolRef.current.forEach((digit_map, sym) => {
+            // If locked onto this symbol, always show the active digit's
+            // progress specifically. Otherwise show whichever digit on this
+            // symbol is currently closest to completing its streak.
+            if (activeSymbolRef.current === sym && activeDigitRef.current !== null) {
+                const st = digit_map.get(activeDigitRef.current);
+                progress[sym] = {
+                    direction: st?.run_direction ?? null,
+                    count: st?.run_length ?? p.streak_target,
+                    target: p.streak_target,
+                    digit: activeDigitRef.current,
+                };
+                return;
+            }
+            let best_digit: number | null = null;
+            let best_state: TPerSymbolState | null = null;
+            digit_map.forEach((st, d) => {
+                if (!best_state || st.run_length > best_state.run_length) {
+                    best_state = st;
+                    best_digit = d;
+                }
+            });
+            progress[sym] = {
+                direction: best_state?.run_direction ?? null,
+                count: best_state?.run_length ?? 0,
+                target: p.streak_target,
+                digit: best_digit ?? undefined,
+            };
         });
         setState(prev => ({ ...prev, race_progress: progress, active_symbol: activeSymbolRef.current }));
     }, []);
@@ -141,13 +178,31 @@ export const useReversalTrader = (currency: string) => {
         is_pending_trigger: false,
     });
 
+    const candidateDigits = (p: TReversalTraderParams): number[] =>
+        p.reference_digit === 'all' ? Array.from({ length: 10 }, (_, d) => d) : [p.reference_digit];
+
+    const getOrCreateDigitState = (symbol: string, digit: number): TPerSymbolState => {
+        let digit_map = perSymbolRef.current.get(symbol);
+        if (!digit_map) {
+            digit_map = new Map();
+            perSymbolRef.current.set(symbol, digit_map);
+        }
+        let st = digit_map.get(digit);
+        if (!st) {
+            st = freshSymbolState();
+            digit_map.set(digit, st);
+        }
+        return st;
+    };
+
     const settleTrade = useCallback(
         (won: boolean) => {
             const p = paramsRef.current;
             const active_symbol = activeSymbolRef.current;
-            if (!p || !active_symbol) return;
+            const active_digit = activeDigitRef.current;
+            if (!p || !active_symbol || active_digit === null) return;
 
-            const symbol_state = perSymbolRef.current.get(active_symbol) ?? freshSymbolState();
+            const symbol_state = getOrCreateDigitState(active_symbol, active_digit);
             const pnl_change = won ? payoutRef.current - buyPriceRef.current : -buyPriceRef.current;
             totalPnlRef.current += pnl_change;
 
@@ -163,8 +218,11 @@ export const useReversalTrader = (currency: string) => {
                 reversalSideRef.current = null;
                 modeRef.current = 'virtual';
                 currentStakeRef.current = p.initial_stake;
-                watchedSymbolsRef.current.forEach(sym => perSymbolRef.current.set(sym, freshSymbolState()));
+                watchedSymbolsRef.current.forEach(sym => {
+                    perSymbolRef.current.set(sym, new Map(candidateDigits(p).map(d => [d, freshSymbolState()])));
+                });
                 activeSymbolRef.current = null;
+                activeDigitRef.current = null;
                 pushLog(
                     watchedSymbolsRef.current.length > 1
                         ? `Recovered. Resuming scan across ${watchedSymbolsRef.current.length} markets.`
@@ -180,15 +238,15 @@ export const useReversalTrader = (currency: string) => {
                     currentStakeRef.current = Number((currentStakeRef.current * p.martingale_mult).toFixed(2));
                 }
                 // Recovery mode: no streak needed anymore. Stay locked on
-                // this symbol and keep betting the SAME reversal side —
-                // fire again the very next time the reference digit itself
-                // reappears, no matter what follows it.
+                // this symbol AND this specific digit, keep betting the SAME
+                // reversal side — fire again the very next time this
+                // reference digit itself reappears, no matter what follows it.
                 symbol_state.run_direction = null;
                 symbol_state.run_length = 0;
                 symbol_state.is_recovering = true;
-                perSymbolRef.current.set(active_symbol, symbol_state);
+                perSymbolRef.current.get(active_symbol)?.set(active_digit, symbol_state);
                 modeRef.current = 'virtual';
-                pushLog(`[${active_symbol}] Recovering — waiting for ${p.reference_digit} to reappear (no streak needed).`, 'info');
+                pushLog(`[${active_symbol}] Recovering — waiting for ${active_digit} to reappear (no streak needed).`, 'info');
             }
 
             setState(prev => ({
@@ -259,10 +317,16 @@ export const useReversalTrader = (currency: string) => {
                 pushLog(`[${active_symbol}] ${msg}`, 'error');
                 modeRef.current = 'virtual';
                 activeSymbolRef.current = null;
-                const symbol_state = perSymbolRef.current.get(active_symbol) ?? freshSymbolState();
-                symbol_state.run_direction = null;
-                symbol_state.run_length = 0;
-                perSymbolRef.current.set(active_symbol, symbol_state);
+                const active_digit = activeDigitRef.current;
+                activeDigitRef.current = null;
+                if (active_digit !== null) {
+                    const symbol_state = getOrCreateDigitState(active_symbol, active_digit);
+                    symbol_state.run_direction = null;
+                    symbol_state.run_length = 0;
+                    symbol_state.is_recovering = false;
+                    symbol_state.is_pending_trigger = false;
+                    perSymbolRef.current.get(active_symbol)?.set(active_digit, symbol_state);
+                }
                 publishProgress();
             });
     }, [pushLog, publishProgress]);
@@ -293,18 +357,20 @@ export const useReversalTrader = (currency: string) => {
             lastDigitRef.current.set(symbol, digit);
 
             // Recovery mode, or a streak that just completed: no new streak
-            // needed. Just wait for the reference digit itself to reappear,
-            // then immediately bet the already-decided reversal side.
-            if (active_symbol === symbol) {
-                const rec_state = perSymbolRef.current.get(symbol);
+            // needed. Just wait for THIS SPECIFIC reference digit to
+            // reappear, then immediately bet the already-decided reversal
+            // side. activeDigitRef pins down which of the (up to 10) digits
+            // being tracked on this symbol is the one currently locked in.
+            if (active_symbol === symbol && activeDigitRef.current !== null) {
+                const rec_state = perSymbolRef.current.get(symbol)?.get(activeDigitRef.current);
                 if (rec_state?.is_recovering || rec_state?.is_pending_trigger) {
-                    if (digit === p.reference_digit) {
+                    if (digit === activeDigitRef.current) {
                         const was_recovering = rec_state.is_recovering;
                         rec_state.is_recovering = false;
                         rec_state.is_pending_trigger = false;
-                        perSymbolRef.current.set(symbol, rec_state);
+                        perSymbolRef.current.get(symbol)?.set(activeDigitRef.current, rec_state);
                         pushLog(
-                            `[${symbol}] ${p.reference_digit} reappeared — firing ${was_recovering ? 'recovery' : 'streak-reversal'} trade.`,
+                            `[${symbol}] ${activeDigitRef.current} reappeared — firing ${was_recovering ? 'recovery' : 'streak-reversal'} trade.`,
                             'warn'
                         );
                         modeRef.current = 'real';
@@ -314,29 +380,37 @@ export const useReversalTrader = (currency: string) => {
                 }
             }
 
-            // Fresh entry: watch for the reference digit, then track the
-            // run of same-direction outcomes right after it.
-            if (prevDigit !== p.reference_digit) return;
+            // Fresh entry: prevDigit is itself the reference digit for
+            // whichever streak it belongs to. In fixed mode only one digit
+            // was ever pre-populated in this symbol's map, so anything else
+            // is correctly ignored. In 'all' mode every digit 0-9 has its own
+            // tracker, so every tick advances exactly one of them.
+            if (prevDigit === undefined) return;
+            if (p.reference_digit !== 'all' && prevDigit !== p.reference_digit) return;
+
+            const digit_map = perSymbolRef.current.get(symbol);
+            if (!digit_map || !digit_map.has(prevDigit)) return; // not a tracked digit for this symbol
 
             const direction = classify(digit, p.mode, p.threshold_digit);
             if (direction === null) return; // tied the threshold — ignored entirely
 
-            const st = perSymbolRef.current.get(symbol) ?? freshSymbolState();
+            const st = digit_map.get(prevDigit) ?? freshSymbolState();
             if (direction === st.run_direction) {
                 st.run_length += 1;
             } else {
                 st.run_direction = direction;
                 st.run_length = 1;
             }
-            perSymbolRef.current.set(symbol, st);
+            digit_map.set(prevDigit, st);
 
             if (st.run_length >= p.streak_target) {
                 activeSymbolRef.current = symbol;
+                activeDigitRef.current = prevDigit;
                 st.is_pending_trigger = true;
                 reversalSideRef.current = opposite(direction);
-                perSymbolRef.current.set(symbol, st);
+                digit_map.set(prevDigit, st);
                 pushLog(
-                    `[${symbol}] ${st.run_length}x ${direction.toUpperCase()} after ${p.reference_digit} — waiting for ${p.reference_digit} to reappear before betting ${opposite(direction).toUpperCase()}.`,
+                    `[${symbol}] ${st.run_length}x ${direction.toUpperCase()} after ${prevDigit} — waiting for ${prevDigit} to reappear before betting ${opposite(direction).toUpperCase()}.`,
                     'warn'
                 );
                 publishProgress();
@@ -352,6 +426,7 @@ export const useReversalTrader = (currency: string) => {
             isArmedRef.current = false;
             modeRef.current = 'virtual';
             activeSymbolRef.current = null;
+            activeDigitRef.current = null;
             pendingRef.current = false;
             awaitingResolutionRef.current = false;
             reversalSideRef.current = null;
@@ -371,13 +446,17 @@ export const useReversalTrader = (currency: string) => {
             isArmedRef.current = true;
             modeRef.current = 'virtual';
             activeSymbolRef.current = null;
+            activeDigitRef.current = null;
             pendingRef.current = false;
             awaitingResolutionRef.current = false;
             reversalSideRef.current = null;
 
             const symbols = params.symbols;
             watchedSymbolsRef.current = symbols;
-            perSymbolRef.current = new Map(symbols.map(sym => [sym, freshSymbolState()]));
+            const digits_to_track = candidateDigits(params);
+            perSymbolRef.current = new Map(
+                symbols.map(sym => [sym, new Map(digits_to_track.map(d => [d, freshSymbolState()]))])
+            );
             lastDigitRef.current = new Map();
 
             setState({
@@ -395,9 +474,13 @@ export const useReversalTrader = (currency: string) => {
             });
 
             pushLog(
-                symbols.length > 1
-                    ? `Watching ${symbols.length} markets for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`
-                    : `Watching ${symbols[0]} for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`,
+                params.reference_digit === 'all'
+                    ? symbols.length > 1
+                        ? `Watching ${symbols.length} markets across all 10 digits for a ${params.streak_target}x streak…`
+                        : `Watching ${symbols[0]} across all 10 digits for a ${params.streak_target}x streak…`
+                    : symbols.length > 1
+                      ? `Watching ${symbols.length} markets for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`
+                      : `Watching ${symbols[0]} for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`,
                 'info'
             );
 

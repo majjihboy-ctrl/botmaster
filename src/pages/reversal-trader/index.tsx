@@ -19,7 +19,7 @@ const ReversalTrader = observer(() => {
     const [symbol, setSymbol] = React.useState('1HZ100V');
     const [watch_all_markets, setWatchAllMarkets] = React.useState(false);
     const [mode, setMode] = React.useState<TReversalMode>('evenodd');
-    const [reference_digit, setReferenceDigit] = React.useState(7);
+    const [reference_digit, setReferenceDigit] = React.useState<number | 'all'>(7);
     const [threshold_digit, setThresholdDigit] = React.useState(5);
     const [streak_target, setStreakTarget] = React.useState(4);
     const [initial_stake, setInitialStake] = React.useState(0.35);
@@ -95,8 +95,8 @@ const ReversalTrader = observer(() => {
                             )}
                         </span>
                         <span>
-                            Watching for <strong>{reference_digit}</strong> → <strong>{streak_target}x</strong>{' '}
-                            {mode === 'evenodd' ? 'even/odd' : 'over/under'}
+                            Watching for <strong>{reference_digit === 'all' ? 'all digits' : reference_digit}</strong> →{' '}
+                            <strong>{streak_target}x</strong> {mode === 'evenodd' ? 'even/odd' : 'over/under'}
                         </span>
                         <span>
                             Stake <strong>${state.current_stake.toFixed(2)}</strong>
@@ -136,6 +136,13 @@ const ReversalTrader = observer(() => {
                         <div className='reversal-trader__field-group'>
                             <span className='reversal-trader__field-label'>{localize('Reference digit')}</span>
                             <div className='reversal-trader__digit-picker'>
+                                <button
+                                    className={reference_digit === 'all' ? 'active' : ''}
+                                    disabled={state.is_armed}
+                                    onClick={() => setReferenceDigit('all')}
+                                >
+                                    {localize('All')}
+                                </button>
                                 {DIGIT_OPTIONS.map(d => (
                                     <button
                                         key={d}
@@ -147,6 +154,13 @@ const ReversalTrader = observer(() => {
                                     </button>
                                 ))}
                             </div>
+                            {reference_digit === 'all' && (
+                                <p className='reversal-trader__field-hint'>
+                                    {localize(
+                                        'Tracks every digit 0-9 in parallel on each watched market. A longer streak target is rarer per digit, but with 10x more trackers running at once, signals still come often.'
+                                    )}
+                                </p>
+                            )}
                         </div>
 
                         {mode === 'overunder' && (
@@ -181,10 +195,17 @@ const ReversalTrader = observer(() => {
                         />
 
                         <p className='reversal-trader__field-hint'>
-                            Every time <strong>{reference_digit}</strong> appears, the digit right after it is checked
+                            {reference_digit === 'all' ? (
+                                <>Every time any digit appears, the digit right after it is checked</>
+                            ) : (
+                                <>
+                                    Every time <strong>{reference_digit}</strong> appears, the digit right after it is checked
+                                </>
+                            )}
                             {mode === 'evenodd' ? ' for even/odd' : ` against ${threshold_digit} (over/under)`}. Once{' '}
-                            <strong>{streak_target}</strong> in a row land the same way, the reversal ({label_b}/{label_a})
-                            is traded on the next tick.
+                            <strong>{streak_target}</strong> in a row land the same way, the bot waits for that same
+                            reference digit to reappear once, then trades the reversal ({label_b}/{label_a}) on the tick
+                            right after.
                         </p>
 
                         <div className='reversal-trader__field-group'>
@@ -308,6 +329,9 @@ const ReversalTrader = observer(() => {
                                             <div className='reversal-trader__race-header'>
                                                 <span className='symbol'>{displayName(sym)}</span>
                                                 <span className='progress-text'>
+                                                    {reference_digit === 'all' && progress.digit !== undefined
+                                                        ? `${progress.digit} → `
+                                                        : ''}
                                                     {directionLabel(progress.direction)} {progress.count}/{progress.target}
                                                 </span>
                                             </div>
@@ -353,7 +377,8 @@ const ReversalTrader = observer(() => {
                         <h2>{localize('Confirm trade settings')}</h2>
                         <div className='reversal-trader__confirm-details'>
                             <p>
-                                <strong>Pattern:</strong> {reference_digit} → {streak_target}x{' '}
+                                <strong>Pattern:</strong> {reference_digit === 'all' ? 'all digits' : reference_digit} →{' '}
+                                {streak_target}x{' '}
                                 {mode === 'evenodd' ? 'even/odd' : `over/under ${threshold_digit}`}, then trade the reversal
                             </p>
                             <p>
