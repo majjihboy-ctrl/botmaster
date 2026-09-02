@@ -171,12 +171,15 @@ export const useReversalTrader = (currency: string) => {
                     symbol_state.martingale_step += 1;
                     currentStakeRef.current = Number((currentStakeRef.current * p.martingale_mult).toFixed(2));
                 }
-                // Reset the run on this symbol too — we already bet the
-                // reversal once; keep watching for the next fresh streak.
+                // Reset the run so we don't recover instantly — stay locked
+                // on this symbol, but go back to watching for the reference
+                // digit and the streak to build up again from scratch
+                // before the next (martingale-sized) trade fires.
                 symbol_state.run_direction = null;
                 symbol_state.run_length = 0;
                 perSymbolRef.current.set(active_symbol, symbol_state);
-                modeRef.current = 'real';
+                modeRef.current = 'virtual';
+                pushLog(`[${active_symbol}] Waiting for ${p.reference_digit} to set up again before recovering…`, 'info');
             }
 
             setState(prev => ({
@@ -275,15 +278,7 @@ export const useReversalTrader = (currency: string) => {
 
             if (active_symbol === symbol && pendingRef.current) return; // buy in flight
 
-            if (modeRef.current === 'real' && active_symbol === symbol && !pendingRef.current && !awaitingResolutionRef.current) {
-                // Martingale recovery step already queued from a loss —
-                // fire again on this same symbol without waiting for a
-                // fresh streak (the reversal thesis still holds).
-                placeRealTrade();
-                return;
-            }
-
-            if (active_symbol && active_symbol !== symbol) return; // race already resolved onto another market
+            if (active_symbol && active_symbol !== symbol) return; // locked onto a different market mid-recovery
 
             // Virtual scanning: watch for the reference digit, then track
             // the run of same-direction outcomes right after it.
