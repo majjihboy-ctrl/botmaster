@@ -29,7 +29,6 @@ const ReversalTrader = observer(() => {
     const [take_profit, setTakeProfit] = React.useState(100);
     const [show_confirm, setShowConfirm] = React.useState(false);
 
-    // Pre-fill from the Signals "Trade this" bridge, once, on first mount.
     React.useEffect(() => {
         const pending = consumePendingReversalConfig();
         if (!pending) return;
@@ -73,248 +72,248 @@ const ReversalTrader = observer(() => {
 
     return (
         <div className='reversal-trader'>
-            <div className='reversal-trader__layout'>
+            <div className='reversal-trader__topbar'>
+                <div className='reversal-trader__title'>
+                    <h1>{localize('Reversal Trader')}</h1>
+                    <span className={`reversal-trader__live ${!state.is_armed ? 'stopped' : ''}`}>
+                        <span className='reversal-trader__pulse' />
+                        {!state.is_armed ? 'STOPPED' : state.is_loading ? 'CONNECTING' : 'LIVE'}
+                    </span>
+                </div>
+                {state.is_armed && (
+                    <div className='reversal-trader__status-row'>
+                        <span>
+                            {state.active_symbol ? (
+                                <>
+                                    Trading <strong>{displayName(state.active_symbol)}</strong>
+                                </>
+                            ) : (
+                                <>
+                                    Scanning <strong>{state.watching.length}</strong> market
+                                    {state.watching.length > 1 ? 's' : ''}
+                                </>
+                            )}
+                        </span>
+                        <span>
+                            Watching for <strong>{reference_digit}</strong> → <strong>{streak_target}x</strong>{' '}
+                            {mode === 'evenodd' ? 'even/odd' : 'over/under'}
+                        </span>
+                        <span>
+                            Stake <strong>${state.current_stake.toFixed(2)}</strong>
+                        </span>
+                        <span className={state.total_pnl >= 0 ? 'profit' : 'loss'}>
+                            PnL <strong>${state.total_pnl.toFixed(2)}</strong>
+                        </span>
+                    </div>
+                )}
+            </div>
+
+            <div className='reversal-trader__grid'>
                 <div className='reversal-trader__col-controls'>
-                    <div className='reversal-trader__header'>
-                        <h1 className='reversal-trader__title'>{localize('Reversal Trader')}</h1>
-                        <div className={`reversal-trader__badge ${state.is_armed ? 'live' : 'stopped'}`}>
-                            {state.is_armed ? (state.is_loading ? '🔄 Connecting' : '🟢 LIVE') : '⏹️ Stopped'}
+                    <div className='reversal-trader__panel'>
+                        <h2>{localize('Pattern')}</h2>
+
+                        <div className='reversal-trader__field-group'>
+                            <span className='reversal-trader__field-label'>{localize('Mode')}</span>
+                            <div className='reversal-trader__mode-toggle'>
+                                <button
+                                    className={mode === 'evenodd' ? 'active' : ''}
+                                    disabled={state.is_armed}
+                                    onClick={() => setMode('evenodd')}
+                                >
+                                    Even / Odd
+                                </button>
+                                <button
+                                    className={mode === 'overunder' ? 'active' : ''}
+                                    disabled={state.is_armed}
+                                    onClick={() => setMode('overunder')}
+                                >
+                                    Over / Under
+                                </button>
+                            </div>
                         </div>
+
+                        <div className='reversal-trader__field-group'>
+                            <span className='reversal-trader__field-label'>{localize('Reference digit')}</span>
+                            <div className='reversal-trader__digit-picker'>
+                                {DIGIT_OPTIONS.map(d => (
+                                    <button
+                                        key={d}
+                                        className={reference_digit === d ? 'active' : ''}
+                                        disabled={state.is_armed}
+                                        onClick={() => setReferenceDigit(d)}
+                                    >
+                                        {d}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {mode === 'overunder' && (
+                            <div className='reversal-trader__field-group'>
+                                <label className='reversal-trader__field-label' htmlFor='rt-threshold'>
+                                    {localize('Over/Under threshold')}
+                                </label>
+                                <select
+                                    id='rt-threshold'
+                                    value={threshold_digit}
+                                    disabled={state.is_armed}
+                                    onChange={e => setThresholdDigit(Number(e.target.value))}
+                                >
+                                    {DIGIT_OPTIONS.map(d => (
+                                        <option key={d} value={d}>
+                                            {d}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        <SliderField
+                            label={localize('Streak target')}
+                            value={streak_target}
+                            min={2}
+                            max={10}
+                            step={1}
+                            disabled={state.is_armed}
+                            onChange={v => setStreakTarget(Math.round(v))}
+                            decimals={0}
+                        />
+
+                        <p className='reversal-trader__field-hint'>
+                            Every time <strong>{reference_digit}</strong> appears, the digit right after it is checked
+                            {mode === 'evenodd' ? ' for even/odd' : ` against ${threshold_digit} (over/under)`}. Once{' '}
+                            <strong>{streak_target}</strong> in a row land the same way, the reversal ({label_b}/{label_a})
+                            is traded on the next tick.
+                        </p>
+
+                        <div className='reversal-trader__field-group'>
+                            <ToggleSwitch
+                                checked={watch_all_markets}
+                                disabled={state.is_armed}
+                                onChange={setWatchAllMarkets}
+                                label={localize('Race across all markets')}
+                            />
+                        </div>
+
+                        {!watch_all_markets && (
+                            <div className='reversal-trader__field-group'>
+                                <label className='reversal-trader__field-label' htmlFor='rt-symbol'>
+                                    {localize('Symbol')}
+                                </label>
+                                <select
+                                    id='rt-symbol'
+                                    value={symbol}
+                                    disabled={state.is_armed}
+                                    onChange={e => setSymbol(e.target.value)}
+                                >
+                                    {symbol_options.map(s => (
+                                        <option key={s.symbol} value={s.symbol}>
+                                            {s.display_name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
-                    {state.is_armed && (
-                        <div className='reversal-trader__status-card'>
-                            <div className='status-row'>
-                                <span className='label'>Status:</span>
-                                <span className='value'>
-                                    {state.active_symbol
-                                        ? `Trading ${displayName(state.active_symbol)}`
-                                        : `Scanning ${state.watching.length} market${state.watching.length > 1 ? 's' : ''}`}
-                                </span>
-                            </div>
-                            <div className='status-row'>
-                                <span className='label'>Watching for:</span>
-                                <span className='value'>
-                                    {reference_digit} → {streak_target}x {mode === 'evenodd' ? 'even/odd' : 'over/under'}
-                                </span>
-                            </div>
-                            <div className='status-row'>
-                                <span className='label'>Current stake:</span>
-                                <span className='value'>${state.current_stake.toFixed(2)}</span>
-                            </div>
-                            <div className='status-row'>
-                                <span className={`value ${state.total_pnl >= 0 ? 'profit' : 'loss'}`}>
-                                    ${state.total_pnl.toFixed(2)} P&L
-                                </span>
-                            </div>
-                        </div>
-                    )}
+                    <div className='reversal-trader__panel'>
+                        <h2>{localize('Stake & recovery')}</h2>
+                        <SliderField
+                            label={localize('Initial stake')}
+                            value={initial_stake}
+                            min={0.35}
+                            max={20}
+                            step={0.05}
+                            disabled={state.is_armed}
+                            onChange={setInitialStake}
+                            prefix='$'
+                            decimals={2}
+                        />
+                        <SliderField
+                            label={localize('Martingale multiplier')}
+                            value={martingale_mult}
+                            min={1.5}
+                            max={5}
+                            step={0.1}
+                            disabled={state.is_armed}
+                            onChange={setMartingaleMult}
+                            suffix='x'
+                            decimals={1}
+                        />
+                        <SliderField
+                            label={localize('Max martingale steps')}
+                            value={max_martingale_steps}
+                            min={2}
+                            max={10}
+                            step={1}
+                            disabled={state.is_armed}
+                            onChange={v => setMaxMartingaleSteps(Math.round(v))}
+                            decimals={0}
+                        />
+                    </div>
 
-                    <div className='reversal-trader__controls'>
-                        <div className='reversal-trader__panel'>
-                            <h2>{localize('Pattern')}</h2>
+                    <div className='reversal-trader__panel'>
+                        <h2>{localize('Risk management')}</h2>
+                        <SliderField
+                            label={localize('Stop loss')}
+                            value={stop_loss}
+                            min={1}
+                            max={200}
+                            step={1}
+                            disabled={state.is_armed}
+                            onChange={setStopLoss}
+                            prefix='$'
+                            decimals={2}
+                        />
+                        <SliderField
+                            label={localize('Take profit')}
+                            value={take_profit}
+                            min={10}
+                            max={1000}
+                            step={10}
+                            disabled={state.is_armed}
+                            onChange={setTakeProfit}
+                            prefix='$'
+                            decimals={2}
+                        />
+                    </div>
 
-                            <div className='reversal-trader__field-group'>
-                                <span className='reversal-trader__field-label'>{localize('Mode')}</span>
-                                <div className='reversal-trader__mode-toggle'>
-                                    <button
-                                        className={mode === 'evenodd' ? 'active' : ''}
-                                        disabled={state.is_armed}
-                                        onClick={() => setMode('evenodd')}
-                                    >
-                                        Even / Odd
-                                    </button>
-                                    <button
-                                        className={mode === 'overunder' ? 'active' : ''}
-                                        disabled={state.is_armed}
-                                        onClick={() => setMode('overunder')}
-                                    >
-                                        Over / Under
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className='reversal-trader__field-group'>
-                                <span className='reversal-trader__field-label'>{localize('Reference digit')}</span>
-                                <div className='reversal-trader__digit-picker'>
-                                    {DIGIT_OPTIONS.map(d => (
-                                        <button
-                                            key={d}
-                                            className={reference_digit === d ? 'active' : ''}
-                                            disabled={state.is_armed}
-                                            onClick={() => setReferenceDigit(d)}
-                                        >
-                                            {d}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {mode === 'overunder' && (
-                                <div className='reversal-trader__field-group'>
-                                    <label className='reversal-trader__field-label' htmlFor='rt-threshold'>
-                                        {localize('Over/Under threshold')}
-                                    </label>
-                                    <select
-                                        id='rt-threshold'
-                                        value={threshold_digit}
-                                        disabled={state.is_armed}
-                                        onChange={e => setThresholdDigit(Number(e.target.value))}
-                                    >
-                                        {DIGIT_OPTIONS.map(d => (
-                                            <option key={d} value={d}>
-                                                {d}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            <SliderField
-                                label={localize('Streak target')}
-                                value={streak_target}
-                                min={2}
-                                max={10}
-                                step={1}
-                                disabled={state.is_armed}
-                                onChange={v => setStreakTarget(Math.round(v))}
-                                decimals={0}
-                            />
-
-                            <p className='reversal-trader__field-hint'>
-                                Every time <strong>{reference_digit}</strong> appears, the digit right after it is checked
-                                {mode === 'evenodd' ? ' for even/odd' : ` against ${threshold_digit} (over/under)`}. Once{' '}
-                                <strong>{streak_target}</strong> in a row land the same way, the reversal (
-                                {label_b}/{label_a}) is traded on the next tick.
-                            </p>
-
-                            <div className='reversal-trader__field-group'>
-                                <ToggleSwitch
-                                    checked={watch_all_markets}
-                                    disabled={state.is_armed}
-                                    onChange={setWatchAllMarkets}
-                                    label={localize('Race across all markets')}
-                                />
-                            </div>
-
-                            {!watch_all_markets && (
-                                <div className='reversal-trader__field-group'>
-                                    <label className='reversal-trader__field-label' htmlFor='rt-symbol'>
-                                        {localize('Symbol')}
-                                    </label>
-                                    <select
-                                        id='rt-symbol'
-                                        value={symbol}
-                                        disabled={state.is_armed}
-                                        onChange={e => setSymbol(e.target.value)}
-                                    >
-                                        {symbol_options.map(s => (
-                                            <option key={s.symbol} value={s.symbol}>
-                                                {s.display_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className='reversal-trader__panel'>
-                            <h2>{localize('Stake & recovery')}</h2>
-
-                            <SliderField
-                                label={localize('Initial stake')}
-                                value={initial_stake}
-                                min={0.35}
-                                max={20}
-                                step={0.05}
-                                disabled={state.is_armed}
-                                onChange={setInitialStake}
-                                prefix='$'
-                                decimals={2}
-                            />
-                            <SliderField
-                                label={localize('Martingale multiplier')}
-                                value={martingale_mult}
-                                min={1.5}
-                                max={5}
-                                step={0.1}
-                                disabled={state.is_armed}
-                                onChange={setMartingaleMult}
-                                suffix='x'
-                                decimals={1}
-                            />
-                            <SliderField
-                                label={localize('Max martingale steps')}
-                                value={max_martingale_steps}
-                                min={2}
-                                max={10}
-                                step={1}
-                                disabled={state.is_armed}
-                                onChange={v => setMaxMartingaleSteps(Math.round(v))}
-                                decimals={0}
-                            />
-                        </div>
-
-                        <div className='reversal-trader__panel'>
-                            <h2>{localize('Risk management')}</h2>
-                            <SliderField
-                                label={localize('Stop loss')}
-                                value={stop_loss}
-                                min={1}
-                                max={200}
-                                step={1}
-                                disabled={state.is_armed}
-                                onChange={setStopLoss}
-                                prefix='$'
-                                decimals={2}
-                            />
-                            <SliderField
-                                label={localize('Take profit')}
-                                value={take_profit}
-                                min={10}
-                                max={1000}
-                                step={10}
-                                disabled={state.is_armed}
-                                onChange={setTakeProfit}
-                                prefix='$'
-                                decimals={2}
-                            />
-                        </div>
-
-                        <div className='reversal-trader__actions'>
-                            {!state.is_armed ? (
-                                <button onClick={() => setShowConfirm(true)} className='btn btn-primary'>
-                                    {localize('Start Trading')}
-                                </button>
-                            ) : (
-                                <button onClick={() => stop()} className='btn btn-danger'>
-                                    {localize('Stop Trading')}
-                                </button>
-                            )}
-                        </div>
+                    <div className='reversal-trader__actions'>
+                        {!state.is_armed ? (
+                            <button onClick={() => setShowConfirm(true)} className='reversal-trader__btn primary'>
+                                {localize('Start Trading')}
+                            </button>
+                        ) : (
+                            <button onClick={() => stop()} className='reversal-trader__btn danger'>
+                                {localize('Stop Trading')}
+                            </button>
+                        )}
                     </div>
                 </div>
 
                 <div className='reversal-trader__col-output'>
                     {watch_all_markets && state.is_armed && (
-                        <div className='reversal-trader__race-panel'>
-                            <h3>{localize('Race progress')}</h3>
-                            <div className='race-list'>
+                        <div className='reversal-trader__panel'>
+                            <h2>{localize('Race progress')}</h2>
+                            <div className='reversal-trader__race-list'>
                                 {race_rows.length > 0 ? (
                                     race_rows.map(([sym, progress]) => (
                                         <div
                                             key={sym}
-                                            className={`race-item ${sym === state.active_symbol ? 'active' : ''}`}
+                                            className={`reversal-trader__race-item ${
+                                                sym === state.active_symbol ? 'active' : ''
+                                            }`}
                                         >
-                                            <div className='race-header'>
+                                            <div className='reversal-trader__race-header'>
                                                 <span className='symbol'>{displayName(sym)}</span>
                                                 <span className='progress-text'>
                                                     {directionLabel(progress.direction)} {progress.count}/{progress.target}
                                                 </span>
                                             </div>
-                                            <div className='progress-bar'>
+                                            <div className='reversal-trader__progress-bar'>
                                                 <div
-                                                    className='progress-fill'
+                                                    className='reversal-trader__progress-fill'
                                                     style={{
                                                         width: `${Math.min(100, (progress.count / progress.target) * 100)}%`,
                                                     }}
@@ -323,24 +322,24 @@ const ReversalTrader = observer(() => {
                                         </div>
                                     ))
                                 ) : (
-                                    <div className='empty-state'>{localize('Waiting for market data...')}</div>
+                                    <div className='reversal-trader__empty-state'>Waiting for market data...</div>
                                 )}
                             </div>
                         </div>
                     )}
 
-                    <div className='reversal-trader__logs-panel'>
-                        <h3>{localize('Activity Log')}</h3>
-                        <div className='logs-container'>
+                    <div className='reversal-trader__panel reversal-trader__logs-panel'>
+                        <h2>{localize('Activity log')}</h2>
+                        <div className='reversal-trader__logs-container'>
                             {state.logs.length > 0 ? (
                                 state.logs.map(log => (
-                                    <div key={log.id} className={`log-entry log-${log.kind}`}>
+                                    <div key={log.id} className={`reversal-trader__log-entry ${log.kind}`}>
                                         <span className='time'>{log.time}</span>
                                         <span className='text'>{log.text}</span>
                                     </div>
                                 ))
                             ) : (
-                                <div className='empty-state'>{localize('Waiting for activity...')}</div>
+                                <div className='reversal-trader__empty-state'>Waiting for activity...</div>
                             )}
                             <div ref={logEndRef} />
                         </div>
@@ -349,10 +348,10 @@ const ReversalTrader = observer(() => {
             </div>
 
             {show_confirm && (
-                <div className='modal-overlay' onClick={() => setShowConfirm(false)}>
-                    <div className='modal-content' onClick={e => e.stopPropagation()}>
-                        <h2>{localize('Confirm Trade Settings')}</h2>
-                        <div className='confirm-details'>
+                <div className='reversal-trader__modal-overlay' onClick={() => setShowConfirm(false)}>
+                    <div className='reversal-trader__modal-content' onClick={e => e.stopPropagation()}>
+                        <h2>{localize('Confirm trade settings')}</h2>
+                        <div className='reversal-trader__confirm-details'>
                             <p>
                                 <strong>Pattern:</strong> {reference_digit} → {streak_target}x{' '}
                                 {mode === 'evenodd' ? 'even/odd' : `over/under ${threshold_digit}`}, then trade the reversal
@@ -369,11 +368,11 @@ const ReversalTrader = observer(() => {
                                 {(initial_stake * Math.pow(martingale_mult, max_martingale_steps - 1)).toFixed(2)}
                             </p>
                         </div>
-                        <div className='modal-actions'>
-                            <button onClick={() => setShowConfirm(false)} className='btn btn-secondary'>
+                        <div className='reversal-trader__modal-actions'>
+                            <button onClick={() => setShowConfirm(false)} className='reversal-trader__btn secondary'>
                                 {localize('Cancel')}
                             </button>
-                            <button onClick={confirmStart} className='btn btn-primary'>
+                            <button onClick={confirmStart} className='reversal-trader__btn primary'>
                                 {localize('Confirm & Start')}
                             </button>
                         </div>
