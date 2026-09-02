@@ -35,7 +35,7 @@ import {
     LabelPairedChartLineCaptionRegularIcon,
     LabelPairedChartTrendUpCaptionRegularIcon,
     LabelPairedObjectsColumnCaptionRegularIcon,
-    LabelPairedPlaybackSpeedCaptionRegularIcon,
+    LabelPairedArrowsRotateCaptionRegularIcon,
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
     LabelPairedSignalCaptionRegularIcon,
     LabelPairedStarCaptionRegularIcon,
@@ -49,7 +49,7 @@ import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
 import FreeBotsTab from '../free-bots/free-bots-tab';
 import Signals from '../signals';
-import SpeedTrader from '../speed-trader';
+import ReversalTrader from '../reversal-trader';
 import UpsDownsTool from '../ups-downs-tool';
 import './main.scss';
 
@@ -152,7 +152,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-speed-trader');
+        const el_tutorial = document.getElementById('id-reversal-trader');
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -470,17 +470,17 @@ const AppWrapper = observer(() => {
                             <div
                                 label={
                                     <>
-                                        <LabelPairedPlaybackSpeedCaptionRegularIcon
+                                        <LabelPairedArrowsRotateCaptionRegularIcon
                                             height='24px'
                                             width='24px'
                                             fill='currentColor'
                                         />
-                                        <Localize i18n_default_text='Speed Trader' />
+                                        <Localize i18n_default_text='Reversal Trader' />
                                     </>
                                 }
-                                id='id-speed-trader'
+                                id='id-reversal-trader'
                             >
-                                <SpeedTrader />
+                                <ReversalTrader />
                             </div>
                             <div
                                 label={

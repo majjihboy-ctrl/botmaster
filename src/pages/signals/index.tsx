@@ -1,6 +1,9 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
+import { DBOT_TABS } from '@/constants/bot-contents';
+import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
+import { setPendingReversalConfig } from '@/pages/reversal-trader/trade-bridge';
 import { useSignalStreak, useAllDigitStreaks, TSignalDirection, TDigitStreakRow } from './use-signal-streak';
 import './signals.scss';
 
@@ -50,6 +53,7 @@ const directionColorClass = (dir: TSignalDirection | null) => {
 };
 
 const Signals = observer(() => {
+    const { dashboard } = useStore();
     const symbol_options = useSyntheticSymbols();
     const stored = React.useMemo(() => loadStoredSettings(), []);
 
@@ -131,6 +135,16 @@ const Signals = observer(() => {
     const jumpToDigit = (digit: number) => {
         set_ref_digit(digit);
         setViewMode('single');
+    };
+
+    const tradeThis = (digit: number) => {
+        setPendingReversalConfig({
+            symbol,
+            reference_digit: digit,
+            mode: subTab,
+            threshold_digit: overUnderThreshold,
+        });
+        dashboard.setActiveTab(DBOT_TABS.REVERSAL_TRADER);
     };
 
     const is_live = viewMode === 'single' ? active.is_loading : activeAll.is_loading;
@@ -298,20 +312,34 @@ const Signals = observer(() => {
                     {sorted_rows.map(row => {
                         const is_hot = row.current_streak >= HOT_STREAK_THRESHOLD;
                         return (
-                            <button
+                            <div
                                 key={row.digit}
                                 className={`signals__digit-card ${directionColorClass(row.current_direction)} ${
                                     is_hot ? 'hot' : ''
                                 }`}
-                                onClick={() => jumpToDigit(row.digit)}
                             >
-                                <span className='signals__digit-card-digit'>{row.digit}</span>
-                                <span className='signals__digit-card-streak'>{row.current_streak}</span>
-                                <span className='signals__digit-card-direction'>{directionLabel(row.current_direction)}</span>
-                                <span className='signals__digit-card-best'>
-                                    best {label_a} {row.longest_a} · {label_b} {row.longest_b}
-                                </span>
-                            </button>
+                                <button className='signals__digit-card-main' onClick={() => jumpToDigit(row.digit)}>
+                                    <span className='signals__digit-card-digit'>{row.digit}</span>
+                                    <span className='signals__digit-card-streak'>{row.current_streak}</span>
+                                    <span className='signals__digit-card-direction'>
+                                        {directionLabel(row.current_direction)}
+                                    </span>
+                                    <span className='signals__digit-card-best'>
+                                        best {label_a} {row.longest_a} · {label_b} {row.longest_b}
+                                    </span>
+                                </button>
+                                {is_hot && (
+                                    <button
+                                        className='signals__trade-this-btn'
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            tradeThis(row.digit);
+                                        }}
+                                    >
+                                        ⚡ Trade this
+                                    </button>
+                                )}
+                            </div>
                         );
                     })}
                 </div>
@@ -326,6 +354,11 @@ const Signals = observer(() => {
                                     {directionLabel(active.current_direction)} in a row after {ref_digit}
                                 </span>
                             </div>
+                            {active.current_streak >= HOT_STREAK_THRESHOLD && (
+                                <button className='signals__trade-this-btn wide' onClick={() => tradeThis(ref_digit)}>
+                                    ⚡ Trade this
+                                </button>
+                            )}
                         </div>
 
                         <div className='signals__panel'>
