@@ -5,46 +5,40 @@ import { getLastDigitForList } from '@/external/bot-skeleton/services/tradeEngin
 export type TSignalMode = 'evenodd' | 'overunder';
 export type TSignalDirection = 'even' | 'odd' | 'over' | 'under';
 
-export type TSignalStreak = {
-    // The digit that triggers a check: every time it appears, we look at the
-    // digit right after it and classify that follow-up digit.
+type TStreakCore = {
     current_direction: TSignalDirection | null;
     current_streak: number;
     longest_a: number; // longest ever run of 'even' (evenodd mode) or 'over' (overunder mode)
     longest_b: number; // longest ever run of 'odd' (evenodd mode) or 'under' (overunder mode)
-    total_triggers: number; // how many times the reference digit has appeared with a follow-up tick observed
-    recent_outcomes: TSignalDirection[]; // most recent classified follow-ups, in order, oldest first
+    total_triggers: number; // how many times the reference digit appeared with a follow-up tick observed
+};
+
+export type TSignalStreak = TStreakCore & {
+    recent_outcomes: TSignalDirection[]; // most recent classified follow-ups, oldest first
     recent_digits: number[]; // last 20 raw digits, for context display
     is_loading: boolean;
     is_stale: boolean;
 };
 
-const EMPTY_STREAK: TSignalStreak = {
-    current_direction: null,
-    current_streak: 0,
-    longest_a: 0,
-    longest_b: 0,
-    total_triggers: 0,
-    recent_outcomes: [],
-    recent_digits: [],
-    is_loading: true,
-    is_stale: false,
-};
+export type TDigitStreakRow = TStreakCore & { digit: number };
+
+const EMPTY_CORE: TStreakCore = { current_direction: null, current_streak: 0, longest_a: 0, longest_b: 0, total_triggers: 0 };
+const EMPTY_STREAK: TSignalStreak = { ...EMPTY_CORE, recent_outcomes: [], recent_digits: [], is_loading: true, is_stale: false };
 
 // Walks the digit sequence once, only evaluating the tick immediately after
 // each occurrence of reference_digit. A tick that ties the over/under
-// threshold is skipped entirely (per spec) — it neither counts as a trigger
-// nor breaks the current streak.
-const computeStreak = (
+// threshold is skipped entirely — it neither counts as a trigger nor
+// breaks the current streak.
+const computeStreakCore = (
     digits: number[],
     reference_digit: number,
     mode: TSignalMode,
     threshold_digit: number
-): Omit<TSignalStreak, 'is_loading' | 'is_stale'> => {
+): TStreakCore & { outcomes: TSignalDirection[] } => {
     let run_direction: TSignalDirection | null = null;
     let run_length = 0;
-    let longest_a = 0; // even / over
-    let longest_b = 0; // odd / under
+    let longest_a = 0;
+    let longest_b = 0;
     let total_triggers = 0;
     const outcomes: TSignalDirection[] = [];
 
@@ -83,49 +77,50 @@ const computeStreak = (
     }
     closeRun();
 
-    return {
-        current_direction: run_direction,
-        current_streak: run_length,
-        longest_a,
-        longest_b,
-        total_triggers,
-        recent_outcomes: outcomes.slice(-30),
-        recent_digits: digits.slice(-20),
-    };
+    return { current_direction: run_direction, current_streak: run_length, longest_a, longest_b, total_triggers, outcomes };
 };
 
-export const useSignalStreak = (
-    symbol: string,
-    tick_count: number,
+const computeStreak = (
+    digits: number[],
     reference_digit: number,
     mode: TSignalMode,
-    threshold_digit: number,
-    disabled = false
-) => {
-    const [streak, setStreak] = useState<TSignalStreak>(EMPTY_STREAK);
+    threshold_digit: number
+): Omit<TSignalStreak, 'is_loading' | 'is_stale'> => {
+    const { outcomes, ...core } = computeStreakCore(digits, reference_digit, mode, threshold_digit);
+    return { ...core, recent_outcomes: outcomes.slice(-30), recent_digits: digits.slice(-20) };
+};
+
+const computeAllStreaks = (digits: number[], mode: TSignalMode, threshold_digit: number): TDigitStreakRow[] =>
+    Array.from({ length: 10 }, (_, d) => ({ digit: d, ...computeStreakCore(digits, d, mode, threshold_digit) }));
+
+const inferPipSize = (raw_prices: (string | number)[]): number | null => {
+    for (const p of raw_prices) {
+        const s = String(p);
+        const dot = s.indexOf('.');
+        if (dot !== -1) return s.length - dot - 1;
+    }
+    return null;
+};
+
+type TTickDigitsState = { digits: number[]; is_loading: boolean; is_stale: boolean };
+const EMPTY_TICK_STATE: TTickDigitsState = { digits: [], is_loading: true, is_stale: false };
+
+// Single shared tick subscription (history fetch + live push + watchdog
+// reconnect). Both the single-digit and all-digit streak hooks build on
+// top of this, so switching view modes never opens a second subscription
+// to the same symbol.
+const useTickDigits = (symbol: string, tick_count: number, disabled: boolean): TTickDigitsState => {
+    const [state, setState] = useState<TTickDigitsState>(EMPTY_TICK_STATE);
     const digitsRef = useRef<number[]>([]);
     const quotesRef = useRef<number[]>([]);
     const pipSizeRef = useRef<number>(2);
     const subscriptionIdRef = useRef<string | null>(null);
-    const refDigitRef = useRef(reference_digit);
-    const modeRef = useRef(mode);
-    const thresholdRef = useRef(threshold_digit);
     const lastTickAtRef = useRef<number>(0);
     const lastEpochRef = useRef<number | null>(null);
 
     useEffect(() => {
-        refDigitRef.current = reference_digit;
-    }, [reference_digit]);
-    useEffect(() => {
-        modeRef.current = mode;
-    }, [mode]);
-    useEffect(() => {
-        thresholdRef.current = threshold_digit;
-    }, [threshold_digit]);
-
-    useEffect(() => {
         if (disabled) {
-            setStreak(EMPTY_STREAK);
+            setState(EMPTY_TICK_STATE);
             return;
         }
 
@@ -168,17 +163,8 @@ export const useSignalStreak = (
             }
         };
 
-        const inferPipSize = (raw_prices: (string | number)[]): number | null => {
-            for (const p of raw_prices) {
-                const s = String(p);
-                const dot = s.indexOf('.');
-                if (dot !== -1) return s.length - dot - 1;
-            }
-            return null;
-        };
-
         const start = async () => {
-            setStreak(prev => ({ ...prev, is_loading: true }));
+            setState(prev => ({ ...prev, is_loading: true }));
             const pip_size_lookup = api_base?.pip_sizes?.[symbol];
 
             try {
@@ -197,11 +183,7 @@ export const useSignalStreak = (
                 const prices: number[] = raw_prices.map(Number);
                 quotesRef.current = prices;
                 digitsRef.current = prices.map(q => Number(getLastDigitForList(q, pip_size)));
-                setStreak({
-                    ...computeStreak(digitsRef.current, refDigitRef.current, modeRef.current, thresholdRef.current),
-                    is_loading: false,
-                    is_stale: false,
-                });
+                setState({ digits: digitsRef.current, is_loading: false, is_stale: false });
 
                 const normalize = (s: string) => (s || '').trim().toUpperCase();
                 const target_symbol = normalize(symbol);
@@ -221,27 +203,23 @@ export const useSignalStreak = (
                             -tick_count
                         );
 
-                        setStreak({
-                            ...computeStreak(digitsRef.current, refDigitRef.current, modeRef.current, thresholdRef.current),
-                            is_loading: false,
-                            is_stale: false,
-                        });
+                        setState({ digits: digitsRef.current, is_loading: false, is_stale: false });
                     }
                 });
 
                 await subscribeToTicks();
-                setStreak(prev => ({ ...prev, is_loading: false }));
+                setState(prev => ({ ...prev, is_loading: false }));
 
                 watchdog = setInterval(() => {
                     if (is_cancelled) return;
                     const silent_for = Date.now() - lastTickAtRef.current;
                     if (silent_for > 6000) {
-                        setStreak(prev => ({ ...prev, is_stale: true }));
+                        setState(prev => ({ ...prev, is_stale: true }));
                         subscribeToTicks();
                     }
                 }, 2000);
             } catch (e) {
-                if (!is_cancelled) setStreak(prev => ({ ...prev, is_loading: false }));
+                if (!is_cancelled) setState(prev => ({ ...prev, is_loading: false }));
             }
         };
 
@@ -258,17 +236,32 @@ export const useSignalStreak = (
         };
     }, [symbol, tick_count, disabled]);
 
-    // Recompute without re-subscribing when only reference digit / mode /
-    // threshold changes — we already have the digit window in memory.
-    useEffect(() => {
-        if (digitsRef.current.length) {
-            setStreak(prev => ({
-                ...computeStreak(digitsRef.current, reference_digit, mode, threshold_digit),
-                is_loading: prev.is_loading,
-                is_stale: prev.is_stale,
-            }));
-        }
-    }, [reference_digit, mode, threshold_digit]);
+    return state;
+};
 
-    return streak;
+export const useSignalStreak = (
+    symbol: string,
+    tick_count: number,
+    reference_digit: number,
+    mode: TSignalMode,
+    threshold_digit: number,
+    disabled = false
+): TSignalStreak => {
+    const { digits, is_loading, is_stale } = useTickDigits(symbol, tick_count, disabled);
+    if (!digits.length) return { ...EMPTY_STREAK, is_loading, is_stale };
+    return { ...computeStreak(digits, reference_digit, mode, threshold_digit), is_loading, is_stale };
+};
+
+export const useAllDigitStreaks = (
+    symbol: string,
+    tick_count: number,
+    mode: TSignalMode,
+    threshold_digit: number,
+    disabled = false
+): { rows: TDigitStreakRow[]; is_loading: boolean; is_stale: boolean } => {
+    const { digits, is_loading, is_stale } = useTickDigits(symbol, tick_count, disabled);
+    const rows = digits.length
+        ? computeAllStreaks(digits, mode, threshold_digit)
+        : Array.from({ length: 10 }, (_, d) => ({ digit: d, ...EMPTY_CORE }));
+    return { rows, is_loading, is_stale };
 };

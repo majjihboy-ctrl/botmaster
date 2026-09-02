@@ -99,8 +99,47 @@
 
     &__subtabs {
         display: flex;
+        align-items: center;
         gap: 0.6rem;
         margin-bottom: 1.6rem;
+        flex-wrap: wrap;
+    }
+
+    &__view-toggle {
+        display: flex;
+        gap: 0.3rem;
+        margin-left: auto;
+        background: var(--general-main-1);
+        border: 1px solid var(--border-divider);
+        border-radius: 8px;
+        padding: 0.3rem;
+    }
+
+    &__sort-toggle {
+        margin-left: 0;
+    }
+
+    &__view-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-less-prominent);
+        font-size: var(--text-size-xxs);
+        font-weight: 600;
+        padding: 0.6rem 1.2rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+
+        &:hover {
+            color: var(--text-prominent);
+        }
+
+        &.active {
+            background: var(--general-section-1);
+            color: var(--text-prominent);
+            box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+        }
     }
 
     &__subtab-btn {
@@ -330,6 +369,108 @@
 
         &.latest {
             box-shadow: 0 0 0 2px var(--brand-red-coral);
+        }
+    }
+
+    &__digit-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.6rem;
+
+        @include mobile-or-tablet-screen {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    &__digit-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 1.6rem 1rem 1.2rem;
+        border-radius: 12px;
+        border: 1px solid var(--border-divider);
+        background: var(--general-main-1);
+        cursor: pointer;
+        text-align: center;
+        transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+        font-family: inherit;
+
+        &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(16, 24, 40, 0.1);
+        }
+    }
+
+    &__digit-card-digit {
+        position: absolute;
+        top: 0.8rem;
+        left: 1rem;
+        font-size: var(--text-size-xxs);
+        font-weight: 700;
+        color: var(--text-less-prominent);
+        opacity: 0.6;
+    }
+
+    &__digit-card-streak {
+        font-size: 3.2rem;
+        font-weight: 800;
+        line-height: 1;
+        color: var(--text-prominent);
+        margin-top: 0.6rem;
+    }
+
+    &__digit-card-direction {
+        font-size: var(--text-size-xxs);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: var(--text-less-prominent);
+    }
+
+    &__digit-card-best {
+        font-size: 1rem;
+        color: var(--text-less-prominent);
+        opacity: 0.7;
+        margin-top: 0.4rem;
+    }
+
+    &__digit-card.positive {
+        border-color: rgba(76, 175, 80, 0.3);
+
+        .signals__digit-card-direction {
+            color: var(--status-success);
+        }
+    }
+
+    &__digit-card.negative {
+        border-color: rgba(239, 68, 68, 0.3);
+
+        .signals__digit-card-direction {
+            color: var(--status-danger, #ef4444);
+        }
+    }
+
+    // "Hot" cards (streak >= threshold) get a saturated fill and a subtle
+    // glow so the eye is drawn straight to whichever digit is running.
+    &__digit-card.hot.positive {
+        background: rgba(76, 175, 80, 0.1);
+        border-color: var(--status-success);
+        box-shadow: 0 0 0 1px var(--status-success), 0 4px 16px rgba(76, 175, 80, 0.25);
+
+        .signals__digit-card-streak {
+            color: var(--status-success);
+        }
+    }
+
+    &__digit-card.hot.negative {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: var(--status-danger, #ef4444);
+        box-shadow: 0 0 0 1px var(--status-danger, #ef4444), 0 4px 16px rgba(239, 68, 68, 0.2);
+
+        .signals__digit-card-streak {
+            color: var(--status-danger, #ef4444);
         }
     }
 }
