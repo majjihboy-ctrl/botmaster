@@ -27,6 +27,7 @@ type TPerSymbolState = {
     run_direction: TDirection | null;
     run_length: number;
     martingale_step: number;
+    is_recovering: boolean; // after a loss: skip streak-building, fire on the very next reappearance of the reference digit
 };
 
 export type TRaceProgress = { direction: TDirection | null; count: number; target: number };
@@ -131,7 +132,12 @@ export const useReversalTrader = (currency: string) => {
         setState(prev => ({ ...prev, race_progress: progress, active_symbol: activeSymbolRef.current }));
     }, []);
 
-    const freshSymbolState = (): TPerSymbolState => ({ run_direction: null, run_length: 0, martingale_step: 0 });
+    const freshSymbolState = (): TPerSymbolState => ({
+        run_direction: null,
+        run_length: 0,
+        martingale_step: 0,
+        is_recovering: false,
+    });
 
     const settleTrade = useCallback(
         (won: boolean) => {
@@ -171,15 +177,16 @@ export const useReversalTrader = (currency: string) => {
                     symbol_state.martingale_step += 1;
                     currentStakeRef.current = Number((currentStakeRef.current * p.martingale_mult).toFixed(2));
                 }
-                // Reset the run so we don't recover instantly — stay locked
-                // on this symbol, but go back to watching for the reference
-                // digit and the streak to build up again from scratch
-                // before the next (martingale-sized) trade fires.
+                // Recovery mode: no streak needed anymore. Stay locked on
+                // this symbol and keep betting the SAME reversal side —
+                // fire again the very next time the reference digit itself
+                // reappears, no matter what follows it.
                 symbol_state.run_direction = null;
                 symbol_state.run_length = 0;
+                symbol_state.is_recovering = true;
                 perSymbolRef.current.set(active_symbol, symbol_state);
                 modeRef.current = 'virtual';
-                pushLog(`[${active_symbol}] Waiting for ${p.reference_digit} to set up again before recovering…`, 'info');
+                pushLog(`[${active_symbol}] Recovering — waiting for ${p.reference_digit} to reappear (no streak needed).`, 'info');
             }
 
             setState(prev => ({
@@ -280,10 +287,26 @@ export const useReversalTrader = (currency: string) => {
 
             if (active_symbol && active_symbol !== symbol) return; // locked onto a different market mid-recovery
 
-            // Virtual scanning: watch for the reference digit, then track
-            // the run of same-direction outcomes right after it.
             const prevDigit = lastDigitRef.current.get(symbol);
             lastDigitRef.current.set(symbol, digit);
+
+            // Recovery mode: no streak needed. Just wait for the reference
+            // digit itself to reappear, then immediately bet the SAME
+            // reversal side again on the next tick.
+            if (active_symbol === symbol) {
+                const rec_state = perSymbolRef.current.get(symbol);
+                if (rec_state?.is_recovering) {
+                    if (digit === p.reference_digit) {
+                        pushLog(`[${symbol}] ${p.reference_digit} reappeared — firing recovery trade.`, 'warn');
+                        modeRef.current = 'real';
+                        placeRealTrade();
+                    }
+                    return;
+                }
+            }
+
+            // Fresh entry: watch for the reference digit, then track the
+            // run of same-direction outcomes right after it.
             if (prevDigit !== p.reference_digit) return;
 
             const direction = classify(digit, p.mode, p.threshold_digit);
