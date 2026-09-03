@@ -56,6 +56,10 @@ export type TReversalTraderState = {
     watching: string[];
     active_symbol: string | null;
     race_progress: Record<string, TRaceProgress>;
+    // Full 0-9 breakdown for the single watched symbol, only populated when
+    // exactly one market is being watched — lets 'all digits' mode show
+    // every digit's progress at a glance instead of only the best one.
+    digit_heat: Record<number, TRaceProgress>;
 };
 
 const EMPTY_STATE: TReversalTraderState = {
@@ -68,6 +72,7 @@ const EMPTY_STATE: TReversalTraderState = {
     watching: [],
     active_symbol: null,
     race_progress: {},
+    digit_heat: {},
 };
 
 const opposite = (dir: TDirection): TDirection => {
@@ -173,6 +178,21 @@ export const useReversalTrader = (currency: string) => {
             };
         });
         setState(prev => ({ ...prev, race_progress: progress, active_symbol: activeSymbolRef.current }));
+
+        // Full per-digit breakdown, only meaningful (and only computed) when
+        // watching a single market — with several markets this would be a
+        // 10xN grid, too much to usefully show compactly.
+        if (watchedSymbolsRef.current.length === 1) {
+            const sym = watchedSymbolsRef.current[0];
+            const digit_map = perSymbolRef.current.get(sym);
+            const heat: Record<number, TRaceProgress> = {};
+            if (digit_map) {
+                digit_map.forEach((st, d) => {
+                    heat[d] = { direction: st.run_direction, count: st.run_length, target: p.streak_target, digit: d };
+                });
+            }
+            setState(prev => ({ ...prev, digit_heat: heat }));
+        }
     }, []);
 
     const freshSymbolState = (): TPerSymbolState => ({
@@ -496,6 +516,7 @@ export const useReversalTrader = (currency: string) => {
                 watching: symbols,
                 active_symbol: initial_active_symbol,
                 race_progress: initial_race_progress,
+                digit_heat: {},
             });
 
             if (params.preloaded_trigger) {

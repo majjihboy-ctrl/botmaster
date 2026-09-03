@@ -133,6 +133,7 @@ const ReversalTrader = observer(() => {
     const race_rows = Object.entries(state.race_progress).sort(
         ([, a], [, b]) => b.count / b.target - a.count / a.target
     );
+    const activeDigitDisplay = state.active_symbol ? state.race_progress[state.active_symbol]?.digit : undefined;
 
     return (
         <div className='reversal-trader'>
@@ -145,7 +146,7 @@ const ReversalTrader = observer(() => {
                     </span>
                 </div>
                 {state.is_armed && (
-                    <div className='reversal-trader__status-row'>
+                    <div className='reversal-trader__status-line'>
                         <span>
                             {state.active_symbol ? (
                                 <>
@@ -162,15 +163,25 @@ const ReversalTrader = observer(() => {
                             Watching for <strong>{reference_digit === 'all' ? 'all digits' : reference_digit}</strong> →{' '}
                             <strong>{streak_target}x</strong> {mode === 'evenodd' ? 'even/odd' : 'over/under'}
                         </span>
-                        <span>
-                            Stake <strong>${state.current_stake.toFixed(2)}</strong>
-                        </span>
-                        <span className={state.total_pnl >= 0 ? 'profit' : 'loss'}>
-                            PnL <strong>${state.total_pnl.toFixed(2)}</strong>
-                        </span>
                     </div>
                 )}
             </div>
+
+            {state.is_armed && (
+                <div className='reversal-trader__stat-cards'>
+                    <div className='reversal-trader__stat-card'>
+                        <span className='reversal-trader__stat-label'>{localize('Current stake')}</span>
+                        <span className='reversal-trader__stat-value'>${state.current_stake.toFixed(2)}</span>
+                    </div>
+                    <div className={`reversal-trader__stat-card ${state.total_pnl >= 0 ? 'profit' : 'loss'}`}>
+                        <span className='reversal-trader__stat-label'>{localize('Total P&L')}</span>
+                        <span className='reversal-trader__stat-value'>
+                            {state.total_pnl >= 0 ? '+' : ''}
+                            ${state.total_pnl.toFixed(2)}
+                        </span>
+                    </div>
+                </div>
+            )}
 
             <div className='reversal-trader__grid'>
                 <div className='reversal-trader__col-controls'>
@@ -378,6 +389,33 @@ const ReversalTrader = observer(() => {
                 </div>
 
                 <div className='reversal-trader__col-output'>
+                    {reference_digit === 'all' && state.is_armed && Object.keys(state.digit_heat).length > 0 && (
+                        <div className='reversal-trader__panel'>
+                            <h2>{localize('Digit heat')}</h2>
+                            <div className='reversal-trader__heat-row'>
+                                {DIGIT_OPTIONS.map(d => {
+                                    const dh = state.digit_heat[d];
+                                    const count = dh?.count ?? 0;
+                                    const target = dh?.target ?? streak_target;
+                                    const dir = dh?.direction ?? null;
+                                    const pct = Math.min(100, (count / target) * 100);
+                                    return (
+                                        <div
+                                            key={d}
+                                            className={`reversal-trader__heat-pill ${dir ? (dir === 'even' || dir === 'over' ? 'positive' : 'negative') : ''} ${d === activeDigitDisplay ? 'active' : ''}`}
+                                        >
+                                            <span className='digit'>{d}</span>
+                                            <div className='bar'>
+                                                <div className='fill' style={{ height: `${pct}%` }} />
+                                            </div>
+                                            <span className='count'>{count}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     {watch_all_markets && state.is_armed && (
                         <div className='reversal-trader__panel'>
                             <h2>{localize('Race progress')}</h2>
@@ -467,8 +505,14 @@ const ReversalTrader = observer(() => {
                                 <strong>Initial stake:</strong> ${initial_stake.toFixed(2)}
                             </p>
                             <p>
-                                <strong>Max loss per trade:</strong> $
+                                <strong>Stake at final step:</strong> $
                                 {(initial_stake * Math.pow(martingale_mult, max_martingale_steps - 1)).toFixed(2)}
+                            </p>
+                            <p>
+                                <strong>Total risk if every step loses:</strong> $
+                                {Array.from({ length: max_martingale_steps }, (_, i) => initial_stake * Math.pow(martingale_mult, i))
+                                    .reduce((sum, v) => sum + v, 0)
+                                    .toFixed(2)}
                             </p>
                         </div>
                         <div className='reversal-trader__modal-actions'>

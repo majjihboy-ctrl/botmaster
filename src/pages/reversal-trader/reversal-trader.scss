@@ -59,7 +59,7 @@
         animation: reversal-trader-blink 1.4s infinite;
     }
 
-    &__status-row {
+    &__status-line {
         display: flex;
         gap: 1.6rem;
         flex-wrap: wrap;
@@ -70,12 +70,132 @@
             color: var(--text-prominent);
             font-weight: 700;
         }
+    }
 
-        .profit {
-            color: var(--status-success);
+    // Big, unmissable numbers for the two figures that matter most while
+    // armed — deliberately larger than every other piece of text on the
+    // page, unlike the flat single-line status strip this replaces.
+    &__stat-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.2rem;
+        margin-bottom: 1.6rem;
+
+        @include mobile-or-tablet-screen {
+            grid-template-columns: 1fr;
         }
-        .loss {
-            color: var(--status-danger, #ef4444);
+    }
+
+    &__stat-card {
+        background: var(--general-main-1);
+        border: 1px solid var(--border-divider);
+        border-radius: 10px;
+        padding: 1.4rem 1.8rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+
+        &.profit {
+            border-color: var(--status-success);
+
+            .reversal-trader__stat-value {
+                color: var(--status-success);
+            }
+        }
+
+        &.loss {
+            border-color: var(--status-danger, #ef4444);
+
+            .reversal-trader__stat-value {
+                color: var(--status-danger, #ef4444);
+            }
+        }
+    }
+
+    &__stat-label {
+        font-size: var(--text-size-xxs);
+        color: var(--text-less-prominent);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    &__stat-value {
+        font-size: 2.8rem;
+        font-weight: 800;
+        line-height: 1.1;
+        color: var(--text-prominent);
+    }
+
+    // Compact 0-9 heat strip for 'all digits' mode — mirrors Signals'
+    // digit-grid concept but condensed into a single row of vertical bars,
+    // so the closest-to-firing digit is visible at a glance without
+    // switching tabs.
+    &__heat-row {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 0.6rem;
+    }
+
+    &__heat-pill {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.6rem 0.3rem;
+        border-radius: 8px;
+        border: 1px solid var(--border-divider);
+        background: var(--general-section-1);
+        transition: border-color 0.15s ease, background 0.15s ease;
+
+        .digit {
+            font-size: var(--text-size-xxs);
+            font-weight: 700;
+            color: var(--text-less-prominent);
+        }
+
+        .bar {
+            width: 8px;
+            height: 3.2rem;
+            border-radius: 4px;
+            background: var(--border-divider);
+            display: flex;
+            align-items: flex-end;
+            overflow: hidden;
+        }
+
+        .fill {
+            width: 100%;
+            border-radius: 4px;
+            background: var(--text-less-prominent);
+            transition: height 0.2s ease;
+        }
+
+        .count {
+            font-size: var(--text-size-xxs);
+            font-weight: 700;
+            color: var(--text-prominent);
+        }
+
+        &.positive {
+            border-color: rgba(76, 175, 80, 0.3);
+
+            .fill {
+                background: var(--status-success);
+            }
+        }
+
+        &.negative {
+            border-color: rgba(239, 68, 68, 0.3);
+
+            .fill {
+                background: var(--status-danger, #ef4444);
+            }
+        }
+
+        &.active {
+            border-color: var(--brand-red-coral);
+            box-shadow: 0 0 0 1px var(--brand-red-coral);
         }
     }
 
@@ -528,6 +648,7 @@
         border-radius: 6px;
         background: var(--general-section-1);
         font-family: 'Courier New', monospace;
+        border-left: 3px solid var(--border-divider);
 
         .time {
             color: var(--text-less-prominent);
@@ -543,24 +664,30 @@
 
         &.warn {
             background: rgba(245, 158, 11, 0.1);
+            border-left-color: #d97706;
             .text {
                 color: #d97706;
             }
         }
         &.win {
             background: rgba(34, 197, 94, 0.1);
+            border-left-color: var(--status-success);
             .text {
                 color: var(--status-success);
+                font-weight: 700;
             }
         }
         &.loss {
             background: rgba(239, 68, 68, 0.1);
+            border-left-color: var(--status-danger, #ef4444);
             .text {
                 color: var(--status-danger, #ef4444);
+                font-weight: 700;
             }
         }
         &.error {
             background: rgba(239, 68, 68, 0.15);
+            border-left-color: var(--status-danger, #ef4444);
             .text {
                 color: var(--status-danger, #ef4444);
                 font-weight: 700;
