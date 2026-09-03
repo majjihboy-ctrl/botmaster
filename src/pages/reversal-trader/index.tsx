@@ -9,6 +9,33 @@ import { useReversalTrader, TReversalMode } from './use-reversal-trader';
 import './reversal-trader.scss';
 
 const DIGIT_OPTIONS = Array.from({ length: 10 }, (_, i) => i);
+const LAST_SETTINGS_KEY = 'reversal_trader_last_settings';
+
+type TLastSettings = {
+    streak_target: number;
+    initial_stake: number;
+    martingale_mult: number;
+    max_martingale_steps: number;
+    stop_loss: number;
+    take_profit: number;
+};
+
+const loadLastSettings = (): Partial<TLastSettings> => {
+    try {
+        const raw = localStorage.getItem(LAST_SETTINGS_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+};
+
+const saveLastSettings = (settings: TLastSettings) => {
+    try {
+        localStorage.setItem(LAST_SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+        // localStorage unavailable — non-fatal, just won't be remembered next time.
+    }
+};
 
 const directionLabel = (dir: string | null) => (dir ? dir.toUpperCase() : '—');
 
@@ -21,21 +48,28 @@ const ReversalTrader = observer(() => {
     const [mode, setMode] = React.useState<TReversalMode>('evenodd');
     const [reference_digit, setReferenceDigit] = React.useState<number | 'all'>(7);
     const [threshold_digit, setThresholdDigit] = React.useState(5);
-    const [streak_target, setStreakTarget] = React.useState(4);
-    const [initial_stake, setInitialStake] = React.useState(0.35);
-    const [martingale_mult, setMartingaleMult] = React.useState(2);
-    const [max_martingale_steps, setMaxMartingaleSteps] = React.useState(5);
-    const [stop_loss, setStopLoss] = React.useState(5);
-    const [take_profit, setTakeProfit] = React.useState(100);
+    const [streak_target, setStreakTarget] = React.useState(() => loadLastSettings().streak_target ?? 4);
+    const [initial_stake, setInitialStake] = React.useState(() => loadLastSettings().initial_stake ?? 0.35);
+    const [martingale_mult, setMartingaleMult] = React.useState(() => loadLastSettings().martingale_mult ?? 2);
+    const [max_martingale_steps, setMaxMartingaleSteps] = React.useState(
+        () => loadLastSettings().max_martingale_steps ?? 5
+    );
+    const [stop_loss, setStopLoss] = React.useState(() => loadLastSettings().stop_loss ?? 5);
+    const [take_profit, setTakeProfit] = React.useState(() => loadLastSettings().take_profit ?? 100);
     const [show_confirm, setShowConfirm] = React.useState(false);
 
     React.useEffect(() => {
         const pending = consumePendingReversalConfig();
         if (!pending) return;
         setSymbol(pending.symbol);
+        setWatchAllMarkets(false); // "Trade this" targets one specific market — don't silently widen to a race
         setMode(pending.mode);
         setReferenceDigit(pending.reference_digit);
         setThresholdDigit(pending.threshold_digit);
+        // One click away from live: open the confirm popup right away so the
+        // stake/martingale/stop-loss (not carried over from Signals) get a
+        // final glance before any real money moves.
+        setShowConfirm(true);
     }, []);
 
     const { state, start, stop } = useReversalTrader(client?.currency);
@@ -47,6 +81,14 @@ const ReversalTrader = observer(() => {
 
     const confirmStart = () => {
         setShowConfirm(false);
+        saveLastSettings({
+            streak_target,
+            initial_stake,
+            martingale_mult,
+            max_martingale_steps,
+            stop_loss,
+            take_profit,
+        });
         const symbols = watch_all_markets ? symbol_options.map(s => s.symbol) : [symbol];
         start({
             symbols,
