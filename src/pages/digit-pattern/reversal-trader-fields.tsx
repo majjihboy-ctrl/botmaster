@@ -41,15 +41,15 @@ export const SliderField: React.FC<TSliderFieldProps> = ({
     };
 
     return (
-        <div className='reversal-trader__slider-field'>
-            <div className='reversal-trader__slider-label-row'>
-                <span className='reversal-trader__field-label'>{label}</span>
-                <div className='reversal-trader__value-input-wrap'>
-                    {prefix && <span className='reversal-trader__value-affix'>{prefix}</span>}
+        <div className='digit-pattern__slider-field'>
+            <div className='digit-pattern__slider-label-row'>
+                <span className='digit-pattern__field-label'>{label}</span>
+                <div className='digit-pattern__value-input-wrap'>
+                    {prefix && <span className='digit-pattern__value-affix'>{prefix}</span>}
                     <input
                         type='number'
                         inputMode='decimal'
-                        className='reversal-trader__value-input'
+                        className='digit-pattern__value-input'
                         value={text}
                         min={min}
                         max={max}
@@ -61,7 +61,7 @@ export const SliderField: React.FC<TSliderFieldProps> = ({
                             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                         }}
                     />
-                    {suffix && <span className='reversal-trader__value-affix'>{suffix}</span>}
+                    {suffix && <span className='digit-pattern__value-affix'>{suffix}</span>}
                 </div>
             </div>
             <input
@@ -85,18 +85,18 @@ type TToggleSwitchProps = {
 };
 
 export const ToggleSwitch: React.FC<TToggleSwitchProps> = ({ checked, disabled, onChange, label }) => (
-    <div className='reversal-trader__toggle-row'>
+    <div className='digit-pattern__toggle-row'>
         <button
             type='button'
             role='switch'
             aria-checked={checked}
             disabled={disabled}
-            className={`reversal-trader__toggle ${checked ? 'on' : ''}`}
+            className={`digit-pattern__toggle ${checked ? 'on' : ''}`}
             onClick={() => onChange(!checked)}
         >
-            <span className='reversal-trader__toggle-knob' />
+            <span className='digit-pattern__toggle-knob' />
         </button>
-        <span className='reversal-trader__toggle-label' onClick={() => !disabled && onChange(!checked)}>
+        <span className='digit-pattern__toggle-label' onClick={() => !disabled && onChange(!checked)}>
             {label}
         </span>
     </div>

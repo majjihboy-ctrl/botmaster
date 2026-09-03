@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
-import { setPendingReversalConfig } from '@/pages/reversal-trader/trade-bridge';
+import { setPendingReversalConfig } from '@/pages/digit-pattern/trade-bridge';
 import { useSignalStreak, useAllDigitStreaks, TSignalDirection, TDigitStreakRow } from './use-signal-streak';
 import './signals.scss';
 
@@ -147,7 +147,7 @@ const Signals = observer(() => {
             current_streak,
             current_direction,
         });
-        dashboard.setActiveTab(DBOT_TABS.REVERSAL_TRADER);
+        dashboard.setActiveTab(DBOT_TABS.DIGIT_PATTERN);
     };
 
     const is_live = viewMode === 'single' ? active.is_loading : activeAll.is_loading;

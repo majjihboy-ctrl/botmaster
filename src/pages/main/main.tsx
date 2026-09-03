@@ -49,7 +49,7 @@ import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
 import FreeBotsTab from '../free-bots/free-bots-tab';
 import Signals from '../signals';
-import ReversalTrader from '../reversal-trader';
+import DigitPattern from '../digit-pattern';
 import UpsDownsTool from '../ups-downs-tool';
 import './main.scss';
 
@@ -152,7 +152,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-reversal-trader');
+        const el_tutorial = document.getElementById('id-digit-pattern');
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -475,12 +475,12 @@ const AppWrapper = observer(() => {
                                             width='24px'
                                             fill='currentColor'
                                         />
-                                        <Localize i18n_default_text='Reversal Trader' />
+                                        <Localize i18n_default_text='Digit Pattern' />
                                     </>
                                 }
-                                id='id-reversal-trader'
+                                id='id-digit-pattern'
                             >
-                                <ReversalTrader />
+                                <DigitPattern />
                             </div>
                             <div
                                 label={
