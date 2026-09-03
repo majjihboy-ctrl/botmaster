@@ -27,6 +27,11 @@ export type TReversalTraderParams = {
     max_martingale_steps: number;
     stop_loss: number;
     take_profit: number;
+    // A streak that's already built (e.g. handed over from Signals' "Trade
+    // this") - skips the streak-building phase entirely and goes straight to
+    // waiting for the reference digit to reappear, regardless of what
+    // streak_target is set to. Only makes sense with a single watched symbol.
+    preloaded_trigger?: { digit: number; direction: TDirection };
 };
 
 type TPerSymbolState = {
@@ -459,6 +464,28 @@ export const useReversalTrader = (currency: string) => {
             );
             lastDigitRef.current = new Map();
 
+            let initial_active_symbol: string | null = null;
+            let initial_race_progress: Record<string, TRaceProgress> = Object.fromEntries(
+                symbols.map(sym => [sym, { direction: null, count: 0, target: params.streak_target }])
+            );
+
+            if (params.preloaded_trigger && symbols.length === 1) {
+                const { digit, direction } = params.preloaded_trigger;
+                const sym = symbols[0];
+                const digit_map = perSymbolRef.current.get(sym);
+                const st = digit_map?.get(digit) ?? freshSymbolState();
+                st.run_direction = direction;
+                st.run_length = params.streak_target;
+                st.is_pending_trigger = true;
+                digit_map?.set(digit, st);
+
+                activeSymbolRef.current = sym;
+                activeDigitRef.current = digit;
+                reversalSideRef.current = opposite(direction);
+                initial_active_symbol = sym;
+                initial_race_progress = { [sym]: { direction, count: params.streak_target, target: params.streak_target, digit } };
+            }
+
             setState({
                 is_armed: true,
                 is_loading: true,
@@ -467,22 +494,28 @@ export const useReversalTrader = (currency: string) => {
                 logs: [],
                 stop_reason: null,
                 watching: symbols,
-                active_symbol: null,
-                race_progress: Object.fromEntries(
-                    symbols.map(sym => [sym, { direction: null, count: 0, target: params.streak_target }])
-                ),
+                active_symbol: initial_active_symbol,
+                race_progress: initial_race_progress,
             });
 
-            pushLog(
-                params.reference_digit === 'all'
-                    ? symbols.length > 1
-                        ? `Watching ${symbols.length} markets across all 10 digits for a ${params.streak_target}x streak…`
-                        : `Watching ${symbols[0]} across all 10 digits for a ${params.streak_target}x streak…`
-                    : symbols.length > 1
-                      ? `Watching ${symbols.length} markets for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`
-                      : `Watching ${symbols[0]} for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`,
-                'info'
-            );
+            if (params.preloaded_trigger) {
+                const { digit, direction } = params.preloaded_trigger;
+                pushLog(
+                    `[${symbols[0]}] Streak of ${params.streak_target}x ${direction.toUpperCase()} after ${digit} handed over from Signals — waiting for ${digit} to reappear before betting ${opposite(direction).toUpperCase()}.`,
+                    'warn'
+                );
+            } else {
+                pushLog(
+                    params.reference_digit === 'all'
+                        ? symbols.length > 1
+                            ? `Watching ${symbols.length} markets across all 10 digits for a ${params.streak_target}x streak…`
+                            : `Watching ${symbols[0]} across all 10 digits for a ${params.streak_target}x streak…`
+                        : symbols.length > 1
+                          ? `Watching ${symbols.length} markets for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`
+                          : `Watching ${symbols[0]} for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`,
+                    'info'
+                );
+            }
 
             messageSubscriptionRef.current?.unsubscribe();
             const normalize = (s: string) => (s || '').trim().toUpperCase();

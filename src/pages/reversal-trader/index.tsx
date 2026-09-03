@@ -57,6 +57,9 @@ const ReversalTrader = observer(() => {
     const [stop_loss, setStopLoss] = React.useState(() => loadLastSettings().stop_loss ?? 5);
     const [take_profit, setTakeProfit] = React.useState(() => loadLastSettings().take_profit ?? 100);
     const [show_confirm, setShowConfirm] = React.useState(false);
+    const preloadedTriggerRef = React.useRef<{ digit: number; direction: 'even' | 'odd' | 'over' | 'under' } | null>(
+        null
+    );
 
     React.useEffect(() => {
         const pending = consumePendingReversalConfig();
@@ -66,6 +69,10 @@ const ReversalTrader = observer(() => {
         setMode(pending.mode);
         setReferenceDigit(pending.reference_digit);
         setThresholdDigit(pending.threshold_digit);
+        // Hand over the streak exactly as Signals had it built — no matter
+        // its length, it's treated as already complete. Skips rebuilding it
+        // live and goes straight to waiting for the digit to reappear.
+        preloadedTriggerRef.current = { digit: pending.reference_digit, direction: pending.current_direction };
         // One click away from live: open the confirm popup right away so the
         // stake/martingale/stop-loss (not carried over from Signals) get a
         // final glance before any real money moves.
@@ -90,6 +97,10 @@ const ReversalTrader = observer(() => {
             take_profit,
         });
         const symbols = watch_all_markets ? symbol_options.map(s => s.symbol) : [symbol];
+        const preloaded_trigger = preloadedTriggerRef.current
+            ? { digit: preloadedTriggerRef.current.digit, direction: preloadedTriggerRef.current.direction }
+            : undefined;
+        preloadedTriggerRef.current = null; // single-use — never carries over to a later manual start
         start({
             symbols,
             reference_digit,
@@ -101,6 +112,7 @@ const ReversalTrader = observer(() => {
             max_martingale_steps,
             stop_loss,
             take_profit,
+            preloaded_trigger,
         });
     };
 
@@ -414,10 +426,24 @@ const ReversalTrader = observer(() => {
             </div>
 
             {show_confirm && (
-                <div className='reversal-trader__modal-overlay' onClick={() => setShowConfirm(false)}>
+                <div
+                    className='reversal-trader__modal-overlay'
+                    onClick={() => {
+                        preloadedTriggerRef.current = null;
+                        setShowConfirm(false);
+                    }}
+                >
                     <div className='reversal-trader__modal-content' onClick={e => e.stopPropagation()}>
                         <h2>{localize('Confirm trade settings')}</h2>
                         <div className='reversal-trader__confirm-details'>
+                            {preloadedTriggerRef.current && (
+                                <p>
+                                    <strong>Handed over from Signals:</strong> {streak_target}x{' '}
+                                    {preloadedTriggerRef.current.direction.toUpperCase()} after{' '}
+                                    {preloadedTriggerRef.current.digit} — trading fires as soon as{' '}
+                                    {preloadedTriggerRef.current.digit} reappears, no rebuild needed.
+                                </p>
+                            )}
                             <p>
                                 <strong>Pattern:</strong> {reference_digit === 'all' ? 'all digits' : reference_digit} →{' '}
                                 {streak_target}x{' '}
@@ -436,7 +462,13 @@ const ReversalTrader = observer(() => {
                             </p>
                         </div>
                         <div className='reversal-trader__modal-actions'>
-                            <button onClick={() => setShowConfirm(false)} className='reversal-trader__btn secondary'>
+                            <button
+                                onClick={() => {
+                                    preloadedTriggerRef.current = null;
+                                    setShowConfirm(false);
+                                }}
+                                className='reversal-trader__btn secondary'
+                            >
                                 {localize('Cancel')}
                             </button>
                             <button onClick={confirmStart} className='reversal-trader__btn primary'>

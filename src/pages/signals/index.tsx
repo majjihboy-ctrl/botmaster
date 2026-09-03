@@ -137,12 +137,15 @@ const Signals = observer(() => {
         setViewMode('single');
     };
 
-    const tradeThis = (digit: number) => {
+    const tradeThis = (digit: number, current_streak: number, current_direction: TSignalDirection | null) => {
+        if (!current_direction) return; // nothing to hand over — shouldn't happen from a "hot" row, but stay safe
         setPendingReversalConfig({
             symbol,
             reference_digit: digit,
             mode: subTab,
             threshold_digit: overUnderThreshold,
+            current_streak,
+            current_direction,
         });
         dashboard.setActiveTab(DBOT_TABS.REVERSAL_TRADER);
     };
@@ -333,7 +336,7 @@ const Signals = observer(() => {
                                         className='signals__trade-this-btn'
                                         onClick={e => {
                                             e.stopPropagation();
-                                            tradeThis(row.digit);
+                                            tradeThis(row.digit, row.current_streak, row.current_direction);
                                         }}
                                     >
                                         ⚡ Trade this
@@ -355,7 +358,10 @@ const Signals = observer(() => {
                                 </span>
                             </div>
                             {active.current_streak >= HOT_STREAK_THRESHOLD && (
-                                <button className='signals__trade-this-btn wide' onClick={() => tradeThis(ref_digit)}>
+                                <button
+                                    className='signals__trade-this-btn wide'
+                                    onClick={() => tradeThis(ref_digit, active.current_streak, active.current_direction)}
+                                >
                                     ⚡ Trade this
                                 </button>
                             )}

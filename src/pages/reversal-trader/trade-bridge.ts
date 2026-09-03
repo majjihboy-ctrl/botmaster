@@ -5,6 +5,11 @@ export type TPendingReversalConfig = {
     reference_digit: number;
     mode: 'evenodd' | 'overunder';
     threshold_digit: number;
+    // The streak as it stood in Signals at the moment "Trade this" was
+    // clicked. Handed over so Reversal Trader can act on it immediately
+    // instead of rebuilding the same pattern from scratch on live ticks.
+    current_streak: number;
+    current_direction: 'even' | 'odd' | 'over' | 'under';
 };
 
 export const setPendingReversalConfig = (config: TPendingReversalConfig) => {
