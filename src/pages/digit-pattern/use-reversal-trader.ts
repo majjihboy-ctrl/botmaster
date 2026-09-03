@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { api_base } from '@/external/bot-skeleton';
 import { getLastDigitForList } from '@/external/bot-skeleton/services/tradeEngine/utils/helpers';
 
@@ -106,470 +106,487 @@ const wins = (digit: number, dir: TDirection, threshold_digit: number): boolean 
 
 let log_id_seq = 0;
 
-export const useReversalTrader = (currency: string) => {
-    const [state, setState] = useState<TReversalTraderState>(EMPTY_STATE);
+const freshSymbolState = (): TPerSymbolState => ({
+    run_direction: null,
+    run_length: 0,
+    martingale_step: 0,
+    is_recovering: false,
+    is_pending_trigger: false,
+});
 
-    const paramsRef = useRef<TReversalTraderParams | null>(null);
-    const currencyRef = useRef(currency);
-    const totalPnlRef = useRef(0);
-    const currentStakeRef = useRef(0);
-    const isArmedRef = useRef(false);
-    const modeRef = useRef<TMode>('virtual');
+const candidateDigits = (p: TReversalTraderParams): number[] =>
+    p.reference_digit === 'all' ? Array.from({ length: 10 }, (_, d) => d) : [p.reference_digit];
 
-    const watchedSymbolsRef = useRef<string[]>([]);
+// ---------------------------------------------------------------------------
+// Module-level singleton. This is a real-money trading engine — it must keep
+// running (armed trades, martingale state, live tick subscription) no matter
+// what tab is on screen. Living outside any component means switching away
+// from Digit Pattern and back never interrupts an in-flight trade.
+// ---------------------------------------------------------------------------
+const engine = {
+    publicState: EMPTY_STATE,
+    listeners: new Set<() => void>(),
+
+    params: null as TReversalTraderParams | null,
+    currency: 'USD',
+    totalPnl: 0,
+    currentStake: 0,
+    isArmed: false,
+    mode: 'virtual' as TMode,
+
+    watchedSymbols: [] as string[],
     // symbol -> digit (0-9) -> streak state. In fixed-digit mode only one
     // digit key ever exists per symbol; in 'all' mode all 10 exist and are
     // updated in parallel, since a tick's prevDigit is itself a valid
     // reference digit whichever value it happens to be.
-    const perSymbolRef = useRef<Map<string, Map<number, TPerSymbolState>>>(new Map());
-    const activeSymbolRef = useRef<string | null>(null);
-    const activeDigitRef = useRef<number | null>(null); // which reference digit triggered/is being recovered
-    const lastDigitRef = useRef<Map<string, number>>(new Map());
+    perSymbol: new Map<string, Map<number, TPerSymbolState>>(),
+    activeSymbol: null as string | null,
+    activeDigit: null as number | null, // which reference digit triggered/is being recovered
+    lastDigit: new Map<string, number>(),
 
-    const pendingRef = useRef(false); // proposal+buy network calls in flight
-    const awaitingResolutionRef = useRef(false); // bought; next tick resolves it
-    const buyPriceRef = useRef(0);
-    const payoutRef = useRef(0);
-    const reversalSideRef = useRef<TDirection | null>(null);
+    pending: false, // proposal+buy network calls in flight
+    awaitingResolution: false, // bought; next tick resolves it
+    buyPrice: 0,
+    payout: 0,
+    reversalSide: null as TDirection | null,
 
-    const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+    messageSubscription: null as { unsubscribe: () => void } | null,
+};
 
-    useEffect(() => {
-        currencyRef.current = currency;
-    }, [currency]);
+const notify = () => engine.listeners.forEach(l => l());
 
-    const pushLog = useCallback((text: string, kind: TLogEntry['kind'] = 'info') => {
-        log_id_seq += 1;
-        const entry: TLogEntry = { id: log_id_seq, time: new Date().toLocaleTimeString(), text, kind };
-        setState(prev => ({ ...prev, logs: [...prev.logs.slice(-199), entry] }));
-    }, []);
+const setPublicState = (patch: Partial<TReversalTraderState>) => {
+    engine.publicState = { ...engine.publicState, ...patch };
+    notify();
+};
 
-    const publishProgress = useCallback(() => {
-        const p = paramsRef.current;
-        if (!p) return;
-        const progress: Record<string, TRaceProgress> = {};
-        perSymbolRef.current.forEach((digit_map, sym) => {
-            // If locked onto this symbol, always show the active digit's
-            // progress specifically. Otherwise show whichever digit on this
-            // symbol is currently closest to completing its streak.
-            if (activeSymbolRef.current === sym && activeDigitRef.current !== null) {
-                const st = digit_map.get(activeDigitRef.current);
-                progress[sym] = {
-                    direction: st?.run_direction ?? null,
-                    count: st?.run_length ?? p.streak_target,
-                    target: p.streak_target,
-                    digit: activeDigitRef.current,
-                };
-                return;
-            }
-            let best_digit: number | null = null;
-            let best_state: TPerSymbolState | null = null;
-            digit_map.forEach((st, d) => {
-                if (!best_state || st.run_length > best_state.run_length) {
-                    best_state = st;
-                    best_digit = d;
-                }
-            });
+const pushLog = (text: string, kind: TLogEntry['kind'] = 'info') => {
+    log_id_seq += 1;
+    const entry: TLogEntry = { id: log_id_seq, time: new Date().toLocaleTimeString(), text, kind };
+    setPublicState({ logs: [...engine.publicState.logs.slice(-199), entry] });
+};
+
+const getOrCreateDigitState = (symbol: string, digit: number): TPerSymbolState => {
+    let digit_map = engine.perSymbol.get(symbol);
+    if (!digit_map) {
+        digit_map = new Map();
+        engine.perSymbol.set(symbol, digit_map);
+    }
+    let st = digit_map.get(digit);
+    if (!st) {
+        st = freshSymbolState();
+        digit_map.set(digit, st);
+    }
+    return st;
+};
+
+const publishProgress = () => {
+    const p = engine.params;
+    if (!p) return;
+    const progress: Record<string, TRaceProgress> = {};
+    engine.perSymbol.forEach((digit_map, sym) => {
+        // If locked onto this symbol, always show the active digit's
+        // progress specifically. Otherwise show whichever digit on this
+        // symbol is currently closest to completing its streak.
+        if (engine.activeSymbol === sym && engine.activeDigit !== null) {
+            const st = digit_map.get(engine.activeDigit);
             progress[sym] = {
-                direction: best_state?.run_direction ?? null,
-                count: best_state?.run_length ?? 0,
+                direction: st?.run_direction ?? null,
+                count: st?.run_length ?? p.streak_target,
                 target: p.streak_target,
-                digit: best_digit ?? undefined,
+                digit: engine.activeDigit,
             };
-        });
-        setState(prev => ({ ...prev, race_progress: progress, active_symbol: activeSymbolRef.current }));
-
-        // Full per-digit breakdown, only meaningful (and only computed) when
-        // watching a single market — with several markets this would be a
-        // 10xN grid, too much to usefully show compactly.
-        if (watchedSymbolsRef.current.length === 1) {
-            const sym = watchedSymbolsRef.current[0];
-            const digit_map = perSymbolRef.current.get(sym);
-            const heat: Record<number, TRaceProgress> = {};
-            if (digit_map) {
-                digit_map.forEach((st, d) => {
-                    heat[d] = { direction: st.run_direction, count: st.run_length, target: p.streak_target, digit: d };
-                });
-            }
-            setState(prev => ({ ...prev, digit_heat: heat }));
+            return;
         }
-    }, []);
-
-    const freshSymbolState = (): TPerSymbolState => ({
-        run_direction: null,
-        run_length: 0,
-        martingale_step: 0,
-        is_recovering: false,
-        is_pending_trigger: false,
+        let best_digit: number | null = null;
+        let best_state: TPerSymbolState | null = null;
+        digit_map.forEach((st, d) => {
+            if (!best_state || st.run_length > best_state.run_length) {
+                best_state = st;
+                best_digit = d;
+            }
+        });
+        progress[sym] = {
+            direction: best_state?.run_direction ?? null,
+            count: best_state?.run_length ?? 0,
+            target: p.streak_target,
+            digit: best_digit ?? undefined,
+        };
     });
 
-    const candidateDigits = (p: TReversalTraderParams): number[] =>
-        p.reference_digit === 'all' ? Array.from({ length: 10 }, (_, d) => d) : [p.reference_digit];
+    const patch: Partial<TReversalTraderState> = { race_progress: progress, active_symbol: engine.activeSymbol };
 
-    const getOrCreateDigitState = (symbol: string, digit: number): TPerSymbolState => {
-        let digit_map = perSymbolRef.current.get(symbol);
-        if (!digit_map) {
-            digit_map = new Map();
-            perSymbolRef.current.set(symbol, digit_map);
+    // Full per-digit breakdown, only meaningful (and only computed) when
+    // watching a single market — with several markets this would be a
+    // 10xN grid, too much to usefully show compactly.
+    if (engine.watchedSymbols.length === 1) {
+        const sym = engine.watchedSymbols[0];
+        const digit_map = engine.perSymbol.get(sym);
+        const heat: Record<number, TRaceProgress> = {};
+        if (digit_map) {
+            digit_map.forEach((st, d) => {
+                heat[d] = { direction: st.run_direction, count: st.run_length, target: p.streak_target, digit: d };
+            });
         }
-        let st = digit_map.get(digit);
-        if (!st) {
-            st = freshSymbolState();
-            digit_map.set(digit, st);
+        patch.digit_heat = heat;
+    }
+
+    setPublicState(patch);
+};
+
+const settleTrade = (won: boolean) => {
+    const p = engine.params;
+    const active_symbol = engine.activeSymbol;
+    const active_digit = engine.activeDigit;
+    if (!p || !active_symbol || active_digit === null) return;
+
+    const symbol_state = getOrCreateDigitState(active_symbol, active_digit);
+    const pnl_change = won ? engine.payout - engine.buyPrice : -engine.buyPrice;
+    engine.totalPnl += pnl_change;
+
+    pushLog(
+        `[${active_symbol}] ${won ? '🟢 WIN' : '🔴 LOSS'} | Payout $${engine.payout.toFixed(2)} | PnL $${pnl_change.toFixed(2)} | Total $${engine.totalPnl.toFixed(2)}`,
+        won ? 'win' : 'loss'
+    );
+
+    engine.buyPrice = 0;
+    engine.payout = 0;
+
+    if (won) {
+        engine.reversalSide = null;
+        engine.mode = 'virtual';
+        engine.currentStake = p.initial_stake;
+        engine.watchedSymbols.forEach(sym => {
+            engine.perSymbol.set(sym, new Map(candidateDigits(p).map(d => [d, freshSymbolState()])));
+        });
+        engine.activeSymbol = null;
+        engine.activeDigit = null;
+        pushLog(
+            engine.watchedSymbols.length > 1
+                ? `Recovered. Resuming scan across ${engine.watchedSymbols.length} markets.`
+                : 'Recovered. Resuming scan.',
+            'info'
+        );
+    } else {
+        if (symbol_state.martingale_step >= p.max_martingale_steps) {
+            symbol_state.martingale_step = 0;
+            engine.currentStake = p.initial_stake;
+        } else {
+            symbol_state.martingale_step += 1;
+            engine.currentStake = Number((engine.currentStake * p.martingale_mult).toFixed(2));
         }
-        return st;
-    };
+        // Recovery mode: no streak needed anymore. Stay locked on this
+        // symbol AND this specific digit, keep betting the SAME reversal
+        // side — fire again the very next time this reference digit itself
+        // reappears, no matter what follows it.
+        symbol_state.run_direction = null;
+        symbol_state.run_length = 0;
+        symbol_state.is_recovering = true;
+        engine.perSymbol.get(active_symbol)?.set(active_digit, symbol_state);
+        engine.mode = 'virtual';
+        pushLog(`[${active_symbol}] Recovering — waiting for ${active_digit} to reappear (no streak needed).`, 'info');
+    }
 
-    const settleTrade = useCallback(
-        (won: boolean) => {
-            const p = paramsRef.current;
-            const active_symbol = activeSymbolRef.current;
-            const active_digit = activeDigitRef.current;
-            if (!p || !active_symbol || active_digit === null) return;
+    setPublicState({
+        total_pnl: engine.totalPnl,
+        current_stake: engine.currentStake,
+        active_symbol: engine.activeSymbol,
+    });
+    publishProgress();
 
-            const symbol_state = getOrCreateDigitState(active_symbol, active_digit);
-            const pnl_change = won ? payoutRef.current - buyPriceRef.current : -buyPriceRef.current;
-            totalPnlRef.current += pnl_change;
+    if (engine.totalPnl <= -p.stop_loss) {
+        engine.isArmed = false;
+        pushLog(`Stop loss hit at $${engine.totalPnl.toFixed(2)}. Stopped.`, 'error');
+        setPublicState({ is_armed: false, stop_reason: 'stop_loss' });
+        return;
+    }
+    if (engine.totalPnl >= p.take_profit) {
+        engine.isArmed = false;
+        pushLog(`Take profit hit at $${engine.totalPnl.toFixed(2)}. Stopped.`, 'error');
+        setPublicState({ is_armed: false, stop_reason: 'take_profit' });
+        return;
+    }
+};
 
-            pushLog(
-                `[${active_symbol}] ${won ? '🟢 WIN' : '🔴 LOSS'} | Payout $${payoutRef.current.toFixed(2)} | PnL $${pnl_change.toFixed(2)} | Total $${totalPnlRef.current.toFixed(2)}`,
-                won ? 'win' : 'loss'
-            );
+const placeRealTrade = () => {
+    const p = engine.params;
+    const active_symbol = engine.activeSymbol;
+    const side = engine.reversalSide;
+    if (!p || !active_symbol || !side) return;
 
-            buyPriceRef.current = 0;
-            payoutRef.current = 0;
+    const stake = engine.currentStake;
+    engine.pending = true;
+    pushLog(`[${active_symbol}] Streak of ${p.streak_target} confirmed — betting reversal ${side.toUpperCase()}.`, 'warn');
 
-            if (won) {
-                reversalSideRef.current = null;
-                modeRef.current = 'virtual';
-                currentStakeRef.current = p.initial_stake;
-                watchedSymbolsRef.current.forEach(sym => {
-                    perSymbolRef.current.set(sym, new Map(candidateDigits(p).map(d => [d, freshSymbolState()])));
-                });
-                activeSymbolRef.current = null;
-                activeDigitRef.current = null;
-                pushLog(
-                    watchedSymbolsRef.current.length > 1
-                        ? `Recovered. Resuming scan across ${watchedSymbolsRef.current.length} markets.`
-                        : 'Recovered. Resuming scan.',
-                    'info'
-                );
-            } else {
-                if (symbol_state.martingale_step >= p.max_martingale_steps) {
-                    symbol_state.martingale_step = 0;
-                    currentStakeRef.current = p.initial_stake;
-                } else {
-                    symbol_state.martingale_step += 1;
-                    currentStakeRef.current = Number((currentStakeRef.current * p.martingale_mult).toFixed(2));
-                }
-                // Recovery mode: no streak needed anymore. Stay locked on
-                // this symbol AND this specific digit, keep betting the SAME
-                // reversal side — fire again the very next time this
-                // reference digit itself reappears, no matter what follows it.
+    const extra = side === 'over' || side === 'under' ? { barrier: String(p.threshold_digit) } : {};
+
+    api_base.api
+        .send({
+            proposal: 1,
+            amount: stake,
+            basis: 'stake',
+            contract_type: getContractType(side),
+            ...extra,
+            currency: engine.currency || 'USD',
+            duration: 1,
+            duration_unit: 't',
+            underlying_symbol: active_symbol,
+        })
+        .then((proposal_res: any) => {
+            if (proposal_res?.error) throw proposal_res.error;
+            const proposal = proposal_res.proposal;
+            return api_base.api.send({ buy: proposal.id, price: stake });
+        })
+        .then((buy_res: any) => {
+            if (buy_res?.error) throw buy_res.error;
+            engine.buyPrice = Number(buy_res.buy.buy_price);
+            engine.payout = Number(buy_res.buy.payout);
+            engine.pending = false;
+            engine.awaitingResolution = true;
+        })
+        .catch((err: any) => {
+            engine.pending = false;
+            engine.awaitingResolution = false;
+            engine.reversalSide = null;
+            const msg = err?.message || err?.error?.message || 'Trade failed';
+            pushLog(`[${active_symbol}] ${msg}`, 'error');
+            engine.mode = 'virtual';
+            engine.activeSymbol = null;
+            const active_digit = engine.activeDigit;
+            engine.activeDigit = null;
+            if (active_digit !== null) {
+                const symbol_state = getOrCreateDigitState(active_symbol, active_digit);
                 symbol_state.run_direction = null;
                 symbol_state.run_length = 0;
-                symbol_state.is_recovering = true;
-                perSymbolRef.current.get(active_symbol)?.set(active_digit, symbol_state);
-                modeRef.current = 'virtual';
-                pushLog(`[${active_symbol}] Recovering — waiting for ${active_digit} to reappear (no streak needed).`, 'info');
+                symbol_state.is_recovering = false;
+                symbol_state.is_pending_trigger = false;
+                engine.perSymbol.get(active_symbol)?.set(active_digit, symbol_state);
             }
-
-            setState(prev => ({
-                ...prev,
-                total_pnl: totalPnlRef.current,
-                current_stake: currentStakeRef.current,
-                active_symbol: activeSymbolRef.current,
-            }));
             publishProgress();
+        });
+};
 
-            if (totalPnlRef.current <= -p.stop_loss) {
-                isArmedRef.current = false;
-                pushLog(`Stop loss hit at $${totalPnlRef.current.toFixed(2)}. Stopped.`, 'error');
-                setState(prev => ({ ...prev, is_armed: false, stop_reason: 'stop_loss' }));
-                return;
-            }
-            if (totalPnlRef.current >= p.take_profit) {
-                isArmedRef.current = false;
-                pushLog(`Take profit hit at $${totalPnlRef.current.toFixed(2)}. Stopped.`, 'error');
-                setState(prev => ({ ...prev, is_armed: false, stop_reason: 'take_profit' }));
-                return;
-            }
-        },
-        [pushLog, publishProgress]
-    );
+const handleTick = (symbol: string, quote: number, pip_size: number) => {
+    if (!engine.isArmed) return;
+    const p = engine.params;
+    if (!p) return;
 
-    const placeRealTrade = useCallback(() => {
-        const p = paramsRef.current;
-        const active_symbol = activeSymbolRef.current;
-        const side = reversalSideRef.current;
-        if (!p || !active_symbol || !side) return;
+    const digit = Number(getLastDigitForList(quote, pip_size));
+    const active_symbol = engine.activeSymbol;
 
-        const stake = currentStakeRef.current;
-        pendingRef.current = true;
-        pushLog(`[${active_symbol}] Streak of ${p.streak_target} confirmed — betting reversal ${side.toUpperCase()}.`, 'warn');
+    // A real trade is currently resolving — this tick IS the exit tick for
+    // it (1-tick contracts settle on the very next tick).
+    if (active_symbol === symbol && engine.awaitingResolution) {
+        const side = engine.reversalSide;
+        engine.awaitingResolution = false;
+        if (side) settleTrade(wins(digit, side, p.threshold_digit));
+        return;
+    }
 
-        const extra = side === 'over' || side === 'under' ? { barrier: String(p.threshold_digit) } : {};
+    if (active_symbol === symbol && engine.pending) return; // buy in flight
 
-        api_base.api
-            .send({
-                proposal: 1,
-                amount: stake,
-                basis: 'stake',
-                contract_type: getContractType(side),
-                ...extra,
-                currency: currencyRef.current || 'USD',
-                duration: 1,
-                duration_unit: 't',
-                underlying_symbol: active_symbol,
-            })
-            .then((proposal_res: any) => {
-                if (proposal_res?.error) throw proposal_res.error;
-                const proposal = proposal_res.proposal;
-                return api_base.api.send({ buy: proposal.id, price: stake });
-            })
-            .then((buy_res: any) => {
-                if (buy_res?.error) throw buy_res.error;
-                buyPriceRef.current = Number(buy_res.buy.buy_price);
-                payoutRef.current = Number(buy_res.buy.payout);
-                pendingRef.current = false;
-                awaitingResolutionRef.current = true;
-            })
-            .catch((err: any) => {
-                pendingRef.current = false;
-                awaitingResolutionRef.current = false;
-                reversalSideRef.current = null;
-                const msg = err?.message || err?.error?.message || 'Trade failed';
-                pushLog(`[${active_symbol}] ${msg}`, 'error');
-                modeRef.current = 'virtual';
-                activeSymbolRef.current = null;
-                const active_digit = activeDigitRef.current;
-                activeDigitRef.current = null;
-                if (active_digit !== null) {
-                    const symbol_state = getOrCreateDigitState(active_symbol, active_digit);
-                    symbol_state.run_direction = null;
-                    symbol_state.run_length = 0;
-                    symbol_state.is_recovering = false;
-                    symbol_state.is_pending_trigger = false;
-                    perSymbolRef.current.get(active_symbol)?.set(active_digit, symbol_state);
-                }
-                publishProgress();
-            });
-    }, [pushLog, publishProgress]);
+    if (active_symbol && active_symbol !== symbol) return; // locked onto a different market mid-recovery
 
-    const handleTick = useCallback(
-        (symbol: string, quote: number, pip_size: number) => {
-            if (!isArmedRef.current) return;
-            const p = paramsRef.current;
-            if (!p) return;
+    const prevDigit = engine.lastDigit.get(symbol);
+    engine.lastDigit.set(symbol, digit);
 
-            const digit = Number(getLastDigitForList(quote, pip_size));
-            const active_symbol = activeSymbolRef.current;
-
-            // A real trade is currently resolving — this tick IS the exit
-            // tick for it (1-tick contracts settle on the very next tick).
-            if (active_symbol === symbol && awaitingResolutionRef.current) {
-                const side = reversalSideRef.current;
-                awaitingResolutionRef.current = false;
-                if (side) settleTrade(wins(digit, side, p.threshold_digit));
-                return;
-            }
-
-            if (active_symbol === symbol && pendingRef.current) return; // buy in flight
-
-            if (active_symbol && active_symbol !== symbol) return; // locked onto a different market mid-recovery
-
-            const prevDigit = lastDigitRef.current.get(symbol);
-            lastDigitRef.current.set(symbol, digit);
-
-            // Recovery mode, or a streak that just completed: no new streak
-            // needed. Just wait for THIS SPECIFIC reference digit to
-            // reappear, then immediately bet the already-decided reversal
-            // side. activeDigitRef pins down which of the (up to 10) digits
-            // being tracked on this symbol is the one currently locked in.
-            if (active_symbol === symbol && activeDigitRef.current !== null) {
-                const rec_state = perSymbolRef.current.get(symbol)?.get(activeDigitRef.current);
-                if (rec_state?.is_recovering || rec_state?.is_pending_trigger) {
-                    if (digit === activeDigitRef.current) {
-                        const was_recovering = rec_state.is_recovering;
-                        rec_state.is_recovering = false;
-                        rec_state.is_pending_trigger = false;
-                        perSymbolRef.current.get(symbol)?.set(activeDigitRef.current, rec_state);
-                        pushLog(
-                            `[${symbol}] ${activeDigitRef.current} reappeared — firing ${was_recovering ? 'recovery' : 'streak-reversal'} trade.`,
-                            'warn'
-                        );
-                        modeRef.current = 'real';
-                        placeRealTrade();
-                    }
-                    return;
-                }
-            }
-
-            // Fresh entry: prevDigit is itself the reference digit for
-            // whichever streak it belongs to. In fixed mode only one digit
-            // was ever pre-populated in this symbol's map, so anything else
-            // is correctly ignored. In 'all' mode every digit 0-9 has its own
-            // tracker, so every tick advances exactly one of them.
-            if (prevDigit === undefined) return;
-            if (p.reference_digit !== 'all' && prevDigit !== p.reference_digit) return;
-
-            const digit_map = perSymbolRef.current.get(symbol);
-            if (!digit_map || !digit_map.has(prevDigit)) return; // not a tracked digit for this symbol
-
-            const direction = classify(digit, p.mode, p.threshold_digit);
-            if (direction === null) return; // tied the threshold — ignored entirely
-
-            const st = digit_map.get(prevDigit) ?? freshSymbolState();
-            if (direction === st.run_direction) {
-                st.run_length += 1;
-            } else {
-                st.run_direction = direction;
-                st.run_length = 1;
-            }
-            digit_map.set(prevDigit, st);
-
-            if (st.run_length >= p.streak_target) {
-                activeSymbolRef.current = symbol;
-                activeDigitRef.current = prevDigit;
-                st.is_pending_trigger = true;
-                reversalSideRef.current = opposite(direction);
-                digit_map.set(prevDigit, st);
+    // Recovery mode, or a streak that just completed: no new streak needed.
+    // Just wait for THIS SPECIFIC reference digit to reappear, then
+    // immediately bet the already-decided reversal side. activeDigit pins
+    // down which of the (up to 10) digits being tracked on this symbol is
+    // the one currently locked in.
+    if (active_symbol === symbol && engine.activeDigit !== null) {
+        const rec_state = engine.perSymbol.get(symbol)?.get(engine.activeDigit);
+        if (rec_state?.is_recovering || rec_state?.is_pending_trigger) {
+            if (digit === engine.activeDigit) {
+                const was_recovering = rec_state.is_recovering;
+                rec_state.is_recovering = false;
+                rec_state.is_pending_trigger = false;
+                engine.perSymbol.get(symbol)?.set(engine.activeDigit, rec_state);
                 pushLog(
-                    `[${symbol}] ${st.run_length}x ${direction.toUpperCase()} after ${prevDigit} — waiting for ${prevDigit} to reappear before betting ${opposite(direction).toUpperCase()}.`,
+                    `[${symbol}] ${engine.activeDigit} reappeared — firing ${was_recovering ? 'recovery' : 'streak-reversal'} trade.`,
                     'warn'
                 );
-                publishProgress();
-            } else {
-                publishProgress();
+                engine.mode = 'real';
+                placeRealTrade();
             }
-        },
-        [settleTrade, placeRealTrade, publishProgress, pushLog]
+            return;
+        }
+    }
+
+    // Fresh entry: prevDigit is itself the reference digit for whichever
+    // streak it belongs to. In fixed mode only one digit was ever
+    // pre-populated in this symbol's map, so anything else is correctly
+    // ignored. In 'all' mode every digit 0-9 has its own tracker, so every
+    // tick advances exactly one of them.
+    if (prevDigit === undefined) return;
+    if (p.reference_digit !== 'all' && prevDigit !== p.reference_digit) return;
+
+    const digit_map = engine.perSymbol.get(symbol);
+    if (!digit_map || !digit_map.has(prevDigit)) return; // not a tracked digit for this symbol
+
+    const direction = classify(digit, p.mode, p.threshold_digit);
+    if (direction === null) return; // tied the threshold — ignored entirely
+
+    const st = digit_map.get(prevDigit) ?? freshSymbolState();
+    if (direction === st.run_direction) {
+        st.run_length += 1;
+    } else {
+        st.run_direction = direction;
+        st.run_length = 1;
+    }
+    digit_map.set(prevDigit, st);
+
+    if (st.run_length >= p.streak_target) {
+        engine.activeSymbol = symbol;
+        engine.activeDigit = prevDigit;
+        st.is_pending_trigger = true;
+        engine.reversalSide = opposite(direction);
+        digit_map.set(prevDigit, st);
+        pushLog(
+            `[${symbol}] ${st.run_length}x ${direction.toUpperCase()} after ${prevDigit} — waiting for ${prevDigit} to reappear before betting ${opposite(direction).toUpperCase()}.`,
+            'warn'
+        );
+        publishProgress();
+    } else {
+        publishProgress();
+    }
+};
+
+const stopEngine = (reason: TReversalTraderState['stop_reason'] = null) => {
+    engine.isArmed = false;
+    engine.mode = 'virtual';
+    engine.activeSymbol = null;
+    engine.activeDigit = null;
+    engine.pending = false;
+    engine.awaitingResolution = false;
+    engine.reversalSide = null;
+    engine.messageSubscription?.unsubscribe();
+    engine.messageSubscription = null;
+    pushLog('Stopped.', 'info');
+    setPublicState({ is_armed: false, stop_reason: reason, active_symbol: null });
+};
+
+const startEngine = async (params: TReversalTraderParams) => {
+    engine.params = params;
+    engine.totalPnl = 0;
+    engine.currentStake = params.initial_stake;
+    engine.isArmed = true;
+    engine.mode = 'virtual';
+    engine.activeSymbol = null;
+    engine.activeDigit = null;
+    engine.pending = false;
+    engine.awaitingResolution = false;
+    engine.reversalSide = null;
+
+    const symbols = params.symbols;
+    engine.watchedSymbols = symbols;
+    const digits_to_track = candidateDigits(params);
+    engine.perSymbol = new Map(symbols.map(sym => [sym, new Map(digits_to_track.map(d => [d, freshSymbolState()]))]));
+    engine.lastDigit = new Map();
+
+    let initial_active_symbol: string | null = null;
+    let initial_race_progress: Record<string, TRaceProgress> = Object.fromEntries(
+        symbols.map(sym => [sym, { direction: null, count: 0, target: params.streak_target }])
     );
 
-    const stop = useCallback(
-        (reason: TReversalTraderState['stop_reason'] = null) => {
-            isArmedRef.current = false;
-            modeRef.current = 'virtual';
-            activeSymbolRef.current = null;
-            activeDigitRef.current = null;
-            pendingRef.current = false;
-            awaitingResolutionRef.current = false;
-            reversalSideRef.current = null;
-            messageSubscriptionRef.current?.unsubscribe();
-            messageSubscriptionRef.current = null;
-            pushLog('Stopped.', 'info');
-            setState(prev => ({ ...prev, is_armed: false, stop_reason: reason, active_symbol: null }));
-        },
-        [pushLog]
-    );
+    if (params.preloaded_trigger && symbols.length === 1) {
+        const { digit, direction, count } = params.preloaded_trigger;
+        const sym = symbols[0];
+        const digit_map = engine.perSymbol.get(sym);
+        const st = digit_map?.get(digit) ?? freshSymbolState();
+        st.run_direction = direction;
+        st.run_length = count;
+        st.is_pending_trigger = true;
+        digit_map?.set(digit, st);
 
-    const start = useCallback(
-        async (params: TReversalTraderParams) => {
-            paramsRef.current = params;
-            totalPnlRef.current = 0;
-            currentStakeRef.current = params.initial_stake;
-            isArmedRef.current = true;
-            modeRef.current = 'virtual';
-            activeSymbolRef.current = null;
-            activeDigitRef.current = null;
-            pendingRef.current = false;
-            awaitingResolutionRef.current = false;
-            reversalSideRef.current = null;
+        engine.activeSymbol = sym;
+        engine.activeDigit = digit;
+        engine.reversalSide = opposite(direction);
+        initial_active_symbol = sym;
+        initial_race_progress = { [sym]: { direction, count, target: params.streak_target, digit } };
+    }
 
-            const symbols = params.symbols;
-            watchedSymbolsRef.current = symbols;
-            const digits_to_track = candidateDigits(params);
-            perSymbolRef.current = new Map(
-                symbols.map(sym => [sym, new Map(digits_to_track.map(d => [d, freshSymbolState()]))])
-            );
-            lastDigitRef.current = new Map();
+    engine.publicState = {
+        is_armed: true,
+        is_loading: true,
+        total_pnl: 0,
+        current_stake: params.initial_stake,
+        logs: [],
+        stop_reason: null,
+        watching: symbols,
+        active_symbol: initial_active_symbol,
+        race_progress: initial_race_progress,
+        digit_heat: {},
+    };
+    notify();
 
-            let initial_active_symbol: string | null = null;
-            let initial_race_progress: Record<string, TRaceProgress> = Object.fromEntries(
-                symbols.map(sym => [sym, { direction: null, count: 0, target: params.streak_target }])
-            );
+    if (params.preloaded_trigger) {
+        const { digit, direction, count } = params.preloaded_trigger;
+        pushLog(
+            `[${symbols[0]}] Streak of ${count}x ${direction.toUpperCase()} after ${digit} handed over from Signals — waiting for ${digit} to reappear before betting ${opposite(direction).toUpperCase()}.`,
+            'warn'
+        );
+    } else {
+        pushLog(
+            params.reference_digit === 'all'
+                ? symbols.length > 1
+                    ? `Watching ${symbols.length} markets across all 10 digits for a ${params.streak_target}x streak…`
+                    : `Watching ${symbols[0]} across all 10 digits for a ${params.streak_target}x streak…`
+                : symbols.length > 1
+                  ? `Watching ${symbols.length} markets for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`
+                  : `Watching ${symbols[0]} for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`,
+            'info'
+        );
+    }
 
-            if (params.preloaded_trigger && symbols.length === 1) {
-                const { digit, direction, count } = params.preloaded_trigger;
-                const sym = symbols[0];
-                const digit_map = perSymbolRef.current.get(sym);
-                const st = digit_map?.get(digit) ?? freshSymbolState();
-                st.run_direction = direction;
-                st.run_length = count;
-                st.is_pending_trigger = true;
-                digit_map?.set(digit, st);
+    engine.messageSubscription?.unsubscribe();
+    const normalize = (s: string) => (s || '').trim().toUpperCase();
+    const watched_upper = new Set(symbols.map(normalize));
 
-                activeSymbolRef.current = sym;
-                activeDigitRef.current = digit;
-                reversalSideRef.current = opposite(direction);
-                initial_active_symbol = sym;
-                initial_race_progress = { [sym]: { direction, count, target: params.streak_target, digit } };
-            }
+    engine.messageSubscription = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
+        if (data?.msg_type !== 'tick') return;
+        const sym = data?.tick?.symbol;
+        if (!sym || !watched_upper.has(normalize(sym))) return;
+        const quote = Number(data.tick.quote);
+        const pip_size = api_base?.pip_sizes?.[sym] ?? String(data.tick.quote).split('.')[1]?.length ?? 2;
+        handleTick(sym, quote, pip_size);
+    });
 
-            setState({
-                is_armed: true,
-                is_loading: true,
-                total_pnl: 0,
-                current_stake: params.initial_stake,
-                logs: [],
-                stop_reason: null,
-                watching: symbols,
-                active_symbol: initial_active_symbol,
-                race_progress: initial_race_progress,
-                digit_heat: {},
-            });
+    try {
+        await Promise.all(symbols.map(sym => api_base.api.send({ ticks: sym, subscribe: 1 }).catch(() => null)));
+    } catch {
+        // individual symbol failures are non-fatal — others keep scanning
+    }
 
-            if (params.preloaded_trigger) {
-                const { digit, direction, count } = params.preloaded_trigger;
-                pushLog(
-                    `[${symbols[0]}] Streak of ${count}x ${direction.toUpperCase()} after ${digit} handed over from Signals — waiting for ${digit} to reappear before betting ${opposite(direction).toUpperCase()}.`,
-                    'warn'
-                );
-            } else {
-                pushLog(
-                    params.reference_digit === 'all'
-                        ? symbols.length > 1
-                            ? `Watching ${symbols.length} markets across all 10 digits for a ${params.streak_target}x streak…`
-                            : `Watching ${symbols[0]} across all 10 digits for a ${params.streak_target}x streak…`
-                        : symbols.length > 1
-                          ? `Watching ${symbols.length} markets for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`
-                          : `Watching ${symbols[0]} for ${params.reference_digit} \u2192 ${params.streak_target}x streak…`,
-                    'info'
-                );
-            }
+    setPublicState({ is_loading: false });
+};
 
-            messageSubscriptionRef.current?.unsubscribe();
-            const normalize = (s: string) => (s || '').trim().toUpperCase();
-            const watched_upper = new Set(symbols.map(normalize));
+const subscribe = (onStoreChange: () => void) => {
+    engine.listeners.add(onStoreChange);
+    return () => {
+        engine.listeners.delete(onStoreChange);
+        // Deliberately no stopEngine() here. This is a real-money trading
+        // engine — switching tabs must never interrupt an armed bot or a
+        // trade mid-flight. It keeps running in the background regardless
+        // of which component (if any) is currently displaying it.
+    };
+};
 
-            messageSubscriptionRef.current = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
-                if (data?.msg_type !== 'tick') return;
-                const sym = data?.tick?.symbol;
-                if (!sym || !watched_upper.has(normalize(sym))) return;
-                const quote = Number(data.tick.quote);
-                const pip_size = api_base?.pip_sizes?.[sym] ?? String(data.tick.quote).split('.')[1]?.length ?? 2;
-                handleTick(sym, quote, pip_size);
-            });
+const getSnapshot = () => engine.publicState;
 
-            try {
-                await Promise.all(
-                    symbols.map(sym => api_base.api.send({ ticks: sym, subscribe: 1 }).catch(() => null))
-                );
-            } catch {
-                // individual symbol failures are non-fatal — others keep scanning
-            }
+/**
+ * Thin React binding over a module-level trading engine singleton. The
+ * engine itself (armed state, martingale progress, live tick subscription,
+ * in-flight trades) lives independently of this hook's component lifecycle,
+ * so navigating to another tab and back never stops or resets a running bot.
+ */
+export const useReversalTrader = (currency: string) => {
+    useEffect(() => {
+        engine.currency = currency;
+    }, [currency]);
 
-            setState(prev => ({ ...prev, is_loading: false }));
-        },
-        [handleTick, pushLog]
-    );
+    const state = useSyncExternalStore(subscribe, getSnapshot);
 
-    useEffect(
-        () => () => {
-            messageSubscriptionRef.current?.unsubscribe();
-        },
-        []
-    );
-
-    return { state, start, stop };
+    return { state, start: startEngine, stop: stopEngine };
 };
