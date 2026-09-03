@@ -57,9 +57,11 @@ const ReversalTrader = observer(() => {
     const [stop_loss, setStopLoss] = React.useState(() => loadLastSettings().stop_loss ?? 5);
     const [take_profit, setTakeProfit] = React.useState(() => loadLastSettings().take_profit ?? 100);
     const [show_confirm, setShowConfirm] = React.useState(false);
-    const preloadedTriggerRef = React.useRef<{ digit: number; direction: 'even' | 'odd' | 'over' | 'under' } | null>(
-        null
-    );
+    const preloadedTriggerRef = React.useRef<{
+        digit: number;
+        direction: 'even' | 'odd' | 'over' | 'under';
+        count: number;
+    } | null>(null);
 
     React.useEffect(() => {
         const pending = consumePendingReversalConfig();
@@ -72,7 +74,11 @@ const ReversalTrader = observer(() => {
         // Hand over the streak exactly as Signals had it built — no matter
         // its length, it's treated as already complete. Skips rebuilding it
         // live and goes straight to waiting for the digit to reappear.
-        preloadedTriggerRef.current = { digit: pending.reference_digit, direction: pending.current_direction };
+        preloadedTriggerRef.current = {
+            digit: pending.reference_digit,
+            direction: pending.current_direction,
+            count: pending.current_streak,
+        };
         // One click away from live: open the confirm popup right away so the
         // stake/martingale/stop-loss (not carried over from Signals) get a
         // final glance before any real money moves.
@@ -98,7 +104,11 @@ const ReversalTrader = observer(() => {
         });
         const symbols = watch_all_markets ? symbol_options.map(s => s.symbol) : [symbol];
         const preloaded_trigger = preloadedTriggerRef.current
-            ? { digit: preloadedTriggerRef.current.digit, direction: preloadedTriggerRef.current.direction }
+            ? {
+                  digit: preloadedTriggerRef.current.digit,
+                  direction: preloadedTriggerRef.current.direction,
+                  count: preloadedTriggerRef.current.count,
+              }
             : undefined;
         preloadedTriggerRef.current = null; // single-use — never carries over to a later manual start
         start({
@@ -438,7 +448,7 @@ const ReversalTrader = observer(() => {
                         <div className='reversal-trader__confirm-details'>
                             {preloadedTriggerRef.current && (
                                 <p>
-                                    <strong>Handed over from Signals:</strong> {streak_target}x{' '}
+                                    <strong>Handed over from Signals:</strong> {preloadedTriggerRef.current.count}x{' '}
                                     {preloadedTriggerRef.current.direction.toUpperCase()} after{' '}
                                     {preloadedTriggerRef.current.digit} — trading fires as soon as{' '}
                                     {preloadedTriggerRef.current.digit} reappears, no rebuild needed.

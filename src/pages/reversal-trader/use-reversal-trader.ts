@@ -31,7 +31,7 @@ export type TReversalTraderParams = {
     // this") - skips the streak-building phase entirely and goes straight to
     // waiting for the reference digit to reappear, regardless of what
     // streak_target is set to. Only makes sense with a single watched symbol.
-    preloaded_trigger?: { digit: number; direction: TDirection };
+    preloaded_trigger?: { digit: number; direction: TDirection; count: number };
 };
 
 type TPerSymbolState = {
@@ -470,12 +470,12 @@ export const useReversalTrader = (currency: string) => {
             );
 
             if (params.preloaded_trigger && symbols.length === 1) {
-                const { digit, direction } = params.preloaded_trigger;
+                const { digit, direction, count } = params.preloaded_trigger;
                 const sym = symbols[0];
                 const digit_map = perSymbolRef.current.get(sym);
                 const st = digit_map?.get(digit) ?? freshSymbolState();
                 st.run_direction = direction;
-                st.run_length = params.streak_target;
+                st.run_length = count;
                 st.is_pending_trigger = true;
                 digit_map?.set(digit, st);
 
@@ -483,7 +483,7 @@ export const useReversalTrader = (currency: string) => {
                 activeDigitRef.current = digit;
                 reversalSideRef.current = opposite(direction);
                 initial_active_symbol = sym;
-                initial_race_progress = { [sym]: { direction, count: params.streak_target, target: params.streak_target, digit } };
+                initial_race_progress = { [sym]: { direction, count, target: params.streak_target, digit } };
             }
 
             setState({
@@ -499,9 +499,9 @@ export const useReversalTrader = (currency: string) => {
             });
 
             if (params.preloaded_trigger) {
-                const { digit, direction } = params.preloaded_trigger;
+                const { digit, direction, count } = params.preloaded_trigger;
                 pushLog(
-                    `[${symbols[0]}] Streak of ${params.streak_target}x ${direction.toUpperCase()} after ${digit} handed over from Signals — waiting for ${digit} to reappear before betting ${opposite(direction).toUpperCase()}.`,
+                    `[${symbols[0]}] Streak of ${count}x ${direction.toUpperCase()} after ${digit} handed over from Signals — waiting for ${digit} to reappear before betting ${opposite(direction).toUpperCase()}.`,
                     'warn'
                 );
             } else {
