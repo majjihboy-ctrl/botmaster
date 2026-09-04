@@ -324,6 +324,18 @@ export default class LoadModalStore {
             market_blocks.forEach((block: Element) => {
                 const symbol_field = block.querySelector(':scope > field[name="SYMBOL_LIST"]');
                 if (symbol_field) symbol_field.textContent = overrides.symbol as string;
+
+                // Jump Indices (JD10/25/50/75/100) live under a different
+                // submarket than Volatility/Continuous indices — patching
+                // only SYMBOL_LIST left this stuck on 'random_index',
+                // which is wrong for Jump symbols and breaks the trade
+                // definition. All Jump Index symbols start with 'JD'.
+                const submarket_field = block.querySelector(':scope > field[name="SUBMARKET_LIST"]');
+                if (submarket_field) {
+                    submarket_field.textContent = (overrides.symbol as string).startsWith('JD')
+                        ? 'jump_index'
+                        : 'random_index';
+                }
             });
         }
 
