@@ -2,6 +2,10 @@ export type TFreeBot = {
     id: string;
     title: string;
     description: string;
+    // When true, the 'Load' action on the Free Bots tab skips the manual
+    // Run step entirely — loads the strategy into Bot Builder and starts
+    // it running immediately, instead of just navigating there.
+    auto_run?: boolean;
 };
 
 // Each `id` must match a file name (without extension) in `src/xml/free-bots/`.
@@ -55,5 +59,12 @@ export const FREE_BOTS: TFreeBot[] = [
         id: 'fable-v1-pro',
         title: 'Fable V1 Pro',
         description: 'Digit Over/Under recovery strategy with martingale.',
+    },
+    {
+        id: 'even-odd-v2',
+        title: 'Even/Odd V2',
+        description:
+            'Single-digit trigger: every time the chosen digit appears as the last digit, bets Even on the next tick. Martingale on loss, resets on win. Loads and starts running immediately.',
+        auto_run: true,
     },
 ];

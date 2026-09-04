@@ -11,7 +11,7 @@ import './free-bots-tab.scss';
 
 const FreeBotsTab = observer(() => {
     const [loading_id, setLoadingId] = React.useState<string | null>(null);
-    const { load_modal, dashboard } = useStore();
+    const { load_modal, dashboard, run_panel } = useStore();
     const { loadFreeBotDirect } = load_modal;
     const { setActiveTab, setOpenSettings } = dashboard;
 
@@ -21,7 +21,30 @@ const FreeBotsTab = observer(() => {
         try {
             await loadFreeBotDirect(bot);
             setActiveTab(DBOT_TABS.BOT_BUILDER);
-            setOpenSettings(NOTIFICATION_TYPE.BOT_IMPORT);
+
+            if (bot.auto_run) {
+                // Wait for the loaded strategy's trade_definition block to
+                // actually exist in the workspace before hitting Run — same
+                // guard Quick Strategy uses, since Run fired too early
+                // (before Blockly finishes materializing the loaded XML)
+                // silently no-ops.
+                window.Blockly?.derivWorkspace
+                    ?.waitForBlockEvent({
+                        block_type: 'trade_definition',
+                        event_type: window.Blockly.Events.BLOCK_CREATE,
+                        timeout: 5000,
+                    })
+                    .then(() => {
+                        run_panel.onRunButtonClick();
+                    })
+                    .catch(() => {
+                        // Timed out waiting for the block — fall back to the
+                        // normal 'loaded, review before running' experience.
+                        setOpenSettings(NOTIFICATION_TYPE.BOT_IMPORT);
+                    });
+            } else {
+                setOpenSettings(NOTIFICATION_TYPE.BOT_IMPORT);
+            }
         } finally {
             setLoadingId(null);
         }
@@ -51,7 +74,11 @@ const FreeBotsTab = observer(() => {
                                 disabled={loading_id === bot.id}
                                 onClick={() => handleLoad(bot)}
                             >
-                                {loading_id === bot.id ? localize('Loading...') : localize('Load')}
+                                {loading_id === bot.id
+                                    ? localize('Loading...')
+                                    : bot.auto_run
+                                      ? localize('Load & Run')
+                                      : localize('Load')}
                             </button>
                         </div>
                     ))}
