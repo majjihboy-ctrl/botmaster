@@ -30,3 +30,15 @@ applyPrimaryColorFromConfig();
 // src/preview/ listener, mounted from app-content only in the preview deployment
 // (NEXT_PUBLIC_APP_BUILD === 'true') and stripped from standalone partner deploys.
 ReactDOM.createRoot(document.getElementById('root')!).render(<AuthWrapper />);
+
+// Registers the PWA service worker so the site can be installed as an app
+// (Add to Home Screen / desktop install). Deliberately deferred past the
+// initial render and wrapped defensively - a failure here should never
+// affect the trading app itself.
+if ('serviceWorker' in navigator && process.env.NODE_ENV !== 'development') {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {
+            // Non-fatal — the site still works fully as a regular web page.
+        });
+    });
+}
