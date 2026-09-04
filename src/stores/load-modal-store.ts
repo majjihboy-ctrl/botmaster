@@ -284,6 +284,60 @@ export default class LoadModalStore {
         this.setIsCurrentBotRestricted(true);
     };
 
+    // Same as loadFreeBotDirect, but patches specific block values in the
+    // XML DOM before loading — used to hand a live pattern (e.g. from
+    // Signals' "Trade this") straight into a bot that was built expecting
+    // a fixed digit/contract, instead of making the person edit blocks by
+    // hand every time the pattern changes.
+    loadFreeBotWithOverrides = async (
+        free_bot: import('../constants/free-bots').TFreeBot,
+        overrides: { digit_to_use?: number; purchase?: string; symbol?: string }
+    ): Promise<void> => {
+        const xml_module = await import(
+            /* webpackChunkName: `[request]` */ `../xml/free-bots/${free_bot.id}.xml`
+        );
+        const convertedDom = window.Blockly.utils.xml.textToDom(xml_module.default);
+
+        if (typeof overrides.digit_to_use === 'number') {
+            const var_set_blocks = Array.from(convertedDom.querySelectorAll('block[type="variables_set"]'));
+            var_set_blocks.forEach((block: Element) => {
+                const var_field = block.querySelector(':scope > field[name="VAR"]');
+                if (var_field?.textContent?.trim() === 'DigitToUse') {
+                    const num_field = block.querySelector(
+                        ':scope > value[name="VALUE"] > block[type="math_number"] > field[name="NUM"]'
+                    );
+                    if (num_field) num_field.textContent = String(overrides.digit_to_use);
+                }
+            });
+        }
+
+        if (overrides.purchase) {
+            const purchase_blocks = Array.from(convertedDom.querySelectorAll('block[type="purchase"]'));
+            purchase_blocks.forEach((block: Element) => {
+                const list_field = block.querySelector(':scope > field[name="PURCHASE_LIST"]');
+                if (list_field) list_field.textContent = overrides.purchase as string;
+            });
+        }
+
+        if (overrides.symbol) {
+            const market_blocks = Array.from(convertedDom.querySelectorAll('block[type="trade_definition_market"]'));
+            market_blocks.forEach((block: Element) => {
+                const symbol_field = block.querySelector(':scope > field[name="SYMBOL_LIST"]');
+                if (symbol_field) symbol_field.textContent = overrides.symbol as string;
+            });
+        }
+
+        updateXmlValues({
+            strategy_id: window.Blockly.utils.idGenerator.genUid(),
+            convertedDom,
+            file_name: free_bot.title,
+            from: save_types.LOCAL,
+        });
+        await this.loadStrategyOnBotBuilder();
+        await this.saveStrategyToLocalStorage();
+        this.setIsCurrentBotRestricted(true);
+    };
+
 
     setRecentStrategies = (recent_strategies: TStrategy[]): void => {
         this.recent_strategies = recent_strategies;

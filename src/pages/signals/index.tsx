@@ -1,9 +1,11 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { DBOT_TABS } from '@/constants/bot-contents';
+import { FREE_BOTS } from '@/constants/free-bots';
 import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import { setPendingReversalConfig } from '@/pages/digit-pattern/trade-bridge';
+import { NOTIFICATION_TYPE } from '@/components/bot-notification/bot-notification-utils';
 import { useSignalStreak, useAllDigitStreaks, TSignalDirection, TDigitStreakRow } from './use-signal-streak';
 import './signals.scss';
 
@@ -53,7 +55,7 @@ const directionColorClass = (dir: TSignalDirection | null) => {
 };
 
 const Signals = observer(() => {
-    const { dashboard } = useStore();
+    const { dashboard, load_modal, run_panel } = useStore();
     const symbol_options = useSyntheticSymbols();
     const stored = React.useMemo(() => loadStoredSettings(), []);
 
@@ -137,8 +139,36 @@ const Signals = observer(() => {
         setViewMode('single');
     };
 
-    const tradeThis = (digit: number, current_streak: number, current_direction: TSignalDirection | null) => {
+    const tradeThis = async (digit: number, current_streak: number, current_direction: TSignalDirection | null) => {
         if (!current_direction) return; // nothing to hand over — shouldn't happen from a "hot" row, but stay safe
+
+        // Even/Odd V2 (the XML bot) only trades even/odd contracts, so it
+        // can directly take over here: set DigitToUse to the reference
+        // digit and purchase to the reversal of whatever streaked, then
+        // run it immediately. Over/Under has no matching XML bot yet, so
+        // that mode still hands off to Digit Pattern's native engine.
+        if (subTab === 'evenodd') {
+            const bot = FREE_BOTS.find(b => b.id === 'even-odd-v2');
+            if (bot) {
+                const purchase = current_direction === 'even' ? 'DIGITODD' : 'DIGITEVEN';
+                await load_modal.loadFreeBotWithOverrides(bot, { digit_to_use: digit, purchase, symbol });
+                dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+                window.Blockly?.derivWorkspace
+                    ?.waitForBlockEvent({
+                        block_type: 'trade_definition',
+                        event_type: window.Blockly.Events.BLOCK_CREATE,
+                        timeout: 5000,
+                    })
+                    .then(() => {
+                        run_panel.onRunButtonClick();
+                    })
+                    .catch(() => {
+                        dashboard.setOpenSettings(NOTIFICATION_TYPE.BOT_IMPORT);
+                    });
+                return;
+            }
+        }
+
         setPendingReversalConfig({
             symbol,
             reference_digit: digit,
