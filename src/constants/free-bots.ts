@@ -64,7 +64,14 @@ export const FREE_BOTS: TFreeBot[] = [
         id: 'even-odd-v2',
         title: 'Even/Odd V2',
         description:
-            'Single-digit trigger: every time the chosen digit appears as the last digit, bets Even on the next tick. Martingale on loss, resets on win. Loads and starts running immediately.',
+            'Single-digit trigger: every time the chosen digit appears as the last digit, bets the reversal (Even or Odd) on the next tick. Martingale on loss, capped stop loss/take profit. Loads and starts running immediately.',
+        auto_run: true,
+    },
+    {
+        id: 'over-under-v2',
+        title: 'Over/Under V2',
+        description:
+            'Single-digit trigger: every time the chosen digit appears as the last digit, bets the reversal (Over or Under a configurable barrier) on the next tick. Martingale on loss, capped stop loss/take profit. Loads and starts running immediately.',
         auto_run: true,
     },
 ];

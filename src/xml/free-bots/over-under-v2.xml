@@ -8,31 +8,32 @@
     <variable id="gid0006">TakeProfit</variable>
     <variable id="gid0007">MaxSteps</variable>
     <variable id="gid0008">CurrentStep</variable>
-    <variable id="gid0009">currentDigit</variable>
-    <variable id="gid0010">text</variable>
-    <variable id="gid0011">text1</variable>
+    <variable id="gid0009">Prediction</variable>
+    <variable id="gid0010">currentDigit</variable>
+    <variable id="gid0011">text</variable>
+    <variable id="gid0012">text1</variable>
   </variables>
-  <block type="trade_definition" id="gid0012" deletable="false" x="0" y="60">
+  <block type="trade_definition" id="gid0013" deletable="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
-      <block type="trade_definition_market" id="gid0013" deletable="false" movable="false">
+      <block type="trade_definition_market" id="gid0014" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
         <field name="SUBMARKET_LIST">random_index</field>
         <field name="SYMBOL_LIST">R_25</field>
         <next>
-          <block type="trade_definition_tradetype" id="gid0014" deletable="false" movable="false">
+          <block type="trade_definition_tradetype" id="gid0015" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">digits</field>
-            <field name="TRADETYPE_LIST">evenodd</field>
+            <field name="TRADETYPE_LIST">overunder</field>
             <next>
-              <block type="trade_definition_contracttype" id="gid0015" deletable="false" movable="false">
+              <block type="trade_definition_contracttype" id="gid0016" deletable="false" movable="false">
                 <field name="TYPE_LIST">both</field>
                 <next>
-                  <block type="trade_definition_candleinterval" id="gid0016" deletable="false" movable="false">
+                  <block type="trade_definition_candleinterval" id="gid0017" deletable="false" movable="false">
                     <field name="CANDLEINTERVAL_LIST">60</field>
                     <next>
-                      <block type="trade_definition_restartbuysell" id="gid0017" deletable="false" movable="false">
+                      <block type="trade_definition_restartbuysell" id="gid0018" deletable="false" movable="false">
                         <field name="TIME_MACHINE_ENABLED">FALSE</field>
                         <next>
-                          <block type="trade_definition_restartonerror" id="gid0018" deletable="false" movable="false">
+                          <block type="trade_definition_restartonerror" id="gid0019" deletable="false" movable="false">
                             <field name="RESTARTONERROR">TRUE</field>
                           </block>
                         </next>
@@ -47,69 +48,79 @@
       </block>
     </statement>
     <statement name="INITIALIZATION">
-      <block type="variables_set" id="gid0019">
+      <block type="variables_set" id="gid0020">
         <field name="VAR" id="gid0001">Stake</field>
         <value name="VALUE">
-          <block type="math_number" id="gid0020">
+          <block type="math_number" id="gid0021">
             <field name="NUM">1</field>
           </block>
         </value>
         <next>
-          <block type="variables_set" id="gid0021">
+          <block type="variables_set" id="gid0022">
             <field name="VAR" id="gid0002">DigitToUse</field>
             <value name="VALUE">
-              <block type="math_number" id="gid0022">
+              <block type="math_number" id="gid0023">
                 <field name="NUM">0</field>
               </block>
             </value>
             <next>
-              <block type="variables_set" id="gid0023">
-                <field name="VAR" id="gid0003">InitialStake</field>
+              <block type="variables_set" id="gid0024">
+                <field name="VAR" id="gid0009">Prediction</field>
                 <value name="VALUE">
-                  <block type="math_number" id="gid0024">
-                    <field name="NUM">1</field>
+                  <block type="math_number" id="gid0025">
+                    <field name="NUM">5</field>
                   </block>
                 </value>
                 <next>
-                  <block type="variables_set" id="gid0025">
-                    <field name="VAR" id="gid0004">Martingale</field>
+                  <block type="variables_set" id="gid0026">
+                    <field name="VAR" id="gid0003">InitialStake</field>
                     <value name="VALUE">
-                      <block type="math_number" id="gid0026">
-                        <field name="NUM">2</field>
+                      <block type="math_number" id="gid0027">
+                        <field name="NUM">1</field>
                       </block>
                     </value>
                     <next>
-                      <block type="variables_set" id="gid0027">
-                        <field name="VAR" id="gid0005">StopLoss</field>
+                      <block type="variables_set" id="gid0028">
+                        <field name="VAR" id="gid0004">Martingale</field>
                         <value name="VALUE">
-                          <block type="math_number" id="gid0028">
-                            <field name="NUM">10</field>
+                          <block type="math_number" id="gid0029">
+                            <field name="NUM">2</field>
                           </block>
                         </value>
                         <next>
-                          <block type="variables_set" id="gid0029">
-                            <field name="VAR" id="gid0006">TakeProfit</field>
+                          <block type="variables_set" id="gid0030">
+                            <field name="VAR" id="gid0005">StopLoss</field>
                             <value name="VALUE">
-                              <block type="math_number" id="gid0030">
+                              <block type="math_number" id="gid0031">
                                 <field name="NUM">10</field>
                               </block>
                             </value>
                             <next>
-                              <block type="variables_set" id="gid0031">
-                                <field name="VAR" id="gid0007">MaxSteps</field>
+                              <block type="variables_set" id="gid0032">
+                                <field name="VAR" id="gid0006">TakeProfit</field>
                                 <value name="VALUE">
-                                  <block type="math_number" id="gid0032">
-                                    <field name="NUM">5</field>
+                                  <block type="math_number" id="gid0033">
+                                    <field name="NUM">10</field>
                                   </block>
                                 </value>
                                 <next>
-                                  <block type="variables_set" id="gid0033">
-                                    <field name="VAR" id="gid0008">CurrentStep</field>
+                                  <block type="variables_set" id="gid0034">
+                                    <field name="VAR" id="gid0007">MaxSteps</field>
                                     <value name="VALUE">
-                                      <block type="math_number" id="gid0034">
-                                        <field name="NUM">0</field>
+                                      <block type="math_number" id="gid0035">
+                                        <field name="NUM">5</field>
                                       </block>
                                     </value>
+                                    <next>
+                                      <block type="variables_set" id="gid0036">
+                                        <field name="VAR" id="gid0008">CurrentStep</field>
+                                        <value name="VALUE">
+                                          <block type="math_number" id="gid0037">
+                                            <field name="NUM">0</field>
+                                          </block>
+                                        </value>
+                                      </block>
+                                    </next>
                                   </block>
                                 </next>
                               </block>
@@ -127,98 +138,106 @@
       </block>
     </statement>
     <statement name="SUBMARKET">
-      <block type="trade_definition_tradeoptions" id="gid0036">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="false"/>
+      <block type="trade_definition_tradeoptions" id="gid0038">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"/>
         <field name="DURATIONTYPE_LIST">t</field>
         <value name="DURATION">
-          <shadow type="math_number_positive" id="gid0037">
+          <shadow type="math_number_positive" id="gid0039">
             <field name="NUM">1</field>
           </shadow>
         </value>
         <value name="AMOUNT">
-          <shadow type="math_number_positive" id="gid0038">
+          <shadow type="math_number_positive" id="gid0040">
             <field name="NUM">1</field>
           </shadow>
-          <block type="variables_get" id="gid0039">
+          <block type="variables_get" id="gid0041">
             <field name="VAR" id="gid0001">Stake</field>
+          </block>
+        </value>
+        <value name="PREDICTION">
+          <shadow type="math_number_positive" id="gid0042" inline="true">
+            <field name="NUM">1</field>
+          </shadow>
+          <block type="variables_get" id="gid0043">
+            <field name="VAR" id="gid0009">Prediction</field>
           </block>
         </value>
       </block>
     </statement>
   </block>
-  <block type="during_purchase" id="gid0040" x="714" y="60">
+  <block type="during_purchase" id="gid0044" x="714" y="60">
     <statement name="DURING_PURCHASE_STACK">
-      <block type="controls_if" id="gid0041">
+      <block type="controls_if" id="gid0045">
         <value name="IF0">
-          <block type="check_sell" id="gid0042"/>
+          <block type="check_sell" id="gid0046"/>
         </value>
       </block>
     </statement>
   </block>
-  <block type="after_purchase" id="gid0043" x="714" y="292">
+  <block type="after_purchase" id="gid0047" x="714" y="292">
     <statement name="AFTERPURCHASE_STACK">
-      <block type="controls_if" id="gid0044">
+      <block type="controls_if" id="gid0048">
         <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"/>
         <value name="IF0">
-          <block type="contract_check_result" id="gid0045">
+          <block type="contract_check_result" id="gid0049">
             <field name="CHECK_RESULT">loss</field>
           </block>
         </value>
         <statement name="DO0">
-          <block type="variables_set" id="gid0046">
+          <block type="variables_set" id="gid0050">
             <field name="VAR" id="gid0008">CurrentStep</field>
             <value name="VALUE">
-              <block type="math_arithmetic" id="gid0047">
+              <block type="math_arithmetic" id="gid0051">
                 <field name="OP">ADD</field>
                 <value name="A">
-                  <shadow type="math_number" id="gid0048">
+                  <shadow type="math_number" id="gid0052">
                     <field name="NUM">1</field>
                   </shadow>
-                  <block type="variables_get" id="gid0049">
+                  <block type="variables_get" id="gid0053">
                     <field name="VAR" id="gid0008">CurrentStep</field>
                   </block>
                 </value>
                 <value name="B">
-                  <shadow type="math_number" id="gid0050">
+                  <shadow type="math_number" id="gid0054">
                     <field name="NUM">1</field>
                   </shadow>
-                  <block type="math_number" id="gid0051">
+                  <block type="math_number" id="gid0055">
                     <field name="NUM">1</field>
                   </block>
                 </value>
               </block>
             </value>
             <next>
-              <block type="controls_if" id="gid0052">
+              <block type="controls_if" id="gid0056">
                 <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"/>
                 <value name="IF0">
-                  <block type="logic_compare" id="gid0053">
+                  <block type="logic_compare" id="gid0057">
                     <field name="OP">GTE</field>
                     <value name="A">
-                      <block type="variables_get" id="gid0054">
+                      <block type="variables_get" id="gid0058">
                         <field name="VAR" id="gid0008">CurrentStep</field>
                       </block>
                     </value>
                     <value name="B">
-                      <block type="variables_get" id="gid0055">
+                      <block type="variables_get" id="gid0059">
                         <field name="VAR" id="gid0007">MaxSteps</field>
                       </block>
                     </value>
                   </block>
                 </value>
                 <statement name="DO0">
-                  <block type="variables_set" id="gid0056">
+                  <block type="variables_set" id="gid0060">
                     <field name="VAR" id="gid0008">CurrentStep</field>
                     <value name="VALUE">
-                      <block type="math_number" id="gid0057">
+                      <block type="math_number" id="gid0061">
                         <field name="NUM">0</field>
                       </block>
                     </value>
                     <next>
-                      <block type="variables_set" id="gid0058">
+                      <block type="variables_set" id="gid0062">
                         <field name="VAR" id="gid0001">Stake</field>
                         <value name="VALUE">
-                          <block type="variables_get" id="gid0059">
+                          <block type="variables_get" id="gid0063">
                             <field name="VAR" id="gid0003">InitialStake</field>
                           </block>
                         </value>
@@ -227,24 +246,24 @@
                   </block>
                 </statement>
                 <statement name="ELSE">
-                  <block type="variables_set" id="gid0060">
+                  <block type="variables_set" id="gid0064">
                     <field name="VAR" id="gid0001">Stake</field>
                     <value name="VALUE">
-                      <block type="math_arithmetic" id="gid0061">
+                      <block type="math_arithmetic" id="gid0065">
                         <field name="OP">MULTIPLY</field>
                         <value name="A">
-                          <shadow type="math_number" id="gid0062">
+                          <shadow type="math_number" id="gid0066">
                             <field name="NUM">1</field>
                           </shadow>
-                          <block type="variables_get" id="gid0063">
+                          <block type="variables_get" id="gid0067">
                             <field name="VAR" id="gid0001">Stake</field>
                           </block>
                         </value>
                         <value name="B">
-                          <shadow type="math_number" id="gid0064">
+                          <shadow type="math_number" id="gid0068">
                             <field name="NUM">1</field>
                           </shadow>
-                          <block type="variables_get" id="gid0065">
+                          <block type="variables_get" id="gid0069">
                             <field name="VAR" id="gid0004">Martingale</field>
                           </block>
                         </value>
@@ -257,18 +276,18 @@
           </block>
         </statement>
         <statement name="ELSE">
-          <block type="variables_set" id="gid0066">
+          <block type="variables_set" id="gid0070">
             <field name="VAR" id="gid0001">Stake</field>
             <value name="VALUE">
-              <block type="variables_get" id="gid0067">
+              <block type="variables_get" id="gid0071">
                 <field name="VAR" id="gid0003">InitialStake</field>
               </block>
             </value>
             <next>
-              <block type="variables_set" id="gid0068">
+              <block type="variables_set" id="gid0072">
                 <field name="VAR" id="gid0008">CurrentStep</field>
                 <value name="VALUE">
-                  <block type="math_number" id="gid0069">
+                  <block type="math_number" id="gid0073">
                     <field name="NUM">0</field>
                   </block>
                 </value>
@@ -277,33 +296,33 @@
           </block>
         </statement>
         <next>
-          <block type="controls_if" id="gid0070">
+          <block type="controls_if" id="gid0074">
             <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"/>
             <value name="IF0">
-              <block type="logic_operation" id="gid0071">
+              <block type="logic_operation" id="gid0075">
                 <field name="OP">OR</field>
                 <value name="A">
-                  <block type="logic_compare" id="gid0072">
+                  <block type="logic_compare" id="gid0076">
                     <field name="OP">LTE</field>
                     <value name="A">
-                      <block type="total_profit" id="gid0073"/>
+                      <block type="total_profit" id="gid0077"/>
                     </value>
                     <value name="B">
-                      <block type="math_arithmetic" id="gid0074">
+                      <block type="math_arithmetic" id="gid0078">
                         <field name="OP">MINUS</field>
                         <value name="A">
-                          <shadow type="math_number" id="gid0075">
+                          <shadow type="math_number" id="gid0079">
                             <field name="NUM">0</field>
                           </shadow>
-                          <block type="math_number" id="gid0076">
+                          <block type="math_number" id="gid0080">
                             <field name="NUM">0</field>
                           </block>
                         </value>
                         <value name="B">
-                          <shadow type="math_number" id="gid0077">
+                          <shadow type="math_number" id="gid0081">
                             <field name="NUM">1</field>
                           </shadow>
-                          <block type="variables_get" id="gid0078">
+                          <block type="variables_get" id="gid0082">
                             <field name="VAR" id="gid0005">StopLoss</field>
                           </block>
                         </value>
@@ -312,13 +331,13 @@
                   </block>
                 </value>
                 <value name="B">
-                  <block type="logic_compare" id="gid0079">
+                  <block type="logic_compare" id="gid0083">
                     <field name="OP">GTE</field>
                     <value name="A">
-                      <block type="total_profit" id="gid0080"/>
+                      <block type="total_profit" id="gid0084"/>
                     </value>
                     <value name="B">
-                      <block type="variables_get" id="gid0081">
+                      <block type="variables_get" id="gid0085">
                         <field name="VAR" id="gid0006">TakeProfit</field>
                       </block>
                     </value>
@@ -327,49 +346,49 @@
               </block>
             </value>
             <statement name="DO0">
-              <block type="notify" id="gid0082">
+              <block type="notify" id="gid0086">
                 <field name="NOTIFICATION_TYPE">warning</field>
                 <field name="NOTIFICATION_SOUND">silent</field>
                 <value name="MESSAGE">
-                  <shadow type="text" id="gid0083">
+                  <shadow type="text" id="gid0087">
                     <field name="TEXT">Stop loss or take profit reached — bot stopped.</field>
                   </shadow>
                 </value>
               </block>
             </statement>
             <statement name="ELSE">
-              <block type="trade_again" id="gid0084"/>
+              <block type="trade_again" id="gid0088"/>
             </statement>
           </block>
         </next>
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="gid0085" deletable="false" x="0" y="880">
+  <block type="before_purchase" id="gid0089" deletable="false" x="0" y="880">
     <statement name="BEFOREPURCHASE_STACK">
-      <block type="variables_set" id="gid0086">
-        <field name="VAR" id="gid0009">currentDigit</field>
+      <block type="variables_set" id="gid0090">
+        <field name="VAR" id="gid0010">currentDigit</field>
         <value name="VALUE">
-          <block type="last_digit" id="gid0087"/>
+          <block type="last_digit" id="gid0091"/>
         </value>
         <next>
-          <block type="text_join" id="gid0089">
-            <field name="VARIABLE" id="gid0010">text</field>
+          <block type="text_join" id="gid0092">
+            <field name="VARIABLE" id="gid0011">text</field>
             <statement name="STACK">
-              <block type="text_statement" id="gid0090">
+              <block type="text_statement" id="gid0093">
                 <value name="TEXT">
-                  <shadow type="text" id="gid0091">
+                  <shadow type="text" id="gid0094">
                     <field name="TEXT">current Digit :</field>
                   </shadow>
                 </value>
                 <next>
-                  <block type="text_statement" id="gid0092">
+                  <block type="text_statement" id="gid0095">
                     <value name="TEXT">
-                      <shadow type="text" id="gid0093">
+                      <shadow type="text" id="gid0096">
                         <field name="TEXT"/>
                       </shadow>
-                      <block type="variables_get" id="gid0094">
-                        <field name="VAR" id="gid0009">currentDigit</field>
+                      <block type="variables_get" id="gid0097">
+                        <field name="VAR" id="gid0010">currentDigit</field>
                       </block>
                     </value>
                   </block>
@@ -377,70 +396,70 @@
               </block>
             </statement>
             <next>
-              <block type="notify" id="gid0095">
+              <block type="notify" id="gid0098">
                 <field name="NOTIFICATION_TYPE">success</field>
                 <field name="NOTIFICATION_SOUND">silent</field>
                 <value name="MESSAGE">
-                  <shadow type="text" id="gid0096">
+                  <shadow type="text" id="gid0099">
                     <field name="TEXT">abc</field>
                   </shadow>
-                  <block type="variables_get" id="gid0097">
-                    <field name="VAR" id="gid0010">text</field>
+                  <block type="variables_get" id="gid0100">
+                    <field name="VAR" id="gid0011">text</field>
                   </block>
                 </value>
                 <next>
-                  <block type="controls_if" id="gid0098">
+                  <block type="controls_if" id="gid0101">
                     <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"/>
                     <value name="IF0">
-                      <block type="logic_compare" id="gid0099">
+                      <block type="logic_compare" id="gid0102">
                         <field name="OP">EQ</field>
                         <value name="A">
-                          <block type="last_digit" id="gid0100"/>
+                          <block type="last_digit" id="gid0103"/>
                         </value>
                         <value name="B">
-                          <block type="variables_get" id="gid0101">
+                          <block type="variables_get" id="gid0104">
                             <field name="VAR" id="gid0002">DigitToUse</field>
                           </block>
                         </value>
                       </block>
                     </value>
                     <statement name="DO0">
-                      <block type="text_join" id="gid0102">
-                        <field name="VARIABLE" id="gid0011">text1</field>
+                      <block type="text_join" id="gid0105">
+                        <field name="VARIABLE" id="gid0012">text1</field>
                         <statement name="STACK">
-                          <block type="text_statement" id="gid0103">
+                          <block type="text_statement" id="gid0106">
                             <value name="TEXT">
-                              <shadow type="text" id="gid0104">
+                              <shadow type="text" id="gid0107">
                                 <field name="TEXT">last Digit:</field>
                               </shadow>
                             </value>
                             <next>
-                              <block type="text_statement" id="gid0105">
+                              <block type="text_statement" id="gid0108">
                                 <value name="TEXT">
-                                  <shadow type="text" id="gid0106">
+                                  <shadow type="text" id="gid0109">
                                     <field name="TEXT"/>
                                   </shadow>
-                                  <block type="last_digit" id="gid0107"/>
+                                  <block type="last_digit" id="gid0110"/>
                                 </value>
                               </block>
                             </next>
                           </block>
                         </statement>
                         <next>
-                          <block type="notify" id="gid0108">
+                          <block type="notify" id="gid0111">
                             <field name="NOTIFICATION_TYPE">success</field>
                             <field name="NOTIFICATION_SOUND">silent</field>
                             <value name="MESSAGE">
-                              <shadow type="text" id="gid0109">
+                              <shadow type="text" id="gid0112">
                                 <field name="TEXT">abc</field>
                               </shadow>
-                              <block type="variables_get" id="gid0110">
-                                <field name="VAR" id="gid0011">text1</field>
+                              <block type="variables_get" id="gid0113">
+                                <field name="VAR" id="gid0012">text1</field>
                               </block>
                             </value>
                             <next>
-                              <block type="purchase" id="gid0111">
-                                <field name="PURCHASE_LIST">DIGITEVEN</field>
+                              <block type="purchase" id="gid0114">
+                                <field name="PURCHASE_LIST">DIGITUNDER</field>
                               </block>
                             </next>
                           </block>
@@ -448,11 +467,11 @@
                       </block>
                     </statement>
                     <statement name="ELSE">
-                      <block type="notify" id="gid0112">
+                      <block type="notify" id="gid0115">
                         <field name="NOTIFICATION_TYPE">success</field>
                         <field name="NOTIFICATION_SOUND">silent</field>
                         <value name="MESSAGE">
-                          <shadow type="text" id="gid0113">
+                          <shadow type="text" id="gid0116">
                             <field name="TEXT">criteria not met:</field>
                           </shadow>
                         </value>

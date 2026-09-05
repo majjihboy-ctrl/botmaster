@@ -286,30 +286,54 @@ export default class LoadModalStore {
 
     // Same as loadFreeBotDirect, but patches specific block values in the
     // XML DOM before loading — used to hand a live pattern (e.g. from
-    // Signals' "Trade this") straight into a bot that was built expecting
-    // a fixed digit/contract, instead of making the person edit blocks by
-    // hand every time the pattern changes.
+    // Signals' "Trade this" or Digit Pattern's scanner) straight into a
+    // bot that was built expecting fixed values, instead of making the
+    // person edit blocks by hand every time the pattern or risk settings
+    // change. This is now the ONLY path real trades take — there is no
+    // separate custom trading engine; every entry point patches and runs
+    // one of these XML bots through Deriv's own Bot Builder/Run Panel.
     loadFreeBotWithOverrides = async (
         free_bot: import('../constants/free-bots').TFreeBot,
-        overrides: { digit_to_use?: number; purchase?: string; symbol?: string }
+        overrides: {
+            digit_to_use?: number;
+            purchase?: string;
+            symbol?: string;
+            initial_stake?: number;
+            martingale_mult?: number;
+            max_steps?: number;
+            stop_loss?: number;
+            take_profit?: number;
+            prediction?: number; // over/under barrier digit
+        }
     ): Promise<void> => {
         const xml_module = await import(
             /* webpackChunkName: `[request]` */ `../xml/free-bots/${free_bot.id}.xml`
         );
         const convertedDom = window.Blockly.utils.xml.textToDom(xml_module.default);
 
-        if (typeof overrides.digit_to_use === 'number') {
+        // Patches the INITIALIZATION statement's `variables_set <var_name>
+        // = <math_number>` block for var_name, if present in this bot.
+        const setInitVar = (var_name: string, value: number) => {
             const var_set_blocks = Array.from(convertedDom.querySelectorAll('block[type="variables_set"]'));
             var_set_blocks.forEach((block: Element) => {
                 const var_field = block.querySelector(':scope > field[name="VAR"]');
-                if (var_field?.textContent?.trim() === 'DigitToUse') {
+                if (var_field?.textContent?.trim() === var_name) {
                     const num_field = block.querySelector(
                         ':scope > value[name="VALUE"] > block[type="math_number"] > field[name="NUM"]'
                     );
-                    if (num_field) num_field.textContent = String(overrides.digit_to_use);
+                    if (num_field) num_field.textContent = String(value);
                 }
             });
-        }
+        };
+
+        if (typeof overrides.digit_to_use === 'number') setInitVar('DigitToUse', overrides.digit_to_use);
+        if (typeof overrides.initial_stake === 'number') setInitVar('InitialStake', overrides.initial_stake);
+        if (typeof overrides.initial_stake === 'number') setInitVar('Stake', overrides.initial_stake);
+        if (typeof overrides.martingale_mult === 'number') setInitVar('Martingale', overrides.martingale_mult);
+        if (typeof overrides.max_steps === 'number') setInitVar('MaxSteps', overrides.max_steps);
+        if (typeof overrides.stop_loss === 'number') setInitVar('StopLoss', overrides.stop_loss);
+        if (typeof overrides.take_profit === 'number') setInitVar('TakeProfit', overrides.take_profit);
+        if (typeof overrides.prediction === 'number') setInitVar('Prediction', overrides.prediction);
 
         if (overrides.purchase) {
             const purchase_blocks = Array.from(convertedDom.querySelectorAll('block[type="purchase"]'));

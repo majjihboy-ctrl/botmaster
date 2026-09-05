@@ -1,11 +1,9 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
-import { DBOT_TABS } from '@/constants/bot-contents';
-import { FREE_BOTS } from '@/constants/free-bots';
 import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
-import { setPendingReversalConfig } from '@/pages/digit-pattern/trade-bridge';
-import { NOTIFICATION_TYPE } from '@/components/bot-notification/bot-notification-utils';
+import { launchXmlBot } from '@/pages/digit-pattern/launch-xml-bot';
+import { loadLastSettings } from '@/pages/digit-pattern/trade-settings';
 import { useSignalStreak, useAllDigitStreaks, TSignalDirection, TDigitStreakRow } from './use-signal-streak';
 import './signals.scss';
 
@@ -142,42 +140,27 @@ const Signals = observer(() => {
     const tradeThis = async (digit: number, current_streak: number, current_direction: TSignalDirection | null) => {
         if (!current_direction) return; // nothing to hand over — shouldn't happen from a "hot" row, but stay safe
 
-        // Even/Odd V2 (the XML bot) only trades even/odd contracts, so it
-        // can directly take over here: set DigitToUse to the reference
-        // digit and purchase to the reversal of whatever streaked, then
-        // run it immediately. Over/Under has no matching XML bot yet, so
-        // that mode still hands off to Digit Pattern's native engine.
-        if (subTab === 'evenodd') {
-            const bot = FREE_BOTS.find(b => b.id === 'even-odd-v2');
-            if (bot) {
-                const purchase = current_direction === 'even' ? 'DIGITODD' : 'DIGITEVEN';
-                await load_modal.loadFreeBotWithOverrides(bot, { digit_to_use: digit, purchase, symbol });
-                dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
-                window.Blockly?.derivWorkspace
-                    ?.waitForBlockEvent({
-                        block_type: 'trade_definition',
-                        event_type: window.Blockly.Events.BLOCK_CREATE,
-                        timeout: 5000,
-                    })
-                    .then(() => {
-                        run_panel.onRunButtonClick();
-                    })
-                    .catch(() => {
-                        dashboard.setOpenSettings(NOTIFICATION_TYPE.BOT_IMPORT);
-                    });
-                return;
+        // Every real trade — whichever mode — now runs through the matching
+        // XML bot in Bot Builder. There is no separate custom trading
+        // engine anymore; this is the same launcher Digit Pattern's
+        // scanner "Enter" button uses, so behavior is identical either
+        // way you get here.
+        const last = loadLastSettings();
+        await launchXmlBot(
+            { load_modal, dashboard, run_panel },
+            {
+                mode: subTab,
+                symbol,
+                digit,
+                direction: current_direction,
+                threshold_digit: overUnderThreshold,
+                initial_stake: last.initial_stake ?? 0.35,
+                martingale_mult: last.martingale_mult ?? 2,
+                max_martingale_steps: last.max_martingale_steps ?? 5,
+                stop_loss: last.stop_loss ?? 5,
+                take_profit: last.take_profit ?? 100,
             }
-        }
-
-        setPendingReversalConfig({
-            symbol,
-            reference_digit: digit,
-            mode: subTab,
-            threshold_digit: overUnderThreshold,
-            current_streak,
-            current_direction,
-        });
-        dashboard.setActiveTab(DBOT_TABS.DIGIT_PATTERN);
+        );
     };
 
     const is_live = viewMode === 'single' ? active.is_loading : activeAll.is_loading;
