@@ -19,20 +19,18 @@ const FreeBotsTab = observer(() => {
         if (loading_id) return;
         setLoadingId(bot.id);
         try {
-            await loadFreeBotDirect(bot);
-            setActiveTab(DBOT_TABS.BOT_BUILDER);
-
             if (bot.auto_run) {
-                // Wait for the loaded strategy's trade_definition block to
-                // actually exist in the workspace before hitting Run — same
-                // guard Quick Strategy uses, since Run fired too early
-                // (before Blockly finishes materializing the loaded XML)
-                // silently no-ops.
-                window.Blockly?.derivWorkspace
+                // Register the wait BEFORE loading, not after - the load
+                // itself fires the trade_definition block's BLOCK_CREATE
+                // event, so a listener attached only after loadFreeBotDirect
+                // resolves is always listening for an event that already
+                // happened, and Run never fires. Same ordering Quick
+                // Strategy uses correctly (quick-strategy-store.ts RUN branch).
+                const run_promise = window.Blockly?.derivWorkspace
                     ?.waitForBlockEvent({
                         block_type: 'trade_definition',
                         event_type: window.Blockly.Events.BLOCK_CREATE,
-                        timeout: 5000,
+                        timeout: 8000,
                     })
                     .then(() => {
                         run_panel.onRunButtonClick();
@@ -42,7 +40,13 @@ const FreeBotsTab = observer(() => {
                         // normal 'loaded, review before running' experience.
                         setOpenSettings(NOTIFICATION_TYPE.BOT_IMPORT);
                     });
+
+                await loadFreeBotDirect(bot);
+                setActiveTab(DBOT_TABS.BOT_BUILDER);
+                await run_promise;
             } else {
+                await loadFreeBotDirect(bot);
+                setActiveTab(DBOT_TABS.BOT_BUILDER);
                 setOpenSettings(NOTIFICATION_TYPE.BOT_IMPORT);
             }
         } finally {

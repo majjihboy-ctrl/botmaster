@@ -55,6 +55,26 @@ export const launchXmlBot = async (
     const reversal = opposite(params.direction);
     const purchase = PURCHASE_BY_DIRECTION[reversal];
 
+    // Register the wait BEFORE loading, not after - the load itself fires
+    // the trade_definition block's BLOCK_CREATE event, so listening only
+    // starts working after the event already happened, which meant Run
+    // never fired and every trade required a manual click. Same ordering
+    // Quick Strategy uses correctly (see quick-strategy-store.ts RUN branch).
+    const run_promise = window.Blockly?.derivWorkspace
+        ?.waitForBlockEvent({
+            block_type: 'trade_definition',
+            event_type: window.Blockly.Events.BLOCK_CREATE,
+            timeout: 8000,
+        })
+        .then(() => {
+            run_panel.onRunButtonClick();
+            return true;
+        })
+        .catch(() => {
+            dashboard.setOpenSettings(NOTIFICATION_TYPE.BOT_IMPORT);
+            return false;
+        });
+
     await load_modal.loadFreeBotWithOverrides(bot, {
         digit_to_use: params.digit,
         purchase,
@@ -69,18 +89,7 @@ export const launchXmlBot = async (
 
     dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
 
-    window.Blockly?.derivWorkspace
-        ?.waitForBlockEvent({
-            block_type: 'trade_definition',
-            event_type: window.Blockly.Events.BLOCK_CREATE,
-            timeout: 5000,
-        })
-        .then(() => {
-            run_panel.onRunButtonClick();
-        })
-        .catch(() => {
-            dashboard.setOpenSettings(NOTIFICATION_TYPE.BOT_IMPORT);
-        });
+    await run_promise;
 
     return true;
 };
