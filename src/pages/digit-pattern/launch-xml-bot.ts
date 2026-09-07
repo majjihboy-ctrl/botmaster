@@ -4,11 +4,14 @@ import { DBOT_TABS } from '@/constants/bot-contents';
 import { NOTIFICATION_TYPE } from '@/components/bot-notification/bot-notification-utils';
 import { TSignalDirection } from '@/pages/signals/use-signal-streak';
 
+export type TTradeStrategy = 'reversal' | 'continuation';
+
 export type TLaunchXmlBotParams = {
     mode: 'evenodd' | 'overunder';
     symbol: string;
     digit: number;
     direction: TSignalDirection;
+    strategy: TTradeStrategy;
     threshold_digit: number; // over/under barrier — ignored in evenodd mode
     initial_stake: number;
     martingale_mult: number;
@@ -17,12 +20,17 @@ export type TLaunchXmlBotParams = {
     take_profit: number;
 };
 
-const opposite = (dir: TSignalDirection): TSignalDirection => {
+export const opposite = (dir: TSignalDirection): TSignalDirection => {
     if (dir === 'even') return 'odd';
     if (dir === 'odd') return 'even';
     if (dir === 'over') return 'under';
     return 'over';
 };
+
+// Reversal bets the streak snaps back (trade the opposite of what just ran);
+// continuation bets the streak keeps running (trade the same direction).
+export const resolveTradeDirection = (dir: TSignalDirection, strategy: TTradeStrategy): TSignalDirection =>
+    strategy === 'reversal' ? opposite(dir) : dir;
 
 const BOT_ID_BY_MODE: Record<TLaunchXmlBotParams['mode'], string> = {
     evenodd: 'even-odd-v2',
@@ -52,8 +60,8 @@ export const launchXmlBot = async (
     const bot = FREE_BOTS.find(b => b.id === BOT_ID_BY_MODE[params.mode]);
     if (!bot) return false;
 
-    const reversal = opposite(params.direction);
-    const purchase = PURCHASE_BY_DIRECTION[reversal];
+    const trade_direction = resolveTradeDirection(params.direction, params.strategy);
+    const purchase = PURCHASE_BY_DIRECTION[trade_direction];
 
     // Register the wait BEFORE loading, not after - the load itself fires
     // the trade_definition block's BLOCK_CREATE event, so listening only

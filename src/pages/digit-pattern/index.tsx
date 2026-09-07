@@ -5,18 +5,11 @@ import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import { localize } from '@deriv-com/translations';
 import { SliderField } from './reversal-trader-fields';
 import { loadLastSettings, saveLastSettings } from './trade-settings';
-import { launchXmlBot } from './launch-xml-bot';
+import { launchXmlBot, resolveTradeDirection, TTradeStrategy } from './launch-xml-bot';
 import { useMarketScanner, TScanMode, TScanEntry } from './use-market-scanner';
 import './digit-pattern.scss';
 
 const DIGIT_OPTIONS = Array.from({ length: 10 }, (_, i) => i);
-
-const opposite = (dir: TScanEntry['direction']) => {
-    if (dir === 'even') return 'odd';
-    if (dir === 'odd') return 'even';
-    if (dir === 'over') return 'under';
-    return 'over';
-};
 
 const DigitPattern = observer(() => {
     const stores = useStore();
@@ -24,8 +17,14 @@ const DigitPattern = observer(() => {
     const symbol_options = useSyntheticSymbols();
 
     const [mode, setMode] = React.useState<TScanMode>('evenodd');
+    const [strategy, setStrategyState] = React.useState<TTradeStrategy>(() => loadLastSettings().strategy ?? 'reversal');
     const [threshold_digit, setThresholdDigit] = React.useState(5);
     const [min_streak, setMinStreak] = React.useState(() => loadLastSettings().min_streak ?? 7);
+
+    const setStrategy = (v: TTradeStrategy) => {
+        setStrategyState(v);
+        saveLastSettings({ strategy: v });
+    };
 
     const [initial_stake, setInitialStake] = React.useState(() => loadLastSettings().initial_stake ?? 0.35);
     const [martingale_mult, setMartingaleMult] = React.useState(() => loadLastSettings().martingale_mult ?? 2);
@@ -56,7 +55,15 @@ const DigitPattern = observer(() => {
         const entry = pendingEntryRef.current;
         if (!entry || is_launching) return;
         setIsLaunching(true);
-        saveLastSettings({ initial_stake, martingale_mult, max_martingale_steps, stop_loss, take_profit, min_streak });
+        saveLastSettings({
+            initial_stake,
+            martingale_mult,
+            max_martingale_steps,
+            stop_loss,
+            take_profit,
+            min_streak,
+            strategy,
+        });
 
         await launchXmlBot(
             { load_modal, dashboard, run_panel },
@@ -65,6 +72,7 @@ const DigitPattern = observer(() => {
                 symbol: entry.symbol,
                 digit: entry.digit,
                 direction: entry.direction,
+                strategy,
                 threshold_digit,
                 initial_stake,
                 martingale_mult,
@@ -119,6 +127,23 @@ const DigitPattern = observer(() => {
                                     onClick={() => setMode('overunder')}
                                 >
                                     Over / Under
+                                </button>
+                            </div>
+
+                            <div className='digit-pattern__mode-toggle'>
+                                <button
+                                    className={strategy === 'reversal' ? 'active' : ''}
+                                    onClick={() => setStrategy('reversal')}
+                                    title='Bet the streak snaps back — trade the opposite of what just ran'
+                                >
+                                    Reversal
+                                </button>
+                                <button
+                                    className={strategy === 'continuation' ? 'active' : ''}
+                                    onClick={() => setStrategy('continuation')}
+                                    title='Bet the streak keeps running — trade the same direction'
+                                >
+                                    Continuation
                                 </button>
                             </div>
 
@@ -197,7 +222,8 @@ const DigitPattern = observer(() => {
                                                 <span className='direction'>{entry.direction.toUpperCase()}</span>
                                             </div>
                                             <div className='digit-pattern__scan-reversal'>
-                                                → trade <strong>{opposite(entry.direction).toUpperCase()}</strong>
+                                                → trade{' '}
+                                                <strong>{resolveTradeDirection(entry.direction, strategy).toUpperCase()}</strong>
                                             </div>
                                             <button
                                                 className='digit-pattern__btn primary'
@@ -288,8 +314,12 @@ const DigitPattern = observer(() => {
                                 {pendingEntryRef.current.direction.toUpperCase()} after {pendingEntryRef.current.digit}
                             </p>
                             <p>
-                                <strong>Trade:</strong> {opposite(pendingEntryRef.current.direction).toUpperCase()} —
-                                fires the moment {pendingEntryRef.current.digit} reappears
+                                <strong>Strategy:</strong> {strategy === 'reversal' ? 'Reversal' : 'Continuation'}
+                            </p>
+                            <p>
+                                <strong>Trade:</strong>{' '}
+                                {resolveTradeDirection(pendingEntryRef.current.direction, strategy).toUpperCase()} — fires
+                                the moment {pendingEntryRef.current.digit} reappears
                             </p>
                             <p>
                                 <strong>Initial stake:</strong> ${initial_stake.toFixed(2)}

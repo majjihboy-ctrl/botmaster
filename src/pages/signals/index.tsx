@@ -2,7 +2,7 @@ import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
-import { launchXmlBot } from '@/pages/digit-pattern/launch-xml-bot';
+import { launchXmlBot, resolveTradeDirection, TTradeStrategy } from '@/pages/digit-pattern/launch-xml-bot';
 import { loadLastSettings } from '@/pages/digit-pattern/trade-settings';
 import { useSignalStreak, useAllDigitStreaks, TSignalDirection, TDigitStreakRow } from './use-signal-streak';
 import './signals.scss';
@@ -18,6 +18,7 @@ type TStoredSettings = {
     subTab?: 'evenodd' | 'overunder';
     viewMode?: 'single' | 'all';
     sortByStreak?: boolean;
+    strategy?: TTradeStrategy;
 };
 
 const loadStoredSettings = (): TStoredSettings => {
@@ -65,6 +66,7 @@ const Signals = observer(() => {
     const [overUnderThreshold, setOverUnderThresholdState] = React.useState(stored.overUnderThreshold ?? 5);
     const [viewMode, setViewModeState] = React.useState<'single' | 'all'>(stored.viewMode ?? 'all');
     const [sortByStreak, setSortByStreakState] = React.useState(stored.sortByStreak ?? true);
+    const [strategy, setStrategyState] = React.useState<TTradeStrategy>(stored.strategy ?? 'reversal');
 
     const setSymbol = (v: string) => {
         setSymbolState(v);
@@ -97,6 +99,10 @@ const Signals = observer(() => {
     const setSortByStreak = (v: boolean) => {
         setSortByStreakState(v);
         saveStoredSettings({ sortByStreak: v });
+    };
+    const setStrategy = (v: TTradeStrategy) => {
+        setStrategyState(v);
+        saveStoredSettings({ strategy: v });
     };
 
     // Exactly one of these four hook instances is ever active — each is
@@ -153,6 +159,7 @@ const Signals = observer(() => {
                 symbol,
                 digit,
                 direction: current_direction,
+                strategy,
                 threshold_digit: overUnderThreshold,
                 initial_stake: last.initial_stake ?? 0.35,
                 martingale_mult: last.martingale_mult ?? 2,
@@ -237,6 +244,23 @@ const Signals = observer(() => {
                         onClick={() => setViewMode('single')}
                     >
                         Single digit
+                    </button>
+                </div>
+
+                <div className='signals__view-toggle'>
+                    <button
+                        className={`signals__view-btn ${strategy === 'reversal' ? 'active' : ''}`}
+                        onClick={() => setStrategy('reversal')}
+                        title='Bet the streak snaps back — trade the opposite of what just ran'
+                    >
+                        Reversal
+                    </button>
+                    <button
+                        className={`signals__view-btn ${strategy === 'continuation' ? 'active' : ''}`}
+                        onClick={() => setStrategy('continuation')}
+                        title='Bet the streak keeps running — trade the same direction'
+                    >
+                        Continuation
                     </button>
                 </div>
             </div>
@@ -352,7 +376,9 @@ const Signals = observer(() => {
                                             tradeThis(row.digit, row.current_streak, row.current_direction);
                                         }}
                                     >
-                                        ⚡ Trade this
+                                        ⚡ Trade{' '}
+                                        {row.current_direction &&
+                                            resolveTradeDirection(row.current_direction, strategy).toUpperCase()}
                                     </button>
                                 )}
                             </div>
@@ -375,7 +401,9 @@ const Signals = observer(() => {
                                     className='signals__trade-this-btn wide'
                                     onClick={() => tradeThis(ref_digit, active.current_streak, active.current_direction)}
                                 >
-                                    ⚡ Trade this
+                                    ⚡ Trade{' '}
+                                    {active.current_direction &&
+                                        resolveTradeDirection(active.current_direction, strategy).toUpperCase()}
                                 </button>
                             )}
                         </div>

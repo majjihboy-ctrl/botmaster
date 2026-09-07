@@ -1,3 +1,5 @@
+import { TTradeStrategy } from './launch-xml-bot';
+
 const LAST_SETTINGS_KEY = 'digit_pattern_last_settings';
 
 export type TLastSettings = {
@@ -7,6 +9,7 @@ export type TLastSettings = {
     stop_loss: number;
     take_profit: number;
     min_streak: number;
+    strategy: TTradeStrategy;
 };
 
 export const loadLastSettings = (): Partial<TLastSettings> => {
