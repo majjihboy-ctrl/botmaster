@@ -1,58 +1,116 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Localize } from '@deriv-com/translations';
-import { Tooltip } from '@deriv-com/ui';
+import { Localize, localize } from '@deriv-com/translations';
 import { LegacyRefresh1pxIcon } from '@deriv/quill-icons/Legacy';
+import { api_base } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
-import { useApiBase } from '@/hooks/useApiBase';
 import './refresh-balance-button.scss';
+
+type TStatus = 'idle' | 'loading' | 'success' | 'error';
 
 const RefreshBalanceButton = observer(() => {
     const { client } = useStore() ?? {};
-    const { api } = useApiBase();
-    const [isLoading, setIsLoading] = useState(false);
+    const [is_open, setIsOpen] = useState(false);
+    const [status, setStatus] = useState<TStatus>('idle');
+    const [message, setMessage] = useState('');
+    const popoverRef = useRef<HTMLDivElement>(null);
 
-    // Only show for demo/virtual accounts
-    if (!client?.is_virtual) {
-        return null;
-    }
-
-    const handleResetBalance = async () => {
-        if (!api || isLoading) return;
-
-        setIsLoading(true);
-        try {
-            // Make API call to reset virtual account balance to 10,000
-            const response = await api.send({ topup_virtual: 1 });
-            
-            if (response?.topup_virtual) {
-                // Update client balance with new/reset balance
-                client.setBalance(response.topup_virtual.toString());
-                console.log('Demo balance reset to:', response.topup_virtual);
+    useEffect(() => {
+        const handleOutsideClick = (e: MouseEvent) => {
+            if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+                setIsOpen(false);
             }
-        } catch (error) {
-            console.error('Failed to reset demo balance:', error);
-        } finally {
-            setIsLoading(false);
+        };
+        if (is_open) document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, [is_open]);
+
+    // Only demo accounts can be topped up — Deriv's topup_virtual call
+    // errors on real accounts. Guard sits after all hooks so hook order
+    // never changes between renders.
+    if (!client?.is_virtual) return null;
+
+    const handleReset = async () => {
+        if (status === 'loading') return;
+        setStatus('loading');
+        setMessage('');
+
+        try {
+            const topup_res = await api_base.api.send({ topup_virtual: 1 });
+
+            if (topup_res?.error) {
+                // Deriv only allows a top-up once the balance is genuinely
+                // low — this is expected/documented behavior, not a bug.
+                // Show Deriv's own message directly rather than guessing at
+                // its exact error code.
+                setStatus('error');
+                setMessage(topup_res.error.message || localize('Could not reset balance. Please try again.'));
+                return;
+            }
+
+            // topup_virtual's own response is just the top-up event details,
+            // not the resulting balance — fetch the real current balance
+            // right after so the figure shown is accurate.
+            const balance_res = await api_base.api.send({ balance: 1 });
+            const new_balance = balance_res?.balance?.balance;
+
+            if (typeof new_balance === 'number') {
+                client.setBalance(new_balance.toString());
+                setStatus('success');
+                setMessage(localize('Balance reset to {{amount}}', { amount: new_balance.toLocaleString() }));
+            } else {
+                setStatus('success');
+                setMessage(localize('Balance topped up.'));
+            }
+        } catch (err: any) {
+            setStatus('error');
+            setMessage(err?.message || localize('Something went wrong. Please try again.'));
         }
     };
 
     return (
-        <Tooltip
-            position='bottom'
-            message={<Localize i18n_default_text='Reset demo balance to 10,000' />}
-            alignment='center'
-        >
+        <div className='refresh-balance' ref={popoverRef}>
             <button
-                className={`refresh-balance-button ${isLoading ? 'refresh-balance-button--loading' : ''}`}
-                onClick={handleResetBalance}
-                disabled={isLoading}
-                aria-label='Reset demo balance to 10,000'
-                title='Reset demo balance to 10,000'
+                className='refresh-balance__trigger'
+                onClick={() => {
+                    setIsOpen(o => !o);
+                    if (!is_open) {
+                        setStatus('idle');
+                        setMessage('');
+                    }
+                }}
+                aria-label={localize('Reset demo balance')}
+                title={localize('Reset demo balance')}
             >
                 <LegacyRefresh1pxIcon width={16} height={16} />
             </button>
-        </Tooltip>
+
+            {is_open && (
+                <div className='refresh-balance__popover'>
+                    <p className='refresh-balance__title'>
+                        <Localize i18n_default_text='Reset demo balance' />
+                    </p>
+                    <p className='refresh-balance__hint'>
+                        <Localize i18n_default_text='Tops your demo balance back up. Only works once your balance has actually run low.' />
+                    </p>
+
+                    {status === 'error' && <p className='refresh-balance__message error'>{message}</p>}
+                    {status === 'success' && <p className='refresh-balance__message success'>{message}</p>}
+
+                    <button
+                        className={`refresh-balance__action ${status === 'loading' ? 'loading' : ''}`}
+                        onClick={handleReset}
+                        disabled={status === 'loading'}
+                    >
+                        {status === 'loading' ? (
+                            <Localize i18n_default_text='Resetting…' />
+                        ) : (
+                            <Localize i18n_default_text='Reset now' />
+                        )}
+                    </button>
+                </div>
+            )}
+        </div>
     );
 });
 
