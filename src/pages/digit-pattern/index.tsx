@@ -34,9 +34,8 @@ const DigitPattern = observer(() => {
     const [stop_loss, setStopLoss] = React.useState(() => loadLastSettings().stop_loss ?? 5);
     const [take_profit, setTakeProfit] = React.useState(() => loadLastSettings().take_profit ?? 100);
 
-    const [show_confirm, setShowConfirm] = React.useState(false);
     const [is_launching, setIsLaunching] = React.useState(false);
-    const pendingEntryRef = React.useRef<TScanEntry | null>(null);
+    const [launching_symbol, setLaunchingSymbol] = React.useState<string | null>(null);
 
     // The scanner is pure detection — no real trades happen here, so it
     // never needs to pause. Every real trade now runs through the XML bot
@@ -46,15 +45,10 @@ const DigitPattern = observer(() => {
     const visible_entries = scanner.entries.filter(e => e.count >= min_streak);
     const best_entry = visible_entries[0];
 
-    const openEntry = (entry: TScanEntry) => {
-        pendingEntryRef.current = entry;
-        setShowConfirm(true);
-    };
-
-    const confirmStart = async () => {
-        const entry = pendingEntryRef.current;
-        if (!entry || is_launching) return;
+    const enterTrade = async (entry: TScanEntry) => {
+        if (is_launching) return;
         setIsLaunching(true);
+        setLaunchingSymbol(entry.symbol);
         saveLastSettings({
             initial_stake,
             martingale_mult,
@@ -83,13 +77,7 @@ const DigitPattern = observer(() => {
         );
 
         setIsLaunching(false);
-        setShowConfirm(false);
-        pendingEntryRef.current = null;
-    };
-
-    const cancelEntry = () => {
-        pendingEntryRef.current = null;
-        setShowConfirm(false);
+        setLaunchingSymbol(null);
     };
 
     const label_a = mode === 'evenodd' ? 'EVEN' : 'OVER';
@@ -234,9 +222,11 @@ const DigitPattern = observer(() => {
                                             <button
                                                 className='digit-pattern__btn primary'
                                                 disabled={is_launching}
-                                                onClick={() => openEntry(entry)}
+                                                onClick={() => enterTrade(entry)}
                                             >
-                                                {localize('Enter')}
+                                                {launching_symbol === entry.symbol
+                                                    ? localize('Launching…')
+                                                    : localize('Enter')}
                                             </button>
                                         </div>
                                     );
@@ -306,57 +296,6 @@ const DigitPattern = observer(() => {
                     </div>
                 </div>
             </div>
-
-            {show_confirm && pendingEntryRef.current && (
-                <div className='digit-pattern__modal-overlay' onClick={cancelEntry}>
-                    <div className='digit-pattern__modal-content' onClick={e => e.stopPropagation()}>
-                        <h2>{localize('Confirm entry')}</h2>
-                        <div className='digit-pattern__confirm-details'>
-                            <p>
-                                <strong>Market:</strong> {pendingEntryRef.current.display_name}
-                            </p>
-                            <p>
-                                <strong>Pattern:</strong> {pendingEntryRef.current.count}x{' '}
-                                {pendingEntryRef.current.direction.toUpperCase()} after {pendingEntryRef.current.digit}
-                            </p>
-                            <p>
-                                <strong>Strategy:</strong>{' '}
-                                {strategy === 'reversal' ? 'Reversal' : strategy === 'continuation' ? 'Continuation' : 'Zig Zag'}
-                            </p>
-                            <p>
-                                <strong>Trade:</strong>{' '}
-                                {describeTradeDirection(pendingEntryRef.current.direction, strategy)} — fires the moment{' '}
-                                {pendingEntryRef.current.digit} reappears
-                                {strategy === 'zigzag' && ' (alternates every trade)'}
-                            </p>
-                            <p>
-                                <strong>Initial stake:</strong> ${initial_stake.toFixed(2)}
-                            </p>
-                            <p>
-                                <strong>Stake at final step:</strong> $
-                                {(initial_stake * Math.pow(martingale_mult, max_martingale_steps - 1)).toFixed(2)}
-                            </p>
-                            <p>
-                                <strong>Total risk if every step loses:</strong> $
-                                {Array.from(
-                                    { length: max_martingale_steps },
-                                    (_, i) => initial_stake * Math.pow(martingale_mult, i)
-                                )
-                                    .reduce((sum, v) => sum + v, 0)
-                                    .toFixed(2)}
-                            </p>
-                        </div>
-                        <div className='digit-pattern__modal-actions'>
-                            <button onClick={cancelEntry} className='digit-pattern__btn secondary' disabled={is_launching}>
-                                {localize('Cancel')}
-                            </button>
-                            <button onClick={confirmStart} className='digit-pattern__btn primary' disabled={is_launching}>
-                                {is_launching ? localize('Launching…') : localize('Confirm & Start')}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 });
