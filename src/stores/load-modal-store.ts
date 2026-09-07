@@ -297,6 +297,7 @@ export default class LoadModalStore {
         overrides: {
             digit_to_use?: number;
             purchase?: string;
+            purchase_pair?: [string, string]; // zigzag only — [AltFlag==0 value, AltFlag==1 value]
             symbol?: string;
             initial_stake?: number;
             martingale_mult?: number;
@@ -335,7 +336,14 @@ export default class LoadModalStore {
         if (typeof overrides.take_profit === 'number') setInitVar('TakeProfit', overrides.take_profit);
         if (typeof overrides.prediction === 'number') setInitVar('Prediction', overrides.prediction);
 
-        if (overrides.purchase) {
+        if (overrides.purchase_pair) {
+            const purchase_blocks = Array.from(convertedDom.querySelectorAll('block[type="purchase"]'));
+            const [primary, alternate] = overrides.purchase_pair;
+            purchase_blocks.forEach((block: Element, index: number) => {
+                const list_field = block.querySelector(':scope > field[name="PURCHASE_LIST"]');
+                if (list_field) list_field.textContent = index === 0 ? primary : alternate;
+            });
+        } else if (overrides.purchase) {
             const purchase_blocks = Array.from(convertedDom.querySelectorAll('block[type="purchase"]'));
             purchase_blocks.forEach((block: Element) => {
                 const list_field = block.querySelector(':scope > field[name="PURCHASE_LIST"]');

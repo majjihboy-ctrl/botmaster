@@ -2,7 +2,7 @@ import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
-import { launchXmlBot, resolveTradeDirection, TTradeStrategy } from '@/pages/digit-pattern/launch-xml-bot';
+import { launchXmlBot, describeTradeDirection, TTradeStrategy } from '@/pages/digit-pattern/launch-xml-bot';
 import { loadLastSettings } from '@/pages/digit-pattern/trade-settings';
 import { useSignalStreak, useAllDigitStreaks, TSignalDirection, TDigitStreakRow } from './use-signal-streak';
 import './signals.scss';
@@ -262,6 +262,13 @@ const Signals = observer(() => {
                     >
                         Continuation
                     </button>
+                    <button
+                        className={`signals__view-btn ${strategy === 'zigzag' ? 'active' : ''}`}
+                        onClick={() => setStrategy('zigzag')}
+                        title='Alternates every trade: continuation, then reversal, then continuation...'
+                    >
+                        Zig Zag
+                    </button>
                 </div>
             </div>
 
@@ -377,8 +384,7 @@ const Signals = observer(() => {
                                         }}
                                     >
                                         ⚡ Trade{' '}
-                                        {row.current_direction &&
-                                            resolveTradeDirection(row.current_direction, strategy).toUpperCase()}
+                                        {row.current_direction && describeTradeDirection(row.current_direction, strategy)}
                                     </button>
                                 )}
                             </div>
@@ -402,8 +408,7 @@ const Signals = observer(() => {
                                     onClick={() => tradeThis(ref_digit, active.current_streak, active.current_direction)}
                                 >
                                     ⚡ Trade{' '}
-                                    {active.current_direction &&
-                                        resolveTradeDirection(active.current_direction, strategy).toUpperCase()}
+                                    {active.current_direction && describeTradeDirection(active.current_direction, strategy)}
                                 </button>
                             )}
                         </div>

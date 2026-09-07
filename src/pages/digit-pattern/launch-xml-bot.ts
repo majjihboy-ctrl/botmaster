@@ -4,7 +4,7 @@ import { DBOT_TABS } from '@/constants/bot-contents';
 import { NOTIFICATION_TYPE } from '@/components/bot-notification/bot-notification-utils';
 import { TSignalDirection } from '@/pages/signals/use-signal-streak';
 
-export type TTradeStrategy = 'reversal' | 'continuation';
+export type TTradeStrategy = 'reversal' | 'continuation' | 'zigzag';
 
 export type TLaunchXmlBotParams = {
     mode: 'evenodd' | 'overunder';
@@ -29,8 +29,18 @@ export const opposite = (dir: TSignalDirection): TSignalDirection => {
 
 // Reversal bets the streak snaps back (trade the opposite of what just ran);
 // continuation bets the streak keeps running (trade the same direction).
+// Zigzag has no single direction — it alternates every trade inside the bot
+// itself (see AltFlag in the XML), so this is only meaningful for reversal/continuation.
 export const resolveTradeDirection = (dir: TSignalDirection, strategy: TTradeStrategy): TSignalDirection =>
     strategy === 'reversal' ? opposite(dir) : dir;
+
+// Human-readable direction label for UI hints, covering all three strategies.
+export const describeTradeDirection = (dir: TSignalDirection, strategy: TTradeStrategy): string => {
+    if (strategy === 'zigzag') {
+        return `${dir.toUpperCase()} ⇄ ${opposite(dir).toUpperCase()}`;
+    }
+    return resolveTradeDirection(dir, strategy).toUpperCase();
+};
 
 const BOT_ID_BY_MODE: Record<TLaunchXmlBotParams['mode'], string> = {
     evenodd: 'even-odd-v2',
@@ -60,8 +70,9 @@ export const launchXmlBot = async (
     const bot = FREE_BOTS.find(b => b.id === BOT_ID_BY_MODE[params.mode]);
     if (!bot) return false;
 
-    const trade_direction = resolveTradeDirection(params.direction, params.strategy);
-    const purchase = PURCHASE_BY_DIRECTION[trade_direction];
+    const continuation_direction = params.direction;
+    const reversal_direction = opposite(params.direction);
+    const purchase = PURCHASE_BY_DIRECTION[resolveTradeDirection(params.direction, params.strategy)];
 
     // Register the wait BEFORE loading, not after - the load itself fires
     // the trade_definition block's BLOCK_CREATE event, so listening only
@@ -86,6 +97,12 @@ export const launchXmlBot = async (
     await load_modal.loadFreeBotWithOverrides(bot, {
         digit_to_use: params.digit,
         purchase,
+        // Only meaningful for zigzag — the XML alternates between these two
+        // every trade via its own AltFlag, ignored otherwise.
+        purchase_pair:
+            params.strategy === 'zigzag'
+                ? [PURCHASE_BY_DIRECTION[continuation_direction], PURCHASE_BY_DIRECTION[reversal_direction]]
+                : undefined,
         symbol: params.symbol,
         initial_stake: params.initial_stake,
         martingale_mult: params.martingale_mult,

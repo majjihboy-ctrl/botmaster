@@ -5,7 +5,7 @@ import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import { localize } from '@deriv-com/translations';
 import { SliderField } from './reversal-trader-fields';
 import { loadLastSettings, saveLastSettings } from './trade-settings';
-import { launchXmlBot, resolveTradeDirection, TTradeStrategy } from './launch-xml-bot';
+import { launchXmlBot, describeTradeDirection, TTradeStrategy } from './launch-xml-bot';
 import { useMarketScanner, TScanMode, TScanEntry } from './use-market-scanner';
 import './digit-pattern.scss';
 
@@ -145,6 +145,13 @@ const DigitPattern = observer(() => {
                                 >
                                     Continuation
                                 </button>
+                                <button
+                                    className={strategy === 'zigzag' ? 'active' : ''}
+                                    onClick={() => setStrategy('zigzag')}
+                                    title='Alternates every trade: continuation, then reversal, then continuation...'
+                                >
+                                    Zig Zag
+                                </button>
                             </div>
 
                             {mode === 'overunder' && (
@@ -222,8 +229,7 @@ const DigitPattern = observer(() => {
                                                 <span className='direction'>{entry.direction.toUpperCase()}</span>
                                             </div>
                                             <div className='digit-pattern__scan-reversal'>
-                                                → trade{' '}
-                                                <strong>{resolveTradeDirection(entry.direction, strategy).toUpperCase()}</strong>
+                                                → trade <strong>{describeTradeDirection(entry.direction, strategy)}</strong>
                                             </div>
                                             <button
                                                 className='digit-pattern__btn primary'
@@ -314,12 +320,14 @@ const DigitPattern = observer(() => {
                                 {pendingEntryRef.current.direction.toUpperCase()} after {pendingEntryRef.current.digit}
                             </p>
                             <p>
-                                <strong>Strategy:</strong> {strategy === 'reversal' ? 'Reversal' : 'Continuation'}
+                                <strong>Strategy:</strong>{' '}
+                                {strategy === 'reversal' ? 'Reversal' : strategy === 'continuation' ? 'Continuation' : 'Zig Zag'}
                             </p>
                             <p>
                                 <strong>Trade:</strong>{' '}
-                                {resolveTradeDirection(pendingEntryRef.current.direction, strategy).toUpperCase()} — fires
-                                the moment {pendingEntryRef.current.digit} reappears
+                                {describeTradeDirection(pendingEntryRef.current.direction, strategy)} — fires the moment{' '}
+                                {pendingEntryRef.current.digit} reappears
+                                {strategy === 'zigzag' && ' (alternates every trade)'}
                             </p>
                             <p>
                                 <strong>Initial stake:</strong> ${initial_stake.toFixed(2)}
