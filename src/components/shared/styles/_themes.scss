@@ -163,8 +163,8 @@
         // Status
         --status-default: #{constants.$color-grey-3};
         --status-adjustment: #{constants.$color-grey-1};
-        --status-danger: #{constants.$color-red-1};
-        --status-success: #{constants.$color-green-1};
+        --status-danger: #ef4444;
+        --status-success: #22c55e;
         --status-warning: #{constants.$color-yellow};
         --status-warning-transparent: #{constants.$alpha-color-yellow-1};
         --status-transfer: #{constants.$color-orange};
@@ -308,10 +308,10 @@
         // Status
         --status-default: #{constants.$color-grey-3};
         --status-adjustment: #{constants.$color-grey-1};
-        --status-danger: #{constants.$color-red-2};
+        --status-danger: #ef4444;
         --status-warning: #{constants.$color-yellow};
         --status-warning-transparent: #{constants.$alpha-color-yellow-1};
-        --status-success: #{constants.$color-green-3};
+        --status-success: #22c55e;
         --status-transfer: #{constants.$color-orange};
         --status-info: #{constants.$color-blue};
         --status-colored-background: #{constants.$color-white};

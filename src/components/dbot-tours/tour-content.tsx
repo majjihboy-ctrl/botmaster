@@ -303,7 +303,7 @@ const Step4 = ({ show_label = false }) => (
             </ul>
             <div className='joyride-content__left joyride-content__with-icon'>
                 <div className='joyride-content__with-icon__left'>
-                    <LabelPairedCircleCheckMdFillIcon className='db-contract-card__result-icon' fill='#4bb4b3' />
+                    <LabelPairedCircleCheckMdFillIcon className='db-contract-card__result-icon' fill='#22c55e' />
                 </div>
                 <div className='joyride-content__with-icon__right'>
                     <Localize

@@ -38,7 +38,7 @@
         align-items: center;
         gap: 0.6rem;
         font-size: var(--text-size-xxs);
-        color: #16a34a;
+        color: var(--status-success);
         font-weight: 600;
     }
 
@@ -46,7 +46,7 @@
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: #16a34a;
+        background: var(--status-success);
         animation: updown-tool-blink 1.4s infinite;
     }
 
@@ -144,12 +144,12 @@
 
         &.up .updown-tool__ratio-arrow,
         &.up .updown-tool__ratio-value {
-            color: #22c55e;
+            color: var(--status-success);
         }
 
         &.down .updown-tool__ratio-arrow,
         &.down .updown-tool__ratio-value {
-            color: #ef4444;
+            color: var(--status-danger);
         }
     }
 
@@ -175,11 +175,11 @@
         background: var(--general-section-1);
 
         .up {
-            background: #22c55e;
+            background: var(--status-success);
         }
 
         .down {
-            background: #ef4444;
+            background: var(--status-danger);
         }
     }
 
@@ -216,11 +216,11 @@
         font-size: var(--text-size-m);
 
         &.up {
-            color: #22c55e;
+            color: var(--status-success);
         }
 
         &.down {
-            color: #ef4444;
+            color: var(--status-danger);
         }
     }
 
@@ -250,11 +250,11 @@
         font-size: var(--text-size-s);
 
         &.up {
-            color: #22c55e;
+            color: var(--status-success);
         }
 
         &.down {
-            color: #ef4444;
+            color: var(--status-danger);
         }
     }
 
@@ -294,12 +294,12 @@
         }
 
         .up {
-            color: #22c55e;
+            color: var(--status-success);
             font-weight: 600;
         }
 
         .down {
-            color: #ef4444;
+            color: var(--status-danger);
             font-weight: 600;
         }
     }
@@ -320,11 +320,11 @@
         margin-bottom: 1rem;
 
         &.up {
-            color: #22c55e;
+            color: var(--status-success);
         }
 
         &.down {
-            color: #ef4444;
+            color: var(--status-danger);
         }
     }
 
@@ -359,11 +359,11 @@
         height: 100%;
 
         &.up {
-            background: #22c55e;
+            background: var(--status-success);
         }
 
         &.down {
-            background: #ef4444;
+            background: var(--status-danger);
         }
     }
 
@@ -391,11 +391,11 @@
         background: var(--general-section-1);
 
         &.up {
-            color: #22c55e;
+            color: var(--status-success);
         }
 
         &.down {
-            color: #ef4444;
+            color: var(--status-danger);
         }
 
         &.flat {
