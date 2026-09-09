@@ -35,6 +35,15 @@ const RefreshBalanceButton = observer(() => {
         setStatus('loading');
         setMessage('');
 
+        // api_base.api is null until the socket connection is fully up —
+        // calling .send on it directly throws and used to fall through to
+        // a generic "Something went wrong" with no real explanation.
+        if (!api_base.api || api_base.api.connection?.readyState !== 1) {
+            setStatus('error');
+            setMessage(localize('Not connected yet — wait a moment for the connection to come back and try again.'));
+            return;
+        }
+
         try {
             const topup_res = await api_base.api.send({ topup_virtual: 1 });
 
@@ -63,8 +72,16 @@ const RefreshBalanceButton = observer(() => {
                 setMessage(localize('Balance topped up.'));
             }
         } catch (err: any) {
+            // deriv-api rejects (rather than resolving with .error) on
+            // connection-level failures, so the useful message can live at
+            // err.error.message, err.message, or occasionally be absent
+            // entirely (e.g. the socket dropped mid-request).
             setStatus('error');
-            setMessage(err?.message || localize('Something went wrong. Please try again.'));
+            setMessage(
+                err?.error?.message ||
+                    err?.message ||
+                    localize('Lost connection while resetting — please check your connection and try again.')
+            );
         }
     };
 
