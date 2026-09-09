@@ -280,4 +280,39 @@ export class DerivWSAccountsService {
             throw error;
         }
     }
+
+    /**
+     * Resets a demo account's balance back to its default ($10,000) via
+     * Deriv's Options REST API. There is no WebSocket equivalent — this API
+     * only exposes it as POST /accounts/{account_id}/reset-demo-balance,
+     * unlike the classic API's `topup_virtual` WS call which does not exist
+     * on this platform (sending it returns "Unrecognised request").
+     * Success is a 200 with an empty body; the caller must re-fetch the
+     * balance afterwards to get the new figure.
+     * @param accessToken Bearer token from OAuth authentication
+     * @param accountId The demo account's login ID
+     */
+    static async resetDemoBalance(accessToken: string, accountId: string): Promise<void> {
+        const baseURL = this.getDerivWSBaseURL();
+        const optionsDir = brandConfig.platform.derivws.directories.options;
+        const endpoint = `${baseURL}${optionsDir}accounts/${accountId}/reset-demo-balance`;
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        if (!response.ok) {
+            let message = `Failed to reset balance: ${response.status} ${response.statusText}`;
+            try {
+                const body = await response.json();
+                message = body?.errors?.[0]?.message || message;
+            } catch {
+                // response had no JSON body — keep the status-based message
+            }
+            throw new Error(message);
+        }
+    }
 }

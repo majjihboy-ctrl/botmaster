@@ -3,6 +3,8 @@ import { observer } from 'mobx-react-lite';
 import { Localize, localize } from '@deriv-com/translations';
 import { LegacyRefresh1pxIcon } from '@deriv/quill-icons/Legacy';
 import { api_base } from '@/external/bot-skeleton';
+import { getAuthInfo } from '@/external/deriv-core';
+import { DerivWSAccountsService } from '@/services/derivws-accounts.service';
 import { useStore } from '@/hooks/useStore';
 import './refresh-balance-button.scss';
 
@@ -35,33 +37,30 @@ const RefreshBalanceButton = observer(() => {
         setStatus('loading');
         setMessage('');
 
-        // api_base.api is null until the socket connection is fully up —
-        // calling .send on it directly throws and used to fall through to
-        // a generic "Something went wrong" with no real explanation.
-        if (!api_base.api || api_base.api.connection?.readyState !== 1) {
+        // This platform's Options API has no WebSocket topup_virtual call —
+        // that's classic-API-only and this backend rejects it outright with
+        // "Unrecognised request". Resetting a demo balance here only exists
+        // as a REST endpoint, so it needs the OAuth access token + account id
+        // rather than the WS connection.
+        const auth_info = getAuthInfo();
+        const account_id = localStorage.getItem('active_loginid');
+
+        if (!auth_info?.access_token || !account_id) {
             setStatus('error');
-            setMessage(localize('Not connected yet — wait a moment for the connection to come back and try again.'));
+            setMessage(localize('Not signed in — please log in and try again.'));
             return;
         }
 
         try {
-            const topup_res = await api_base.api.send({ topup_virtual: 1 });
+            await DerivWSAccountsService.resetDemoBalance(auth_info.access_token, account_id);
 
-            if (topup_res?.error) {
-                // Deriv only allows a top-up once the balance is genuinely
-                // low — this is expected/documented behavior, not a bug.
-                // Show Deriv's own message directly rather than guessing at
-                // its exact error code.
-                setStatus('error');
-                setMessage(topup_res.error.message || localize('Could not reset balance. Please try again.'));
-                return;
+            // The reset endpoint returns no body, so the WS balance call is
+            // still needed to pull the actual new figure to display.
+            let new_balance: number | undefined;
+            if (api_base.api && api_base.api.connection?.readyState === 1) {
+                const balance_res = await api_base.api.send({ balance: 1 });
+                new_balance = balance_res?.balance?.balance;
             }
-
-            // topup_virtual's own response is just the top-up event details,
-            // not the resulting balance — fetch the real current balance
-            // right after so the figure shown is accurate.
-            const balance_res = await api_base.api.send({ balance: 1 });
-            const new_balance = balance_res?.balance?.balance;
 
             if (typeof new_balance === 'number') {
                 client.setBalance(new_balance.toString());
@@ -69,19 +68,11 @@ const RefreshBalanceButton = observer(() => {
                 setMessage(localize('Balance reset to {{amount}}', { amount: new_balance.toLocaleString() }));
             } else {
                 setStatus('success');
-                setMessage(localize('Balance topped up.'));
+                setMessage(localize('Balance reset — refresh to see the new amount.'));
             }
         } catch (err: any) {
-            // deriv-api rejects (rather than resolving with .error) on
-            // connection-level failures, so the useful message can live at
-            // err.error.message, err.message, or occasionally be absent
-            // entirely (e.g. the socket dropped mid-request).
             setStatus('error');
-            setMessage(
-                err?.error?.message ||
-                    err?.message ||
-                    localize('Lost connection while resetting — please check your connection and try again.')
-            );
+            setMessage(err?.message || localize('Could not reset balance. Please try again.'));
         }
     };
 
@@ -108,7 +99,7 @@ const RefreshBalanceButton = observer(() => {
                         <Localize i18n_default_text='Reset demo balance' />
                     </p>
                     <p className='refresh-balance__hint'>
-                        <Localize i18n_default_text='Tops your demo balance back up. Only works once your balance has actually run low.' />
+                        <Localize i18n_default_text='Resets your demo balance back to the default $10,000.' />
                     </p>
 
                     {status === 'error' && <p className='refresh-balance__message error'>{message}</p>}
