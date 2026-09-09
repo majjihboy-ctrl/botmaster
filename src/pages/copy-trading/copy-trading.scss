@@ -1,0 +1,290 @@
+@use 'components/shared/styles/mixins' as *;
+
+.copy-trading {
+    height: var(--tab-content-height);
+    overflow-y: auto;
+    padding: 1.6rem;
+    padding-bottom: 6rem;
+    background: var(--general-section-1);
+
+    @include mobile-or-tablet-screen {
+        height: var(--tab-content-height-mobile);
+        padding-bottom: 8rem;
+    }
+
+    &__topbar {
+        margin-bottom: 1.6rem;
+    }
+
+    &__title {
+        margin-bottom: 0.6rem;
+
+        h1 {
+            font-size: var(--text-size-m);
+            font-weight: 700;
+            color: var(--text-prominent);
+        }
+    }
+
+    &__field-label {
+        font-size: var(--text-size-xxs);
+        color: var(--text-less-prominent);
+        font-weight: 500;
+    }
+
+    &__field-hint {
+        font-size: var(--text-size-xxs);
+        color: var(--text-less-prominent);
+        line-height: 1.5;
+        margin: 0;
+
+        &.small {
+            font-size: 1rem;
+            opacity: 0.85;
+        }
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 1.6rem;
+
+        @include mobile-or-tablet-screen {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    &__col-main,
+    &__col-side {
+        display: flex;
+        flex-direction: column;
+        gap: 1.6rem;
+        min-width: 0;
+    }
+
+    &__panel {
+        background: var(--general-main-1);
+        border: 1px solid var(--border-divider);
+        border-radius: 10px;
+        padding: 1.8rem;
+        box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+        display: flex;
+        flex-direction: column;
+        gap: 1.2rem;
+
+        h2 {
+            font-size: var(--text-size-xxs);
+            color: var(--text-less-prominent);
+            letter-spacing: 0.04em;
+            margin: 0;
+            text-transform: uppercase;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+    }
+
+    &__field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        flex: 1;
+    }
+
+    &__field-row {
+        display: flex;
+        gap: 1.2rem;
+
+        @include mobile-or-tablet-screen {
+            flex-direction: column;
+        }
+    }
+
+    &__inline-form {
+        display: flex;
+        gap: 0.8rem;
+    }
+
+    input[type='text'],
+    input[type='password'],
+    input[type='number'] {
+        background: var(--general-section-1);
+        border: 1px solid var(--border-divider);
+        color: var(--text-prominent);
+        font-size: var(--text-size-xs);
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        outline: none;
+        width: 100%;
+
+        &:focus {
+            border-color: var(--brand-red-coral);
+        }
+    }
+
+    &__btn {
+        border: none;
+        border-radius: 8px;
+        font-size: var(--text-size-xs);
+        font-weight: 700;
+        padding: 0.9rem 1.6rem;
+        cursor: pointer;
+        transition: filter 0.15s ease;
+        white-space: nowrap;
+
+        &:hover:not(:disabled) {
+            filter: brightness(1.08);
+        }
+        &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        &.primary {
+            background: var(--brand-red-coral);
+            color: #fff;
+        }
+        &.secondary {
+            background: var(--general-section-1);
+            color: var(--text-prominent);
+            border: 1px solid var(--border-divider);
+        }
+        &.danger {
+            background: var(--status-danger, #ef4444);
+            color: #fff;
+        }
+        &.small {
+            padding: 0.5rem 1rem;
+            font-size: var(--text-size-xxs);
+        }
+    }
+
+    &__message {
+        margin: 0;
+        font-size: var(--text-size-xxs);
+        font-weight: 600;
+        padding: 0.8rem 1rem;
+        border-radius: 6px;
+        line-height: 1.4;
+
+        &.error {
+            background: rgba(239, 68, 68, 0.12);
+            color: var(--status-danger, #ef4444);
+        }
+        &.success {
+            background: rgba(34, 197, 94, 0.12);
+            color: var(--status-success, #22c55e);
+        }
+    }
+
+    &__empty-state {
+        color: var(--text-less-prominent);
+        text-align: center;
+        padding: 1.6rem 1rem;
+        font-size: var(--text-size-xs);
+    }
+
+    &__empty-value {
+        color: var(--text-less-prominent);
+        opacity: 0.6;
+    }
+
+    &__refresh-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-less-prominent);
+        cursor: pointer;
+        font-size: 1.4rem;
+        padding: 0;
+        transition: color 0.15s ease, transform 0.15s ease;
+
+        &:hover {
+            color: var(--brand-red-coral);
+            transform: rotate(90deg);
+        }
+    }
+
+    &__remembered-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+
+    &__remembered-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        background: var(--general-section-1);
+        border-radius: 8px;
+        border: 1px solid var(--border-divider);
+    }
+
+    &__remembered-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+
+        .name {
+            font-size: var(--text-size-xs);
+            font-weight: 700;
+            color: var(--text-prominent);
+        }
+        .date {
+            font-size: 1rem;
+            color: var(--text-less-prominent);
+        }
+    }
+
+    // Adaptive rendering of whatever Deriv actually returns
+    &__adaptive-object {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    &__adaptive-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border-divider);
+        font-size: var(--text-size-xxs);
+
+        &:last-child {
+            border-bottom: none;
+        }
+    }
+
+    &__adaptive-key {
+        color: var(--text-less-prominent);
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+
+    &__adaptive-value {
+        color: var(--text-prominent);
+        text-align: right;
+        word-break: break-word;
+    }
+
+    &__adaptive-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+
+    &__adaptive-list-item {
+        padding: 0.8rem;
+        background: var(--general-section-1);
+        border-radius: 6px;
+    }
+
+    &__stats-result,
+    &__list-result {
+        background: var(--general-section-1);
+        border-radius: 8px;
+        padding: 1.2rem;
+    }
+}

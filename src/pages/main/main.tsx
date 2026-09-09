@@ -36,6 +36,7 @@ import {
     LabelPairedChartTrendUpCaptionRegularIcon,
     LabelPairedObjectsColumnCaptionRegularIcon,
     LabelPairedArrowsRotateCaptionRegularIcon,
+    LabelPairedUsersCaptionRegularIcon,
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
     LabelPairedSignalCaptionRegularIcon,
     LabelPairedStarCaptionRegularIcon,
@@ -48,6 +49,7 @@ import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
 import FreeBotsTab from '../free-bots/free-bots-tab';
+import CopyTrading from '../copy-trading';
 import Signals from '../signals';
 import DigitPattern from '../digit-pattern';
 import UpsDownsTool from '../ups-downs-tool';
@@ -496,6 +498,21 @@ const AppWrapper = observer(() => {
                                 id='id-signals'
                             >
                                 <Signals />
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedUsersCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='currentColor'
+                                        />
+                                        <Localize i18n_default_text='Copy Trading' />
+                                    </>
+                                }
+                                id='id-copy-trading'
+                            >
+                                <CopyTrading />
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
