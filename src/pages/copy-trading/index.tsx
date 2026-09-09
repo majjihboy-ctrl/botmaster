@@ -132,11 +132,6 @@ const CopyTrading = observer(() => {
                 <div className='copy-trading__title'>
                     <h1>{localize('Copy Trading')}</h1>
                 </div>
-                <p className='copy-trading__field-hint'>
-                    {localize(
-                        "Copy another trader's real trades automatically, or let others copy yours. Deriv requires the trader's own API token to start — there's no public trader directory in the API, so you'll need to get it from them directly."
-                    )}
-                </p>
             </div>
 
             <div className='copy-trading__grid'>
@@ -146,7 +141,7 @@ const CopyTrading = observer(() => {
 
                         <div className='copy-trading__field-group'>
                             <label className='copy-trading__field-label' htmlFor='ct-nickname'>
-                                {localize('Nickname (for your reference only)')}
+                                {localize('Nickname')}
                             </label>
                             <input
                                 id='ct-nickname'
@@ -169,15 +164,12 @@ const CopyTrading = observer(() => {
                                 onChange={e => setToken(e.target.value)}
                                 placeholder={localize('Paste the token they shared with you')}
                             />
-                            <p className='copy-trading__field-hint small'>
-                                {localize('Stored only in this browser, only to let you Stop copying later. Never shared anywhere else.')}
-                            </p>
                         </div>
 
                         <div className='copy-trading__field-row'>
                             <div className='copy-trading__field-group'>
                                 <label className='copy-trading__field-label' htmlFor='ct-assets'>
-                                    {localize('Assets (optional)')}
+                                    {localize('Assets')}
                                 </label>
                                 <input
                                     id='ct-assets'
@@ -189,7 +181,7 @@ const CopyTrading = observer(() => {
                             </div>
                             <div className='copy-trading__field-group'>
                                 <label className='copy-trading__field-label' htmlFor='ct-trade-types'>
-                                    {localize('Trade types (optional)')}
+                                    {localize('Trade types')}
                                 </label>
                                 <input
                                     id='ct-trade-types'
@@ -204,7 +196,7 @@ const CopyTrading = observer(() => {
                         <div className='copy-trading__field-row'>
                             <div className='copy-trading__field-group'>
                                 <label className='copy-trading__field-label' htmlFor='ct-min-stake'>
-                                    {localize('Min trade stake (optional)')}
+                                    {localize('Min trade stake')}
                                 </label>
                                 <input
                                     id='ct-min-stake'
@@ -216,7 +208,7 @@ const CopyTrading = observer(() => {
                             </div>
                             <div className='copy-trading__field-group'>
                                 <label className='copy-trading__field-label' htmlFor='ct-max-stake'>
-                                    {localize('Max trade stake (optional)')}
+                                    {localize('Max trade stake')}
                                 </label>
                                 <input
                                     id='ct-max-stake'
@@ -316,9 +308,6 @@ const CopyTrading = observer(() => {
                                 <AdaptiveView data={copy_list} />
                             </div>
                         )}
-                        <p className='copy-trading__field-hint small'>
-                            {localize('Shows everyone copying you and everyone you copy, as returned directly by Deriv.')}
-                        </p>
                     </div>
                 </div>
             </div>
