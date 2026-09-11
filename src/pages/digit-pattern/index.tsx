@@ -140,6 +140,13 @@ const DigitPattern = observer(() => {
                                 >
                                     Zig Zag
                                 </button>
+                                <button
+                                    className={strategy === 'mixed' ? 'active' : ''}
+                                    onClick={() => setStrategy('mixed')}
+                                    title='Randomly picks continuation or reversal on every single trade — no repeating pattern for a bad run of ticks to exploit'
+                                >
+                                    Mixed
+                                </button>
                             </div>
 
                             {mode === 'overunder' && (

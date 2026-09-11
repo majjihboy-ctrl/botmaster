@@ -297,7 +297,12 @@ export default class LoadModalStore {
         overrides: {
             digit_to_use?: number;
             purchase?: string;
-            purchase_pair?: [string, string]; // zigzag only — [AltFlag==0 value, AltFlag==1 value]
+            purchase_pair?: [string, string]; // zigzag/mixed only — [AltFlag==0 value, AltFlag==1 value]
+            // mixed strategy only — replaces the deterministic AltFlag = 1 - AltFlag
+            // toggle with a true random 0-or-1 pick each trade, so there's no
+            // repeating pattern (continuation, reversal, continuation, ...) for a
+            // bad run of ticks to line up against.
+            randomize_alt_flag?: boolean;
             symbol?: string;
             initial_stake?: number;
             martingale_mult?: number;
@@ -349,6 +354,54 @@ export default class LoadModalStore {
                 const list_field = block.querySelector(':scope > field[name="PURCHASE_LIST"]');
                 if (list_field) list_field.textContent = overrides.purchase as string;
             });
+        }
+
+        if (overrides.randomize_alt_flag) {
+            // There are two `variables_set AltFlag` blocks: one in
+            // INITIALIZATION (sets it to a fixed 0 - has a math_number value)
+            // and one in AFTERPURCHASE_STACK (the deterministic toggle - has a
+            // math_arithmetic value). Only the toggle one should become
+            // random; block IDs differ between the two bot XML files, so
+            // this is found by structure, not by ID.
+            const alt_flag_sets = Array.from(convertedDom.querySelectorAll('block[type="variables_set"]')).filter(
+                (block: Element) => block.querySelector(':scope > field[name="VAR"]')?.textContent?.trim() === 'AltFlag'
+            );
+            const toggle_block = alt_flag_sets.find(block =>
+                block.querySelector(':scope > value[name="VALUE"] > block[type="math_arithmetic"]')
+            );
+            const value_el = toggle_block?.querySelector(':scope > value[name="VALUE"]');
+            if (value_el) {
+                while (value_el.firstChild) value_el.removeChild(value_el.firstChild);
+                const random_block = convertedDom.createElement('block');
+                random_block.setAttribute('type', 'math_random_int');
+                random_block.setAttribute('id', window.Blockly.utils.idGenerator.genUid());
+
+                const from_value = convertedDom.createElement('value');
+                from_value.setAttribute('name', 'FROM');
+                const from_num = convertedDom.createElement('block');
+                from_num.setAttribute('type', 'math_number');
+                from_num.setAttribute('id', window.Blockly.utils.idGenerator.genUid());
+                const from_field = convertedDom.createElement('field');
+                from_field.setAttribute('name', 'NUM');
+                from_field.textContent = '0';
+                from_num.appendChild(from_field);
+                from_value.appendChild(from_num);
+
+                const to_value = convertedDom.createElement('value');
+                to_value.setAttribute('name', 'TO');
+                const to_num = convertedDom.createElement('block');
+                to_num.setAttribute('type', 'math_number');
+                to_num.setAttribute('id', window.Blockly.utils.idGenerator.genUid());
+                const to_field = convertedDom.createElement('field');
+                to_field.setAttribute('name', 'NUM');
+                to_field.textContent = '1';
+                to_num.appendChild(to_field);
+                to_value.appendChild(to_num);
+
+                random_block.appendChild(from_value);
+                random_block.appendChild(to_value);
+                value_el.appendChild(random_block);
+            }
         }
 
         if (overrides.symbol) {

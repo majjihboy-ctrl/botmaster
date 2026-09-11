@@ -4,7 +4,7 @@ import { DBOT_TABS } from '@/constants/bot-contents';
 import { NOTIFICATION_TYPE } from '@/components/bot-notification/bot-notification-utils';
 import { TSignalDirection } from '@/pages/signals/use-signal-streak';
 
-export type TTradeStrategy = 'reversal' | 'continuation' | 'zigzag';
+export type TTradeStrategy = 'reversal' | 'continuation' | 'zigzag' | 'mixed';
 
 export type TLaunchXmlBotParams = {
     mode: 'evenodd' | 'overunder';
@@ -29,14 +29,17 @@ export const opposite = (dir: TSignalDirection): TSignalDirection => {
 
 // Reversal bets the streak snaps back (trade the opposite of what just ran);
 // continuation bets the streak keeps running (trade the same direction).
-// Zigzag has no single direction — it alternates every trade inside the bot
-// itself (see AltFlag in the XML), so this is only meaningful for reversal/continuation.
+// Zigzag and mixed have no single direction — both alternate every trade
+// inside the bot itself via AltFlag (see the XML): zigzag flips it
+// deterministically (1, 0, 1, 0...), mixed picks it with a real coin flip
+// each trade, so there's no repeating pattern for a bad run to line up
+// against. This function is only meaningful for reversal/continuation.
 export const resolveTradeDirection = (dir: TSignalDirection, strategy: TTradeStrategy): TSignalDirection =>
     strategy === 'reversal' ? opposite(dir) : dir;
 
-// Human-readable direction label for UI hints, covering all three strategies.
+// Human-readable direction label for UI hints, covering all four strategies.
 export const describeTradeDirection = (dir: TSignalDirection, strategy: TTradeStrategy): string => {
-    if (strategy === 'zigzag') {
+    if (strategy === 'zigzag' || strategy === 'mixed') {
         return `${dir.toUpperCase()} ⇄ ${opposite(dir).toUpperCase()}`;
     }
     return resolveTradeDirection(dir, strategy).toUpperCase();
@@ -97,12 +100,17 @@ export const launchXmlBot = async (
     await load_modal.loadFreeBotWithOverrides(bot, {
         digit_to_use: params.digit,
         purchase,
-        // Only meaningful for zigzag — the XML alternates between these two
-        // every trade via its own AltFlag, ignored otherwise.
+        // Zigzag and mixed both alternate between the two contract types
+        // every trade via the XML's own AltFlag; only meaningful for those
+        // two strategies, ignored otherwise.
         purchase_pair:
-            params.strategy === 'zigzag'
+            params.strategy === 'zigzag' || params.strategy === 'mixed'
                 ? [PURCHASE_BY_DIRECTION[continuation_direction], PURCHASE_BY_DIRECTION[reversal_direction]]
                 : undefined,
+        // Mixed strategy: AltFlag becomes a real coin flip each trade
+        // instead of zigzag's deterministic 1,0,1,0 toggle - no repeating
+        // pattern for a bad run of ticks to line up against.
+        randomize_alt_flag: params.strategy === 'mixed',
         symbol: params.symbol,
         initial_stake: params.initial_stake,
         martingale_mult: params.martingale_mult,
