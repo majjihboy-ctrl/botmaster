@@ -372,34 +372,17 @@ export default class LoadModalStore {
             const value_el = toggle_block?.querySelector(':scope > value[name="VALUE"]');
             if (value_el) {
                 while (value_el.firstChild) value_el.removeChild(value_el.firstChild);
-                const random_block = convertedDom.createElement('block');
-                random_block.setAttribute('type', 'math_random_int');
-                random_block.setAttribute('id', window.Blockly.utils.idGenerator.genUid());
 
-                const from_value = convertedDom.createElement('value');
-                from_value.setAttribute('name', 'FROM');
-                const from_num = convertedDom.createElement('block');
-                from_num.setAttribute('type', 'math_number');
-                from_num.setAttribute('id', window.Blockly.utils.idGenerator.genUid());
-                const from_field = convertedDom.createElement('field');
-                from_field.setAttribute('name', 'NUM');
-                from_field.textContent = '0';
-                from_num.appendChild(from_field);
-                from_value.appendChild(from_num);
-
-                const to_value = convertedDom.createElement('value');
-                to_value.setAttribute('name', 'TO');
-                const to_num = convertedDom.createElement('block');
-                to_num.setAttribute('type', 'math_number');
-                to_num.setAttribute('id', window.Blockly.utils.idGenerator.genUid());
-                const to_field = convertedDom.createElement('field');
-                to_field.setAttribute('name', 'NUM');
-                to_field.textContent = '1';
-                to_num.appendChild(to_field);
-                to_value.appendChild(to_num);
-
-                random_block.appendChild(from_value);
-                random_block.appendChild(to_value);
+                // Built as an XML string and re-parsed via textToDom rather
+                // than assembled with document.createElement — this is a
+                // genuine XML document (Blockly namespace), and plain
+                // createElement produces un-namespaced nodes that Blockly's
+                // loader silently chokes on, breaking the whole bot load.
+                // This exact string-then-parse approach is what the rest of
+                // this codebase already uses for inserting new blocks (see
+                // scratch/hooks/data_category.js).
+                const random_xml = `<xml><block type="math_random_int" id="${window.Blockly.utils.idGenerator.genUid()}"><value name="FROM"><block type="math_number" id="${window.Blockly.utils.idGenerator.genUid()}"><field name="NUM">0</field></block></value><value name="TO"><block type="math_number" id="${window.Blockly.utils.idGenerator.genUid()}"><field name="NUM">1</field></block></value></block></xml>`;
+                const random_block = window.Blockly.utils.xml.textToDom(random_xml).firstChild;
                 value_el.appendChild(random_block);
             }
         }
