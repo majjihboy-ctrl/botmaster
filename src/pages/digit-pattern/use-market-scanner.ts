@@ -136,6 +136,19 @@ const publish = () => {
 
 const HISTORY_COUNT = 120; // enough to reveal any streak already in progress without being a heavy request
 
+// A quick tab flick (leave Digit Pattern, immediately come back) shouldn't
+// force a full re-teardown + re-fetch — only a genuine "nobody's watching
+// this for a while" gets the subscriptions actually cut.
+const TEARDOWN_GRACE_MS = 30_000;
+let teardown_timer: ReturnType<typeof setTimeout> | null = null;
+
+const cancelPendingTeardown = () => {
+    if (teardown_timer) {
+        clearTimeout(teardown_timer);
+        teardown_timer = null;
+    }
+};
+
 const teardown = () => {
     singleton.message_subscription?.unsubscribe();
     singleton.message_subscription = null;
@@ -149,7 +162,32 @@ const teardown = () => {
     }
 };
 
+// Called once the last component watching the scanner unmounts. After the
+// grace period, if still nobody's watching, actually cut every market's
+// subscription and reset state so the NEXT open does a genuine fresh start
+// (history + resubscribe) instead of silently no-op'ing against stale keys.
+const scheduleTeardownIfIdle = () => {
+    cancelPendingTeardown();
+    teardown_timer = setTimeout(() => {
+        teardown_timer = null;
+        if (singleton.listeners.size > 0) return; // someone came back during the grace window
+        teardown();
+        singleton.current_key = null;
+        singleton.current_config_key = null;
+        singleton.stateRef = new Map();
+        singleton.entries = [];
+        singleton.is_loading = true;
+        singleton.connected_count = 0;
+        notify();
+    }, TEARDOWN_GRACE_MS);
+};
+
 const ensureScannerRunning = (symbols: TSymbolOption[], mode: TScanMode, threshold_digit: number) => {
+    // A component is actively asking for the scan to be running — whatever
+    // teardown might have been scheduled from a previous unmount no longer
+    // applies.
+    cancelPendingTeardown();
+
     const symbol_key = symbols
         .map(s => s.symbol)
         .sort()
@@ -282,8 +320,12 @@ const subscribe = (onStoreChange: () => void) => {
     singleton.listeners.add(listener);
     return () => {
         singleton.listeners.delete(listener);
-        // Deliberately no teardown here — the scan keeps running in the
-        // background so switching tabs away and back never loses progress.
+        if (singleton.listeners.size === 0) {
+            // Nobody's displaying this scan anymore. Give it a short grace
+            // period (a quick tab flick shouldn't cost a full re-fetch)
+            // before actually cutting every market's subscription.
+            scheduleTeardownIfIdle();
+        }
     };
 };
 
