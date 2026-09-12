@@ -267,7 +267,13 @@ export default class JournalStore {
         const unique_id = uuidv4();
 
         this.unfiltered_messages.unshift({ date, time, message, message_type, className, unique_id, extra });
-        this.unfiltered_messages = this.unfiltered_messages.slice(); // force array update
+        // Without a cap here, a bot logging steadily over a long unattended
+        // session grows this array forever — increasing memory use and,
+        // since every new entry re-copies the whole array below, making
+        // each successive log line slightly slower to add than the last.
+        // 5000 matches the limit already used when persisting to storage
+        // just below, in the reaction at the bottom of this store.
+        this.unfiltered_messages = this.unfiltered_messages.slice(0, 5000); // force array update, capped
     }
 
     // Method to update the existing stat message instead of creating a new one

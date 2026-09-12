@@ -96,6 +96,24 @@ const singleton: TScannerSingleton = {
 
 const notify = () => singleton.listeners.forEach(l => l());
 
+// publish() rebuilds the whole scan list (up to 18 markets × 10 digits) and
+// sorts it, then notify() triggers a React re-render. Calling that on every
+// single incoming tick — with up to 18 markets ticking independently, often
+// several times a second in aggregate — made the list re-render dozens of
+// times a second even though a human can't perceive updates that fast. The
+// underlying state (stateRef) is still updated instantly and correctly per
+// tick below; only the expensive rebuild+render step is coalesced.
+const PUBLISH_THROTTLE_MS = 300;
+let publish_timer: ReturnType<typeof setTimeout> | null = null;
+
+const schedulePublish = () => {
+    if (publish_timer) return; // a publish is already queued — this tick's data is already captured in stateRef
+    publish_timer = setTimeout(() => {
+        publish_timer = null;
+        publish();
+    }, PUBLISH_THROTTLE_MS);
+};
+
 const publish = () => {
     const out: TScanEntry[] = [];
     singleton.stateRef.forEach((st, symbol) => {
@@ -125,6 +143,10 @@ const teardown = () => {
         api_base.api.send({ forget: id }).catch(() => {});
     });
     singleton.subscription_ids = [];
+    if (publish_timer) {
+        clearTimeout(publish_timer);
+        publish_timer = null;
+    }
 };
 
 const ensureScannerRunning = (symbols: TSymbolOption[], mode: TScanMode, threshold_digit: number) => {
@@ -201,7 +223,7 @@ const ensureScannerRunning = (symbols: TSymbolOption[], mode: TScanMode, thresho
             run.direction = direction;
             run.count = 1;
         }
-        publish();
+        schedulePublish();
     });
 
     (async () => {

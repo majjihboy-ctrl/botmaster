@@ -37,6 +37,12 @@ export const useCopyEngine = () => {
     const master_conn_ref = useRef<MasterConnection | null>(null);
     const settings_ref = useRef<TCopySettings>(settings);
     const currency_ref = useRef<string>('USD');
+    // Tracks every open proposal_open_contract listener for a trade that
+    // hasn't settled yet. Without this, stopping mid-trade (or unmounting)
+    // leaves the listener attached forever — it never unsubscribes itself
+    // since it only does that once the contract sells, and every dangling
+    // one keeps inspecting every single incoming WS message from then on.
+    const pending_subscriptions_ref = useRef<Set<{ unsubscribe: () => void }>>(new Set());
     const follower_outcomes_ref = useRef<boolean[]>([]); // for martingale/compounding — this account's own results
     const master_outcomes_ref = useRef<boolean[]>([]); // for wait_for_loss — the master's own results
     const session_profit_ref = useRef(0);
@@ -105,6 +111,7 @@ export const useCopyEngine = () => {
             patchLog(log_id, { status: win ? 'won' : 'lost', profit });
 
             subscription.unsubscribe();
+            pending_subscriptions_ref.current.delete(subscription);
 
             const reason = checkSessionLimits();
             if (reason) {
@@ -112,6 +119,7 @@ export const useCopyEngine = () => {
                 stop();
             }
         });
+        pending_subscriptions_ref.current.add(subscription);
         api_base.api.send({ proposal_open_contract: 1, contract_id, subscribe: 1 });
     };
 
@@ -236,12 +244,19 @@ export const useCopyEngine = () => {
         running_ref.current = false;
         master_conn_ref.current?.close();
         master_conn_ref.current = null;
+        // Any trade still in flight when stopping loses its settlement
+        // listener here — without this, each one keeps inspecting every
+        // WS message forever.
+        pending_subscriptions_ref.current.forEach(sub => sub.unsubscribe());
+        pending_subscriptions_ref.current.clear();
         setStatus('stopped');
     }, []);
 
     useEffect(() => {
         return () => {
             master_conn_ref.current?.close();
+            pending_subscriptions_ref.current.forEach(sub => sub.unsubscribe());
+            pending_subscriptions_ref.current.clear();
         };
     }, []);
 

@@ -147,6 +147,7 @@ export class MasterConnection {
     }
 
     private handleMessage(event: MessageEvent) {
+        if (this.closed_by_caller) return; // stop() was called — ignore anything still in flight
         let data: any;
         try {
             data = JSON.parse(event.data);
