@@ -40,6 +40,7 @@ import {
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
     LabelPairedSignalCaptionRegularIcon,
     LabelPairedStarCaptionRegularIcon,
+    LabelPairedPlayLgFillIcon,
 } from '@deriv/quill-icons/LabelPaired';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
@@ -53,6 +54,7 @@ import CopyTrading from '../copy-trading';
 import Signals from '../signals';
 import DigitPattern from '../digit-pattern';
 import UpsDownsTool from '../ups-downs-tool';
+import CustomBots from '../custom-bots';
 import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
@@ -513,6 +515,21 @@ const AppWrapper = observer(() => {
                                 id='id-copy-trading'
                             >
                                 <CopyTrading />
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedPlayLgFillIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='currentColor'
+                                        />
+                                        <Localize i18n_default_text='Custom Bots' />
+                                    </>
+                                }
+                                id='id-custom-bots'
+                            >
+                                <CustomBots />
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
