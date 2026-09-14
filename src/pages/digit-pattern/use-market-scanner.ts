@@ -287,6 +287,10 @@ const subscribe = (onStoreChange: () => void) => {
     };
 };
 
+export const startMarketScanner = ensureScannerRunning;
+export const subscribeMarketScanner = subscribe;
+export const getMarketScannerSnapshot = () => cached_snapshot;
+
 /**
  * Subscribes to live ticks for every symbol given and incrementally tracks,
  * for every reference digit 0-9 on every market, the run of consecutive

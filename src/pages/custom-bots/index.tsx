@@ -30,19 +30,6 @@ const CustomBots = observer(() => {
     const currency = client?.currency || 'USD';
     const symbol_options = useSyntheticSymbols();
 
-    const engine_settings_boot = React.useMemo(() => {
-        try {
-            const raw = localStorage.getItem('custom_bots_settings');
-            return raw ? JSON.parse(raw) : {};
-        } catch {
-            return {};
-        }
-    }, []);
-
-    const [mode, setMode] = React.useState<TScanMode>(engine_settings_boot.mode ?? 'evenodd');
-    const [threshold_digit, setThresholdDigit] = React.useState(engine_settings_boot.threshold_digit ?? 5);
-
-    const scanner = useMarketScanner(symbol_options, mode, threshold_digit, false);
     const {
         settings,
         updateSettings,
@@ -57,7 +44,11 @@ const CustomBots = observer(() => {
         status_message,
         start,
         stop,
-    } = useCustomBotEngine(scanner.entries, currency);
+    } = useCustomBotEngine(currency, symbol_options);
+
+    const mode = settings.mode;
+    const threshold_digit = settings.threshold_digit;
+    const scanner = useMarketScanner(symbol_options, mode, threshold_digit, false);
 
     const is_running = status === 'running';
     const min_streak = settings.min_streak;
@@ -67,18 +58,11 @@ const CustomBots = observer(() => {
     const setStrategy = (v: TCustomStrategy) => updateSettings({ strategy: v });
     const setMinStreak = (v: number) => updateSettings({ min_streak: v });
 
-    const onMode = (v: TScanMode) => {
-        setMode(v);
-        updateSettings({ mode: v });
-    };
-    const onThreshold = (v: number) => {
-        setThresholdDigit(v);
-        updateSettings({ threshold_digit: v });
-    };
+    const onMode = (v: TScanMode) => updateSettings({ mode: v });
+    const onThreshold = (v: number) => updateSettings({ threshold_digit: v });
 
     const handleStart = () => {
         if (!is_logged_in || is_running) return;
-        updateSettings({ mode, threshold_digit });
         start();
     };
 
@@ -107,7 +91,7 @@ const CustomBots = observer(() => {
                 </div>
                 <p className='custom-bots__field-hint'>
                     {localize(
-                        `Runs on Deriv directly — no Bot Builder. Hunts the hottest ${min_streak}+ streak, trades it, hops after a loss with martingale, and hunts a new streak after a win.`
+                        `Runs on Deriv directly — no Bot Builder. Keeps trading if you switch tabs. Hunts the hottest ${min_streak}+ streak, hops after a loss with martingale, and hunts a new streak after a win.`
                     )}
                 </p>
             </div>
