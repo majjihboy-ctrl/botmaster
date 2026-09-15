@@ -105,6 +105,18 @@
         flex-wrap: wrap;
     }
 
+    &__exec-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1.2rem;
+        margin-bottom: 1.6rem;
+    }
+
+    &__exec-toggle {
+        margin-left: 0;
+    }
+
     &__view-toggle {
         display: flex;
         gap: 0.3rem;
@@ -508,6 +520,11 @@
 }
 
 @keyframes signals-blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
 }
