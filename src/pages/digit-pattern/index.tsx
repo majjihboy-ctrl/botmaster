@@ -5,8 +5,9 @@ import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import { localize } from '@deriv-com/translations';
 import { SliderField } from './reversal-trader-fields';
 import { loadLastSettings, saveLastSettings } from './trade-settings';
-import { launchXmlBot, describeTradeDirection, TTradeStrategy } from './launch-xml-bot';
-import { placeDirectTrade } from '@/pages/custom-bots/place-direct-trade';
+import { launchXmlBot, describeTradeDirection, resolveTradeDirection, TTradeStrategy } from './launch-xml-bot';
+import { startCustomEngineFromSignal } from '@/pages/custom-bots/use-custom-bot-engine';
+import { DBOT_TABS } from '@/constants/bot-contents';
 import { useMarketScanner, TScanMode, TScanEntry } from './use-market-scanner';
 import './digit-pattern.scss';
 
@@ -73,19 +74,25 @@ const DigitPattern = observer(() => {
         });
 
         if (execution_mode === 'custom') {
-            // Direct engine — places the trade immediately, almost never misses.
-            const result = await placeDirectTrade({
+            // Hand off to the continuous Custom Bots engine so trades are visible
+            // in that tab and martingale / risk limits keep running.
+            const engineStrategy =
+                strategy === 'reversal' || strategy === 'continuation' ? strategy : 'continuation';
+            const trade_dir = resolveTradeDirection(entry.direction, engineStrategy);
+            startCustomEngineFromSignal({
+                symbols: symbol_options,
                 mode,
-                symbol: entry.symbol,
-                digit: entry.digit,
-                direction: entry.direction,
-                strategy,
+                strategy: engineStrategy,
                 threshold_digit,
-                stake: initial_stake,
+                min_streak,
+                initial_stake,
+                martingale_mult,
+                max_martingale_steps,
+                stop_loss,
+                take_profit,
+                lock_direction: trade_dir,
             });
-            if (!result.ok) {
-                console.error('[Digit Pattern] Direct trade failed:', result.error);
-            }
+            dashboard.setActiveTab(DBOT_TABS.CUSTOM_BOTS);
         } else {
             // Classic Blockly path.
             await launchXmlBot(
