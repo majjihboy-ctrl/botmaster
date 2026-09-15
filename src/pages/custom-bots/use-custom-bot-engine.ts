@@ -115,12 +115,18 @@ const pickTarget = (
     entries: TScanEntry[],
     settings: TCustomBotSettings,
     last: TLastSetup | null,
-    last_market: string | null
+    last_market: string | null,
+    locked_direction: TScanDirection | null
 ): TLockedTarget | null => {
     const eligible = entries.filter(e => {
         if (e.count < settings.min_streak) return false;
         if (last && e.symbol === last.symbol && e.digit === last.digit) return false;
         if (settings.strategy === 'reversal' && last_market && e.symbol === last_market) return false;
+        // While recovering losses, stay on the same trade direction
+        if (locked_direction) {
+            const trade_dir = resolveTradeDirection(e.direction, settings.strategy);
+            if (trade_dir !== locked_direction) return false;
+        }
         return true;
     });
     if (!eligible.length) return null;
@@ -176,6 +182,7 @@ const in_trade = { current: false };
 const buying = { current: false };
 const last_setup = { current: null as TLastSetup | null };
 const last_market = { current: null as string | null };
+const locked_direction = { current: null as TScanDirection | null };
 const last_epoch = { current: null as number | null };
 const currency = { current: 'USD' };
 const symbols = { current: [] as TSymbolOption[] };
@@ -199,8 +206,12 @@ const hunt = () => {
     if (symbols.current.length) {
         startMarketScanner(symbols.current, s.mode, s.threshold_digit);
     }
-    const next = pickTarget(entriesNow(), s, last_setup.current, last_market.current);
+    const next = pickTarget(entriesNow(), s, last_setup.current, last_market.current, locked_direction.current);
     if (next) {
+        // Lock direction on the first trade of a sequence
+        if (!locked_direction.current) {
+            locked_direction.current = next.trade_direction;
+        }
         setLockedTarget(next);
         notify({ status_message: '' });
     } else {
@@ -221,6 +232,7 @@ const stopEngine = (reason?: string) => {
     in_trade.current = false;
     buying.current = false;
     target.current = null;
+    locked_direction.current = null;
     tick_unsub?.();
     tick_unsub = null;
     scanner_unsub?.();
@@ -245,6 +257,7 @@ const onSettled = (won: boolean, profit: number, traded: TLockedTarget) => {
 
     const limit = checkLimits();
     if (limit) {
+        locked_direction.current = null;
         stopEngine(limit);
         return;
     }
@@ -253,11 +266,13 @@ const onSettled = (won: boolean, profit: number, traded: TLockedTarget) => {
     if (won) {
         loss_streak.current = 0;
         stake.current = roundStake(snapshot.settings.initial_stake);
+        locked_direction.current = null; // unlock after a win
         notify({ loss_streak: 0, stake: stake.current });
     } else {
         const next_losses = loss_streak.current + 1;
         loss_streak.current = next_losses;
         if (next_losses >= snapshot.settings.max_martingale_steps) {
+            locked_direction.current = null;
             notify({ loss_streak: next_losses });
             stopEngine('max_martingale');
             return;
@@ -417,6 +432,7 @@ const startEngine = (next_currency: string, next_symbols: TSymbolOption[]) => {
     session_profit.current = 0;
     last_setup.current = null;
     last_market.current = null;
+    locked_direction.current = null;
     last_epoch.current = null;
     stake.current = roundStake(snapshot.settings.initial_stake);
 
