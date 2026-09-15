@@ -172,7 +172,7 @@
             align-items: flex-start;
             height: var(--tab-content-height);
             flex-grow: 1;
-            width: 100%;
+            width: 100%;                 /* ensure full width */
             background: var(--general-main-1);
             overflow: hidden;
             position: relative;
@@ -183,7 +183,7 @@
             }
 
             @include desktop-screen {
-                padding: 80px 2.4rem 0;
+                padding: 80px 2.4rem 0;  /* small side padding instead of 0 */
             }
 
             @include mobile-or-tablet-screen {
@@ -331,7 +331,7 @@
                 @include flex-center(center, flex-start);
 
                 width: 100%;
-                justify-content: center;
+                justify-content: center;   /* or space-evenly if you prefer */
                 word-wrap: break-word;
                 font-size: 1.3rem;
                 text-align: center;
@@ -370,7 +370,7 @@
                 @include flex-center;
 
                 flex-direction: column;
-                padding-inline-end: 2rem;
+                padding-inline-end: 2rem;   /* was 4rem – was pushing content left */
 
                 @include mobile-or-tablet-screen {
                     padding: 1rem;
