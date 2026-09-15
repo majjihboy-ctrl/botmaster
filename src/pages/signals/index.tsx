@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import { launchXmlBot, describeTradeDirection, TTradeStrategy } from '@/pages/digit-pattern/launch-xml-bot';
+import { placeDirectTrade } from '@/pages/custom-bots/place-direct-trade';
 import { loadLastSettings } from '@/pages/digit-pattern/trade-settings';
 import { useSignalStreak, useAllDigitStreaks, TSignalDirection, TDigitStreakRow } from './use-signal-streak';
 import './signals.scss';
@@ -143,31 +144,58 @@ const Signals = observer(() => {
         setViewMode('single');
     };
 
-    const tradeThis = async (digit: number, current_streak: number, current_direction: TSignalDirection | null) => {
-        if (!current_direction) return; // nothing to hand over — shouldn't happen from a "hot" row, but stay safe
+    const [execution_mode, setExecutionMode] = React.useState<'custom' | 'blockly'>(() => {
+        try {
+            const raw = localStorage.getItem('signals_execution_mode');
+            return raw === 'blockly' ? 'blockly' : 'custom';
+        } catch {
+            return 'custom';
+        }
+    });
+    const setModeAndPersist = (m: 'custom' | 'blockly') => {
+        setExecutionMode(m);
+        try { localStorage.setItem('signals_execution_mode', m); } catch {}
+    };
 
-        // Every real trade — whichever mode — now runs through the matching
-        // XML bot in Bot Builder. There is no separate custom trading
-        // engine anymore; this is the same launcher Digit Pattern's
-        // scanner "Enter" button uses, so behavior is identical either
-        // way you get here.
+    const tradeThis = async (digit: number, current_streak: number, current_direction: TSignalDirection | null) => {
+        if (!current_direction) return;
+
         const last = loadLastSettings();
-        await launchXmlBot(
-            { load_modal, dashboard, run_panel },
-            {
+        const stake = last.initial_stake ?? 0.35;
+
+        if (execution_mode === 'custom') {
+            // Direct engine — places the trade immediately, almost never misses.
+            const result = await placeDirectTrade({
                 mode: subTab,
                 symbol,
                 digit,
                 direction: current_direction,
                 strategy,
                 threshold_digit: overUnderThreshold,
-                initial_stake: last.initial_stake ?? 0.35,
-                martingale_mult: last.martingale_mult ?? 2,
-                max_martingale_steps: last.max_martingale_steps ?? 5,
-                stop_loss: last.stop_loss ?? 5,
-                take_profit: last.take_profit ?? 100,
+                stake,
+            });
+            if (!result.ok) {
+                console.error('[Signals] Direct trade failed:', result.error);
             }
-        );
+        } else {
+            // Classic Blockly path.
+            await launchXmlBot(
+                { load_modal, dashboard, run_panel },
+                {
+                    mode: subTab,
+                    symbol,
+                    digit,
+                    direction: current_direction,
+                    strategy,
+                    threshold_digit: overUnderThreshold,
+                    initial_stake: stake,
+                    martingale_mult: last.martingale_mult ?? 2,
+                    max_martingale_steps: last.max_martingale_steps ?? 5,
+                    stop_loss: last.stop_loss ?? 5,
+                    take_profit: last.take_profit ?? 100,
+                }
+            );
+        }
     };
 
     const is_live = viewMode === 'single' ? active.is_loading : activeAll.is_loading;
@@ -275,6 +303,22 @@ const Signals = observer(() => {
                         title='Randomly picks continuation or reversal on every single trade — no repeating pattern for a bad run of ticks to exploit'
                     >
                         Mixed
+                    </button>
+                </div>
+                <div className='signals__view-toggle' style={{ marginTop: '0.8rem', display: 'flex', gap: '0.5rem' }}>
+                    <button
+                        className={`signals__view-btn ${execution_mode === 'custom' ? 'active' : ''}`}
+                        onClick={() => setModeAndPersist('custom')}
+                        title='Places the trade immediately via live API — almost never misses the entry'
+                    >
+                        Custom Engine
+                    </button>
+                    <button
+                        className={`signals__view-btn ${execution_mode === 'blockly' ? 'active' : ''}`}
+                        onClick={() => setModeAndPersist('blockly')}
+                        title='Loads a Blockly XML bot into Bot Builder (classic path)'
+                    >
+                        Blockly
                     </button>
                 </div>
             </div>
