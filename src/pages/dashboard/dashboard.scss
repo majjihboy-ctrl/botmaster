@@ -172,6 +172,7 @@
             align-items: flex-start;
             height: var(--tab-content-height);
             flex-grow: 1;
+            width: 100%;
             background: var(--general-main-1);
             overflow: hidden;
             position: relative;
@@ -182,7 +183,7 @@
             }
 
             @include desktop-screen {
-                padding: 80px 0 0;
+                padding: 80px 2.4rem 0;
             }
 
             @include mobile-or-tablet-screen {
@@ -194,6 +195,7 @@
             .quick-panel {
                 flex: 1 1 100%;
                 width: 100%;
+                max-width: 100%;
                 box-sizing: border-box;
             }
 
@@ -328,6 +330,8 @@
             &__tiles {
                 @include flex-center(center, flex-start);
 
+                width: 100%;
+                justify-content: center;
                 word-wrap: break-word;
                 font-size: 1.3rem;
                 text-align: center;
@@ -366,7 +370,7 @@
                 @include flex-center;
 
                 flex-direction: column;
-                padding-inline-end: 4rem;
+                padding-inline-end: 2rem;
 
                 @include mobile-or-tablet-screen {
                     padding: 1rem;
