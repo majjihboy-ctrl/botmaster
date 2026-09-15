@@ -20,7 +20,7 @@ const phaseLabel = (phase: string, min_streak: number) => {
         case 'waiting':
             return localize(`Waiting for a ${min_streak}+ streak`);
         default:
-            return localize(`Hunting hottest ${min_streak}+ streak`);
+            return localize(`Hunting a random ${min_streak}+ streak`);
     }
 };
 
@@ -28,7 +28,10 @@ const CustomBots = observer(() => {
     const { client } = useStore() ?? {};
     const is_logged_in = !!client?.is_logged_in;
     const currency = client?.currency || 'USD';
-    const symbol_options = useSyntheticSymbols();
+    // Only Jump Indices (JD...) and plain volatility indices (R_...) — the
+    // 1-second volatility variants (1HZ... symbols) are deliberately
+    // excluded from this bot's hunting pool.
+    const symbol_options = useSyntheticSymbols().filter(s => !s.symbol.startsWith('1HZ'));
 
     const {
         settings,
@@ -91,7 +94,7 @@ const CustomBots = observer(() => {
                 </div>
                 <p className='custom-bots__field-hint'>
                     {localize(
-                        `Runs on Deriv directly — no Bot Builder. Keeps trading if you switch tabs. Hunts the hottest ${min_streak}+ streak, hops after a loss with martingale, and hunts a new streak after a win.`
+                        `Runs on Deriv directly — no Bot Builder. Keeps trading if you switch tabs. Hunts a random ${min_streak}+ streak, hops after a loss with martingale, and hunts a new streak after a win.`
                     )}
                 </p>
             </div>
@@ -122,7 +125,7 @@ const CustomBots = observer(() => {
                                     className={settings.strategy === 'continuation' ? 'active' : ''}
                                     disabled={is_running}
                                     onClick={() => setStrategy('continuation')}
-                                    title='Bet the streak keeps running. Loss hops to the hottest other 7+.'
+                                    title='Bet the streak keeps running. Loss hops to a random other 7+.'
                                 >
                                     Continuation
                                 </button>
@@ -130,7 +133,7 @@ const CustomBots = observer(() => {
                                     className={settings.strategy === 'reversal' ? 'active' : ''}
                                     disabled={is_running}
                                     onClick={() => setStrategy('reversal')}
-                                    title='Bet the streak snaps back. Loss hops to the hottest 7+ on another market.'
+                                    title='Bet the streak snaps back. Loss hops to a random 7+ on another market.'
                                 >
                                     Reversal
                                 </button>
@@ -176,7 +179,7 @@ const CustomBots = observer(() => {
                         <p className='custom-bots__field-hint'>
                             {settings.strategy === 'continuation'
                                 ? localize(
-                                      `Continuation buys the same direction as the streak. After a loss it jumps to whichever other ${min_streak}+ is hottest and keeps continuation until a win.`
+                                      `Continuation buys the same direction as the streak. After a loss it jumps to a random other ${min_streak}+ and keeps continuation until a win.`
                                   )
                                 : localize(
                                       `Reversal buys the opposite of the streak. After a loss it jumps to another market, finds a new digit on ${min_streak}+, and reverses that one — and so on until a win.`

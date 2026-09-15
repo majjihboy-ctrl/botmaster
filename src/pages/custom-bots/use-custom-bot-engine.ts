@@ -124,7 +124,7 @@ const pickTarget = (
         return true;
     });
     if (!eligible.length) return null;
-    const best = eligible.reduce((a, b) => (b.count > a.count ? b : a));
+    const best = eligible[Math.floor(Math.random() * eligible.length)];
     const trade_direction = resolveTradeDirection(best.direction, settings.strategy);
     return {
         symbol: best.symbol,
