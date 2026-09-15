@@ -115,7 +115,7 @@ const DigitPattern = observer(() => {
 
     return (
         <div className='digit-pattern'>
-            <div className='digit-pattern__topbar'>
+                        <div className='digit-pattern__topbar'>
                 <div className='digit-pattern__title'>
                     <h1>{localize('Digit Pattern')}</h1>
                     <span className={`digit-pattern__live ${scanner.is_loading ? 'connecting' : ''}`}>
@@ -125,7 +125,10 @@ const DigitPattern = observer(() => {
                             : `SCANNING ${scanner.total_count} MARKETS`}
                     </span>
                 </div>
-                <div className='digit-pattern__mode-toggle' style={{ marginBottom: '0.8rem' }}>
+            </div>
+
+            <div className='digit-pattern__exec-row'>
+                <div className='digit-pattern__mode-toggle digit-pattern__exec-toggle'>
                     <button
                         className={execution_mode === 'custom' ? 'active' : ''}
                         onClick={() => setModeAndPersist('custom')}
@@ -141,6 +144,12 @@ const DigitPattern = observer(() => {
                         Blockly
                     </button>
                 </div>
+                <p className='digit-pattern__field-hint'>
+                    {execution_mode === 'custom'
+                        ? localize('Custom Engine places the trade immediately — almost never misses the entry.')
+                        : localize('Blockly loads the strategy into Bot Builder. There can be a short delay before the entry.')}
+                </p>
+            </div>
                 <p className='digit-pattern__field-hint'>
                     {execution_mode === 'custom'
                         ? localize('Custom Engine places the trade immediately — almost never misses the entry.')
