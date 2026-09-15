@@ -6,6 +6,7 @@ import { localize } from '@deriv-com/translations';
 import { SliderField } from './reversal-trader-fields';
 import { loadLastSettings, saveLastSettings } from './trade-settings';
 import { launchXmlBot, describeTradeDirection, TTradeStrategy } from './launch-xml-bot';
+import { placeDirectTrade } from '@/pages/custom-bots/place-direct-trade';
 import { useMarketScanner, TScanMode, TScanEntry } from './use-market-scanner';
 import './digit-pattern.scss';
 
@@ -36,6 +37,18 @@ const DigitPattern = observer(() => {
 
     const [is_launching, setIsLaunching] = React.useState(false);
     const [launching_symbol, setLaunchingSymbol] = React.useState<string | null>(null);
+    const [execution_mode, setExecutionMode] = React.useState<'custom' | 'blockly'>(() => {
+        try {
+            const raw = localStorage.getItem('digit_pattern_execution_mode');
+            return raw === 'blockly' ? 'blockly' : 'custom';
+        } catch {
+            return 'custom';
+        }
+    });
+    const setModeAndPersist = (m: 'custom' | 'blockly') => {
+        setExecutionMode(m);
+        try { localStorage.setItem('digit_pattern_execution_mode', m); } catch {}
+    };
 
     // The scanner is pure detection — no real trades happen here, so it
     // never needs to pause. Every real trade now runs through the XML bot
@@ -59,22 +72,39 @@ const DigitPattern = observer(() => {
             strategy,
         });
 
-        await launchXmlBot(
-            { load_modal, dashboard, run_panel },
-            {
+        if (execution_mode === 'custom') {
+            // Direct engine — places the trade immediately, almost never misses.
+            const result = await placeDirectTrade({
                 mode,
                 symbol: entry.symbol,
                 digit: entry.digit,
                 direction: entry.direction,
                 strategy,
                 threshold_digit,
-                initial_stake,
-                martingale_mult,
-                max_martingale_steps,
-                stop_loss,
-                take_profit,
+                stake: initial_stake,
+            });
+            if (!result.ok) {
+                console.error('[Digit Pattern] Direct trade failed:', result.error);
             }
-        );
+        } else {
+            // Classic Blockly path.
+            await launchXmlBot(
+                { load_modal, dashboard, run_panel },
+                {
+                    mode,
+                    symbol: entry.symbol,
+                    digit: entry.digit,
+                    direction: entry.direction,
+                    strategy,
+                    threshold_digit,
+                    initial_stake,
+                    martingale_mult,
+                    max_martingale_steps,
+                    stop_loss,
+                    take_profit,
+                }
+            );
+        }
 
         setIsLaunching(false);
         setLaunchingSymbol(null);
@@ -95,10 +125,26 @@ const DigitPattern = observer(() => {
                             : `SCANNING ${scanner.total_count} MARKETS`}
                     </span>
                 </div>
+                <div className='digit-pattern__mode-toggle' style={{ marginBottom: '0.8rem' }}>
+                    <button
+                        className={execution_mode === 'custom' ? 'active' : ''}
+                        onClick={() => setModeAndPersist('custom')}
+                        title='Places the trade immediately via live API — almost never misses the entry'
+                    >
+                        Custom Engine
+                    </button>
+                    <button
+                        className={execution_mode === 'blockly' ? 'active' : ''}
+                        onClick={() => setModeAndPersist('blockly')}
+                        title='Loads a Blockly XML bot into Bot Builder (classic path)'
+                    >
+                        Blockly
+                    </button>
+                </div>
                 <p className='digit-pattern__field-hint'>
-                    {localize(
-                        'Real trades run through Bot Builder — clicking Enter loads and starts the matching bot there with your pattern and risk settings already applied.'
-                    )}
+                    {execution_mode === 'custom'
+                        ? localize('Custom Engine places the trade immediately — almost never misses the entry.')
+                        : localize('Blockly loads the strategy into Bot Builder. There can be a short delay before the entry.')}
                 </p>
             </div>
 
