@@ -2,8 +2,9 @@ import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
-import { launchXmlBot, describeTradeDirection, TTradeStrategy } from '@/pages/digit-pattern/launch-xml-bot';
-import { placeDirectTrade } from '@/pages/custom-bots/place-direct-trade';
+import { launchXmlBot, describeTradeDirection, resolveTradeDirection, TTradeStrategy } from '@/pages/digit-pattern/launch-xml-bot';
+import { startCustomEngineFromSignal } from '@/pages/custom-bots/use-custom-bot-engine';
+import { DBOT_TABS } from '@/constants/bot-contents';
 import { loadLastSettings } from '@/pages/digit-pattern/trade-settings';
 import { useSignalStreak, useAllDigitStreaks, TSignalDirection, TDigitStreakRow } from './use-signal-streak';
 import './signals.scss';
@@ -166,19 +167,25 @@ const Signals = observer(() => {
         const stake = last.initial_stake ?? 0.35;
 
         if (execution_mode === 'custom') {
-            // Direct engine — places the trade immediately, almost never misses.
-            const result = await placeDirectTrade({
+            // Hand off to the continuous Custom Bots engine so trades are visible
+            // in that tab and martingale / risk limits keep running.
+            const engineStrategy =
+                strategy === 'reversal' || strategy === 'continuation' ? strategy : 'continuation';
+            const trade_dir = resolveTradeDirection(current_direction, engineStrategy);
+            startCustomEngineFromSignal({
+                symbols: symbol_options,
                 mode: subTab,
-                symbol,
-                digit,
-                direction: current_direction,
-                strategy,
+                strategy: engineStrategy,
                 threshold_digit: overUnderThreshold,
-                stake,
+                min_streak: last.min_streak ?? 7,
+                initial_stake: last.initial_stake ?? 0.35,
+                martingale_mult: last.martingale_mult ?? 2,
+                max_martingale_steps: last.max_martingale_steps ?? 5,
+                stop_loss: last.stop_loss ?? 5,
+                take_profit: last.take_profit ?? 100,
+                lock_direction: trade_dir,
             });
-            if (!result.ok) {
-                console.error('[Signals] Direct trade failed:', result.error);
-            }
+            dashboard.setActiveTab(DBOT_TABS.CUSTOM_BOTS);
         } else {
             // Classic Blockly path.
             await launchXmlBot(
