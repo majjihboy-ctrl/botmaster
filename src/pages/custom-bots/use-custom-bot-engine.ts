@@ -470,6 +470,55 @@ const subscribeEngine = (onStoreChange: () => void) => {
     };
 };
 
+
+/**
+ * Start (or restart) the continuous Custom Bots engine from Digit Pattern / Signals.
+ * Applies the given risk + mode settings, optionally locks a trade direction,
+ * then runs the same multi-market hunter that the Custom Bots tab uses —
+ * so trades appear in the session log and martingale recovery works.
+ */
+export const startCustomEngineFromSignal = (params: {
+    currency?: string;
+    symbols: TSymbolOption[];
+    mode: TScanMode;
+    strategy: TCustomStrategy;
+    threshold_digit: number;
+    min_streak?: number;
+    initial_stake: number;
+    martingale_mult: number;
+    max_martingale_steps: number;
+    stop_loss: number;
+    take_profit: number;
+    /** If set, keep trading this direction during the first recovery sequence */
+    lock_direction?: TScanDirection | null;
+}) => {
+    const patch: Partial<TCustomBotSettings> = {
+        mode: params.mode,
+        strategy: params.strategy,
+        threshold_digit: params.threshold_digit,
+        min_streak: params.min_streak ?? snapshot.settings.min_streak,
+        initial_stake: params.initial_stake,
+        martingale_mult: params.martingale_mult,
+        max_martingale_steps: params.max_martingale_steps,
+        stop_loss: params.stop_loss,
+        take_profit: params.take_profit,
+    };
+    updateSettings(patch);
+
+    if (running.current) {
+        stopEngine('restart_from_signal');
+    }
+
+    // startEngine clears locked_direction; re-apply lock and re-hunt so the
+    // first opportunity respects the direction from this signal.
+    const lock = params.lock_direction ?? null;
+    startEngine(params.currency || 'USD', params.symbols);
+    if (lock) {
+        locked_direction.current = lock;
+        hunt();
+    }
+};
+
 export const useCustomBotEngine = (next_currency: string, next_symbols: TSymbolOption[]) => {
     const state = useSyncExternalStore(subscribeEngine, () => snapshot);
 
