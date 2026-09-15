@@ -154,7 +154,9 @@ const Signals = observer(() => {
     });
     const setModeAndPersist = (m: 'custom' | 'blockly') => {
         setExecutionMode(m);
-        try { localStorage.setItem('signals_execution_mode', m); } catch {}
+        try {
+            localStorage.setItem('signals_execution_mode', m);
+        } catch {}
     };
 
     const tradeThis = async (digit: number, current_streak: number, current_direction: TSignalDirection | null) => {
@@ -305,7 +307,11 @@ const Signals = observer(() => {
                         Mixed
                     </button>
                 </div>
-                <div className='signals__view-toggle' style={{ marginTop: '0.8rem', display: 'flex', gap: '0.5rem' }}>
+            </div>
+
+            {/* Custom Engine / Blockly — own clean row so it no longer squeezes the subtabs */}
+            <div className='signals__exec-row'>
+                <div className='signals__view-toggle signals__exec-toggle'>
                     <button
                         className={`signals__view-btn ${execution_mode === 'custom' ? 'active' : ''}`}
                         onClick={() => setModeAndPersist('custom')}
@@ -321,6 +327,11 @@ const Signals = observer(() => {
                         Blockly
                     </button>
                 </div>
+                <p className='signals__field-hint'>
+                    {execution_mode === 'custom'
+                        ? 'Custom Engine places the trade immediately — almost never misses the entry.'
+                        : 'Blockly loads the strategy into Bot Builder. There can be a short delay before the entry.'}
+                </p>
             </div>
 
             <div className='signals__panel'>
