@@ -150,12 +150,6 @@ const DigitPattern = observer(() => {
                         : localize('Blockly loads the strategy into Bot Builder. There can be a short delay before the entry.')}
                 </p>
             </div>
-                <p className='digit-pattern__field-hint'>
-                    {execution_mode === 'custom'
-                        ? localize('Custom Engine places the trade immediately — almost never misses the entry.')
-                        : localize('Blockly loads the strategy into Bot Builder. There can be a short delay before the entry.')}
-                </p>
-            </div>
 
             <div className='digit-pattern__grid'>
                 <div className='digit-pattern__col-main'>
