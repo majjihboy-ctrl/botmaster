@@ -421,7 +421,11 @@ const attachScannerListener = () => {
     });
 };
 
-const startEngine = (next_currency: string, next_symbols: TSymbolOption[]) => {
+const startEngine = (
+    next_currency: string,
+    next_symbols: TSymbolOption[],
+    lock_direction: TScanDirection | null = null
+) => {
     if (running.current) return;
     currency.current = next_currency || 'USD';
     symbols.current = next_symbols;
@@ -432,7 +436,11 @@ const startEngine = (next_currency: string, next_symbols: TSymbolOption[]) => {
     session_profit.current = 0;
     last_setup.current = null;
     last_market.current = null;
-    locked_direction.current = null;
+    // Applied here, before the one and only hunt() call below, so the very
+    // first pick already respects the direction — never picking a target
+    // and then immediately re-picking a different one once a lock lands
+    // (see startCustomEngineFromSignal for why that used to happen).
+    locked_direction.current = lock_direction;
     last_epoch.current = null;
     stake.current = roundStake(snapshot.settings.initial_stake);
 
@@ -509,14 +517,13 @@ export const startCustomEngineFromSignal = (params: {
         stopEngine('restart_from_signal');
     }
 
-    // startEngine clears locked_direction; re-apply lock and re-hunt so the
-    // first opportunity respects the direction from this signal.
+    // Pass the lock straight into startEngine so its single internal hunt()
+    // call already respects it from the first pick - no second hunt() call
+    // here, which previously overwrote whatever startEngine's own hunt()
+    // had just locked in, silently swapping the target before any trade
+    // ever happened.
     const lock = params.lock_direction ?? null;
-    startEngine(params.currency || 'USD', params.symbols);
-    if (lock) {
-        locked_direction.current = lock;
-        hunt();
-    }
+    startEngine(params.currency || 'USD', params.symbols, lock);
 };
 
 export const useCustomBotEngine = (next_currency: string, next_symbols: TSymbolOption[]) => {
