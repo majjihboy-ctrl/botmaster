@@ -26,6 +26,10 @@ export type TCustomBotSettings = {
     max_martingale_steps: number;
     stop_loss: number;
     take_profit: number;
+    /** Exact market symbols to hunt. Empty = use max_markets from the full list. */
+    selected_symbols: string[];
+    /** When selected_symbols is empty, only the first N markets in the list are used. */
+    max_markets: number;
 };
 
 export type TLockedTarget = {
@@ -64,6 +68,22 @@ export const DEFAULT_CUSTOM_BOT_SETTINGS: TCustomBotSettings = {
     max_martingale_steps: 6,
     stop_loss: 5,
     take_profit: 100,
+    selected_symbols: [],
+    max_markets: 12,
+};
+
+/** Resolve which markets the engine may trade on. */
+export const resolveActiveSymbols = (
+    all: TSymbolOption[],
+    settings: TCustomBotSettings
+): TSymbolOption[] => {
+    if (!all.length) return [];
+    if (settings.selected_symbols?.length) {
+        const allow = new Set(settings.selected_symbols);
+        return all.filter(s => allow.has(s.symbol));
+    }
+    const n = Math.max(1, Math.min(settings.max_markets || all.length, all.length));
+    return all.slice(0, n);
 };
 
 export const loadCustomBotSettings = (): TCustomBotSettings => {
@@ -116,9 +136,11 @@ const pickTarget = (
     settings: TCustomBotSettings,
     last: TLastSetup | null,
     last_market: string | null,
-    locked_direction: TScanDirection | null
+    locked_direction: TScanDirection | null,
+    allowed_symbols: Set<string> | null
 ): TLockedTarget | null => {
     const eligible = entries.filter(e => {
+        if (allowed_symbols && !allowed_symbols.has(e.symbol)) return false;
         if (e.count < settings.min_streak) return false;
         if (last && e.symbol === last.symbol && e.digit === last.digit) return false;
         if (settings.strategy === 'reversal' && last_market && e.symbol === last_market) return false;
@@ -130,7 +152,8 @@ const pickTarget = (
         return true;
     });
     if (!eligible.length) return null;
-    const best = eligible[Math.floor(Math.random() * eligible.length)];
+    // Prefer the strongest streak among the markets the user selected (not random).
+    const best = [...eligible].sort((a, b) => b.count - a.count || a.symbol.localeCompare(b.symbol))[0];
     const trade_direction = resolveTradeDirection(best.direction, settings.strategy);
     return {
         symbol: best.symbol,
@@ -203,10 +226,19 @@ const setLockedTarget = (next: TLockedTarget | null) => {
 const hunt = () => {
     if (!running.current || in_trade.current || buying.current) return;
     const s = snapshot.settings;
-    if (symbols.current.length) {
-        startMarketScanner(symbols.current, s.mode, s.threshold_digit);
+    const active = resolveActiveSymbols(symbols.current, s);
+    if (active.length) {
+        startMarketScanner(active, s.mode, s.threshold_digit);
     }
-    const next = pickTarget(entriesNow(), s, last_setup.current, last_market.current, locked_direction.current);
+    const allowed = active.length ? new Set(active.map(x => x.symbol)) : null;
+    const next = pickTarget(
+        entriesNow(),
+        s,
+        last_setup.current,
+        last_market.current,
+        locked_direction.current,
+        allowed
+    );
     if (next) {
         // Lock direction on the first trade of a sequence
         if (!locked_direction.current) {
@@ -445,7 +477,8 @@ const startEngine = (
     stake.current = roundStake(snapshot.settings.initial_stake);
 
     const s = snapshot.settings;
-    if (next_symbols.length) startMarketScanner(next_symbols, s.mode, s.threshold_digit);
+    const active = resolveActiveSymbols(next_symbols, s);
+    if (active.length) startMarketScanner(active, s.mode, s.threshold_digit);
 
     notify({
         stake: stake.current,
