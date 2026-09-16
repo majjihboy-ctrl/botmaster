@@ -68,6 +68,12 @@ export const FREE_BOTS: TFreeBot[] = [
         auto_run: true,
     },
     {
+        id: 'digitpulse-pro',
+        title: 'DigitPulse Pro',
+        description:
+            'Original strategy: waits for a clear Even/Odd imbalance + a 3-streak of the opposite side + confirmation that the last digit is not already the target side. Then bets the suppressed side. Mild ×1.6 recovery (max 4 steps), hard stop after max steps. Designed for cleaner entries than single-trigger bots.',
+    },
+    {
         id: 'over-under-v2',
         title: 'Over/Under V2',
         description:
