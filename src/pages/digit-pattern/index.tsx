@@ -5,9 +5,7 @@ import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import { localize } from '@deriv-com/translations';
 import { SliderField } from './reversal-trader-fields';
 import { loadLastSettings, saveLastSettings } from './trade-settings';
-import { launchXmlBot, describeTradeDirection, resolveTradeDirection, TTradeStrategy } from './launch-xml-bot';
-import { startCustomEngineFromSignal } from '@/pages/custom-bots/use-custom-bot-engine';
-import { DBOT_TABS } from '@/constants/bot-contents';
+import { launchXmlBot, describeTradeDirection, TTradeStrategy } from './launch-xml-bot';
 import { useMarketScanner, TScanMode, TScanEntry } from './use-market-scanner';
 import './digit-pattern.scss';
 
@@ -38,18 +36,6 @@ const DigitPattern = observer(() => {
 
     const [is_launching, setIsLaunching] = React.useState(false);
     const [launching_symbol, setLaunchingSymbol] = React.useState<string | null>(null);
-    const [execution_mode, setExecutionMode] = React.useState<'custom' | 'blockly'>(() => {
-        try {
-            const raw = localStorage.getItem('digit_pattern_execution_mode');
-            return raw === 'blockly' ? 'blockly' : 'custom';
-        } catch {
-            return 'custom';
-        }
-    });
-    const setModeAndPersist = (m: 'custom' | 'blockly') => {
-        setExecutionMode(m);
-        try { localStorage.setItem('digit_pattern_execution_mode', m); } catch {}
-    };
 
     // The scanner is pure detection — no real trades happen here, so it
     // never needs to pause. Every real trade now runs through the XML bot
@@ -73,45 +59,22 @@ const DigitPattern = observer(() => {
             strategy,
         });
 
-        if (execution_mode === 'custom') {
-            // Hand off to the continuous Custom Bots engine so trades are visible
-            // in that tab and martingale / risk limits keep running.
-            const engineStrategy =
-                strategy === 'reversal' || strategy === 'continuation' ? strategy : 'continuation';
-            const trade_dir = resolveTradeDirection(entry.direction, engineStrategy);
-            startCustomEngineFromSignal({
-                symbols: symbol_options,
+        await launchXmlBot(
+            { load_modal, dashboard, run_panel },
+            {
                 mode,
-                strategy: engineStrategy,
+                symbol: entry.symbol,
+                digit: entry.digit,
+                direction: entry.direction,
+                strategy,
                 threshold_digit,
-                min_streak,
                 initial_stake,
                 martingale_mult,
                 max_martingale_steps,
                 stop_loss,
                 take_profit,
-                lock_direction: trade_dir,
-            });
-            dashboard.setActiveTab(DBOT_TABS.CUSTOM_BOTS);
-        } else {
-            // Classic Blockly path.
-            await launchXmlBot(
-                { load_modal, dashboard, run_panel },
-                {
-                    mode,
-                    symbol: entry.symbol,
-                    digit: entry.digit,
-                    direction: entry.direction,
-                    strategy,
-                    threshold_digit,
-                    initial_stake,
-                    martingale_mult,
-                    max_martingale_steps,
-                    stop_loss,
-                    take_profit,
-                }
-            );
-        }
+            }
+        );
 
         setIsLaunching(false);
         setLaunchingSymbol(null);
@@ -132,30 +95,6 @@ const DigitPattern = observer(() => {
                             : `SCANNING ${scanner.total_count} MARKETS`}
                     </span>
                 </div>
-            </div>
-
-            <div className='digit-pattern__exec-row'>
-                <div className='digit-pattern__mode-toggle digit-pattern__exec-toggle'>
-                    <button
-                        className={execution_mode === 'custom' ? 'active' : ''}
-                        onClick={() => setModeAndPersist('custom')}
-                        title='Places the trade immediately via live API — almost never misses the entry'
-                    >
-                        Custom Engine
-                    </button>
-                    <button
-                        className={execution_mode === 'blockly' ? 'active' : ''}
-                        onClick={() => setModeAndPersist('blockly')}
-                        title='Loads a Blockly XML bot into Bot Builder (classic path)'
-                    >
-                        Blockly
-                    </button>
-                </div>
-                <p className='digit-pattern__field-hint'>
-                    {execution_mode === 'custom'
-                        ? localize('Custom Engine places the trade immediately — almost never misses the entry.')
-                        : localize('Blockly loads the strategy into Bot Builder. There can be a short delay before the entry.')}
-                </p>
             </div>
 
             <div className='digit-pattern__grid'>
