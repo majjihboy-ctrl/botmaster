@@ -88,7 +88,14 @@ const AppWrapper = observer(() => {
         [key: string]: string;
     };
     const { clear } = summary_card;
-    const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
+    const {
+        DASHBOARD,
+        BOT_BUILDER,
+        CHART,
+        ANALYSIS_TOOL,
+        FREE_BOTS,
+        CUSTOM_BOTS,
+    } = DBOT_TABS;
     const init_render = React.useRef(true);
     const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool', 'ups_downs_tool', 'speed_trader'];
     const { isDesktop } = useDevice();
@@ -537,10 +544,16 @@ const AppWrapper = observer(() => {
                 </div>
             </div>
             <DesktopWrapper>
-                <div className='main__run-strategy-wrapper'>
-                    <RunStrategy />
-                    <RunPanel />
-                </div>
+                {/* Only float Run/Stop + RunPanel on tabs where a bot can actually run.
+                    Previously this wrapper was absolute-positioned on every tab and
+                    collided with the expanded tab bar (Free Bots, Digit Pattern, etc.). */}
+                {([BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS, CUSTOM_BOTS].includes(active_tab) ||
+                    !!active_tour) && (
+                    <div className='main__run-strategy-wrapper'>
+                        <RunStrategy />
+                        <RunPanel />
+                    </div>
+                )}
                 <ChartModal />
                 <TradingViewModal />
             </DesktopWrapper>
