@@ -3,7 +3,7 @@
  * This version is used to determine if localStorage and cookies need to be cleared
  */
 export const BOT_VERSION_CONFIG = {
-    REQUIRED_VERSION: 2,
+    REQUIRED_VERSION: 3,
     STORAGE_KEY: 'bot_version',
 } as const;
 
