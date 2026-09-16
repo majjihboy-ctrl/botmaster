@@ -97,7 +97,7 @@ const AppWrapper = observer(() => {
         CUSTOM_BOTS,
     } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool', 'ups_downs_tool', 'speed_trader'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool', 'ups_downs_tool', 'digit_pattern', 'signals', 'copy_trading', 'custom_bots'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
