@@ -615,3 +615,35 @@
         opacity: 0.3;
     }
 }
+
+.custom-bots__market-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+}
+
+.custom-bots__market-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: 0.6rem;
+    max-height: 22rem;
+    overflow-y: auto;
+    padding: 0.4rem 0;
+}
+
+.custom-bots__market-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.4rem;
+    background: var(--general-section-1);
+
+    input {
+        margin: 0;
+    }
+}
