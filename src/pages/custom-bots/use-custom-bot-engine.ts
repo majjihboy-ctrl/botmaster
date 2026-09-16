@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { api_base } from '@/external/bot-skeleton';
-import { getLastDigitForList } from '@/external/bot-skeleton/services/tradeEngine/utils/helpers';
 import { TSymbolOption } from '@/pages/analysis-tool/use-digit-stats';
 import {
     TScanDirection,
@@ -168,7 +167,10 @@ const pickTarget = (
 
 const stillValid = (target: TLockedTarget, entries: TScanEntry[], min_streak: number): boolean => {
     const row = entries.find(e => e.symbol === target.symbol && e.digit === target.digit);
-    return !!row && row.count >= min_streak && row.direction === target.streak_direction;
+    // Allow brief streak flicker so we do not drop an armed setup before the buy lands.
+    if (!row) return true;
+    if (row.direction !== target.streak_direction) return false;
+    return row.count >= Math.max(1, min_streak - 1);
 };
 
 // ---------------------------------------------------------------------------
@@ -246,6 +248,8 @@ const hunt = () => {
         }
         setLockedTarget(next);
         notify({ status_message: '' });
+        // Buy immediately — waiting for the same digit to reappear missed most entries.
+        void buyNow(next);
     } else {
         setLockedTarget(null);
         notify({ phase: 'waiting' });
@@ -422,17 +426,15 @@ const attachTickListener = () => {
         if (epoch && epoch === last_epoch.current) return;
         last_epoch.current = epoch || null;
 
-        const pip_size = api_base?.pip_sizes?.[locked.symbol] ?? String(data.tick.quote).split('.')[1]?.length ?? 2;
-        const digit = Number(getLastDigitForList(Number(data.tick.quote), pip_size));
-        if (digit !== locked.digit) return;
-
+        // Backup path: if immediate buy did not run, take the next tick on this market.
+        // Do not wait for the locked digit to reappear — that was the main source of misses.
         if (!stillValid(locked, entriesNow(), snapshot.settings.min_streak)) {
             setLockedTarget(null);
             hunt();
             return;
         }
 
-        buyNow(locked);
+        void buyNow(locked);
     });
     tick_unsub = () => sub.unsubscribe();
 };
@@ -443,9 +445,10 @@ const attachScannerListener = () => {
         if (!running.current || in_trade.current || buying.current) return;
         const locked = target.current;
         if (locked) {
+            // Keep an armed target; do not cancel it on every scanner flicker.
+            // Invalidation only if the streak direction clearly flipped.
             if (!stillValid(locked, entriesNow(), snapshot.settings.min_streak)) {
-                setLockedTarget(null);
-                hunt();
+                // leave lock; tick/buy path will clear if needed
             }
             return;
         }
