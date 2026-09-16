@@ -3,7 +3,6 @@ import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
 import { SliderField } from '@/pages/digit-pattern/reversal-trader-fields';
-import { describeTradeDirection } from '@/pages/digit-pattern/launch-xml-bot';
 import { useMarketScanner, TScanMode } from '@/pages/digit-pattern/use-market-scanner';
 import { localize } from '@deriv-com/translations';
 import { useCustomBotEngine, TCustomStrategy } from './use-custom-bot-engine';
@@ -11,16 +10,16 @@ import './custom-bots.scss';
 
 const DIGIT_OPTIONS = Array.from({ length: 10 }, (_, i) => i);
 
-const phaseLabel = (phase: string, min_streak: number) => {
+const phaseLabel = (phase: string) => {
     switch (phase) {
         case 'armed':
-            return localize('Armed — waiting for trigger digit');
+            return localize('Ready');
         case 'in_trade':
             return localize('In trade');
         case 'waiting':
-            return localize(`Waiting for a ${min_streak}+ streak`);
+            return localize('Waiting');
         default:
-            return localize(`Hunting a random ${min_streak}+ streak`);
+            return localize('Scanning');
     }
 };
 
@@ -55,9 +54,6 @@ const CustomBots = observer(() => {
 
     const is_running = status === 'running';
     const min_streak = settings.min_streak;
-    const visible_entries = scanner.entries.filter(e => e.count >= min_streak);
-    const best_entry = visible_entries[0];
-
     const setStrategy = (v: TCustomStrategy) => updateSettings({ strategy: v });
     const setMinStreak = (v: number) => updateSettings({ min_streak: v });
 
@@ -82,20 +78,18 @@ const CustomBots = observer(() => {
         <div className='custom-bots'>
             <div className='custom-bots__topbar'>
                 <div className='custom-bots__title'>
-                    <h1>{localize('Custom Bots')}</h1>
+                    <h1>{localize('AutoTrade')}</h1>
                     <span className={`custom-bots__live ${scanner.is_loading ? 'connecting' : is_running ? '' : 'idle'}`}>
                         <span className='custom-bots__pulse' />
                         {scanner.is_loading
-                            ? `CONNECTING ${scanner.connected_count}/${scanner.total_count}`
+                            ? localize('CONNECTING')
                             : is_running
-                              ? 'LIVE ENGINE'
-                              : `SCANNING ${scanner.total_count} MARKETS`}
+                              ? localize('RUNNING')
+                              : localize('IDLE')}
                     </span>
                 </div>
                 <p className='custom-bots__field-hint'>
-                    {localize(
-                        `Runs on Deriv directly — no Bot Builder. Keeps trading if you switch tabs. Hunts a random ${min_streak}+ streak, hops after a loss with martingale, and hunts a new streak after a win.`
-                    )}
+                    {localize('Automated trading. Runs in the background while you use other tabs.')}
                 </p>
             </div>
 
@@ -125,17 +119,15 @@ const CustomBots = observer(() => {
                                     className={settings.strategy === 'continuation' ? 'active' : ''}
                                     disabled={is_running}
                                     onClick={() => setStrategy('continuation')}
-                                    title='Bet the streak keeps running. Loss hops to a random other 7+.'
                                 >
-                                    Continuation
+                                    Style A
                                 </button>
                                 <button
                                     className={settings.strategy === 'reversal' ? 'active' : ''}
                                     disabled={is_running}
                                     onClick={() => setStrategy('reversal')}
-                                    title='Bet the streak snaps back. Loss hops to a random 7+ on another market.'
                                 >
-                                    Reversal
+                                    Style B
                                 </button>
                             </div>
 
@@ -161,7 +153,7 @@ const CustomBots = observer(() => {
 
                             <div className='custom-bots__field-group inline grow'>
                                 <label className='custom-bots__field-label' htmlFor='cb-min-streak'>
-                                    {localize('Minimum streak')}: <strong>{min_streak}+</strong>
+                                    {localize('Sensitivity')}: <strong>{min_streak}</strong>
                                 </label>
                                 <input
                                     id='cb-min-streak'
@@ -176,30 +168,18 @@ const CustomBots = observer(() => {
                             </div>
                         </div>
 
-                        <p className='custom-bots__field-hint'>
-                            {settings.strategy === 'continuation'
-                                ? localize(
-                                      `Continuation buys the same direction as the streak. After a loss it jumps to a random other ${min_streak}+ and keeps continuation until a win.`
-                                  )
-                                : localize(
-                                      `Reversal buys the opposite of the streak. After a loss it jumps to another market, finds a new digit on ${min_streak}+, and reverses that one — and so on until a win.`
-                                  )}
-                        </p>
+                        <p className='custom-bots__field-hint'>{localize('Choose a style, then start.')}</p>
                     </div>
 
                     <div className='custom-bots__panel'>
-                        <h2>{localize('Engine')}</h2>
+                        <h2>{localize('Status')}</h2>
                         <div className={`custom-bots__engine-status ${phase}`}>
-                            <span className='label'>{phaseLabel(is_running ? phase : 'hunting', min_streak)}</span>
-                            {target && (
-                                <span className='lock'>
-                                    {target.display_name} · digit {target.digit} · {target.count}x{' '}
-                                    {target.streak_direction.toUpperCase()} →{' '}
-                                    <strong>{target.trade_direction.toUpperCase()}</strong>
-                                </span>
+                            <span className='label'>{phaseLabel(is_running ? phase : 'hunting')}</span>
+                            {is_running && (
+                                <span className='lock'>{localize('Active')}</span>
                             )}
                             {!is_logged_in && (
-                                <span className='warn'>{localize('Log in to start the engine.')}</span>
+                                <span className='warn'>{localize('Log in to start AutoTrade.')}</span>
                             )}
                             {status_message && <span className='warn'>{status_message}</span>}
                             {stop_copy && <span className='ok'>{stop_copy}</span>}
@@ -211,11 +191,11 @@ const CustomBots = observer(() => {
                                     disabled={!is_logged_in}
                                     onClick={handleStart}
                                 >
-                                    {localize('Start engine')}
+                                    {localize('Start')}
                                 </button>
                             ) : (
                                 <button className='custom-bots__btn danger' onClick={stop}>
-                                    {localize('Stop engine')}
+                                    {localize('Stop')}
                                 </button>
                             )}
                             <div className='custom-bots__mini-stats'>
@@ -240,54 +220,7 @@ const CustomBots = observer(() => {
                         </div>
                     </div>
 
-                    <div className='custom-bots__panel custom-bots__scanner-panel'>
-                        <h2>
-                            {localize('Live opportunities')} ({visible_entries.length})
-                        </h2>
-                        {visible_entries.length === 0 ? (
-                            <div className='custom-bots__empty-state'>
-                                {scanner.is_loading
-                                    ? localize('Connecting to markets…')
-                                    : localize(`No digit has hit a ${min_streak}+ streak right now. Waiting.`)}
-                            </div>
-                        ) : (
-                            <div className='custom-bots__scanner-list'>
-                                {visible_entries.map(entry => {
-                                    const is_best = entry === best_entry;
-                                    const is_locked =
-                                        target?.symbol === entry.symbol && target?.digit === entry.digit;
-                                    const is_positive = entry.direction === 'even' || entry.direction === 'over';
-                                    return (
-                                        <div
-                                            key={`${entry.symbol}-${entry.digit}`}
-                                            className={`custom-bots__scan-row ${is_best ? 'best' : ''} ${
-                                                is_positive ? 'positive' : 'negative'
-                                            } ${is_locked ? 'locked' : ''}`}
-                                        >
-                                            {is_locked && <span className='custom-bots__best-badge'>LOCKED</span>}
-                                            {!is_locked && is_best && (
-                                                <span className='custom-bots__best-badge'>BEST</span>
-                                            )}
-                                            <div className='custom-bots__scan-market'>
-                                                <span className='name'>{entry.display_name}</span>
-                                                <span className='digit'>digit {entry.digit}</span>
-                                            </div>
-                                            <div className='custom-bots__scan-streak'>
-                                                <span className='count'>{entry.count}x</span>
-                                                <span className='direction'>{entry.direction.toUpperCase()}</span>
-                                            </div>
-                                            <div className='custom-bots__scan-reversal'>
-                                                → trade{' '}
-                                                <strong>
-                                                    {describeTradeDirection(entry.direction, settings.strategy)}
-                                                </strong>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
+                    
                 </div>
 
                 <div className='custom-bots__col-side'>
@@ -360,7 +293,7 @@ const CustomBots = observer(() => {
                                         <div className='custom-bots__log-main'>
                                             <span className='symbol'>{entry.display_name}</span>
                                             <span className='contract-type'>
-                                                digit {entry.digit} · {entry.contract_type} · {entry.strategy}
+                                                {localize('Trade')}
                                             </span>
                                         </div>
                                         <div className='custom-bots__log-side'>
