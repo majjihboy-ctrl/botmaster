@@ -1,5 +1,16 @@
 @use 'components/shared/styles/mixins' as *;
 
+/* Full-width root so Dashboard is not squeezed beside empty flex siblings */
+.tab__dashboard-root {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+
 .bot-dashboard {
     --translate-panel-rtl: -367px;
     --translate-panel-ltr: 367px;
@@ -111,6 +122,8 @@
     &__dashboard {
         display: flex;
         width: 100%;
+        max-width: 100%;
+        flex: 1 1 auto;
         box-sizing: border-box;
 
         &--tour-active {
