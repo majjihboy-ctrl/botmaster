@@ -64,11 +64,11 @@ export const DEFAULT_CUSTOM_BOT_SETTINGS: TCustomBotSettings = {
     min_streak: 7,
     initial_stake: 0.35,
     martingale_mult: 2,
-    max_martingale_steps: 6,
+    max_martingale_steps: 4,
     stop_loss: 5,
     take_profit: 100,
     selected_symbols: [],
-    max_markets: 12,
+    max_markets: 10,
 };
 
 /** Resolve which markets the engine may trade on. */
@@ -128,6 +128,17 @@ type TEngineSnapshot = {
     log: TCustomTradeLog[];
     stop_reason: string | null;
     status_message: string;
+    /** Custom Pro: trade direction locked during martingale recovery */
+    recovery_direction: TScanDirection | null;
+    /** Custom Pro: markets banned until next win */
+    banned_symbols: string[];
+};
+
+/** Custom Pro score: longer streak wins; slight penalty if market was just used. */
+const scoreSetup = (e: TScanEntry, last_market: string | null): number => {
+    let score = e.count * 10;
+    if (last_market && e.symbol === last_market) score -= 25;
+    return score;
 };
 
 const pickTarget = (
@@ -136,14 +147,19 @@ const pickTarget = (
     last: TLastSetup | null,
     last_market: string | null,
     locked_direction: TScanDirection | null,
-    allowed_symbols: Set<string> | null
+    allowed_symbols: Set<string> | null,
+    banned_symbols: Set<string>
 ): TLockedTarget | null => {
+    const recovering = !!locked_direction || banned_symbols.size > 0;
     const eligible = entries.filter(e => {
         if (allowed_symbols && !allowed_symbols.has(e.symbol)) return false;
+        if (banned_symbols.has(e.symbol)) return false;
         if (e.count < settings.min_streak) return false;
         if (last && e.symbol === last.symbol && e.digit === last.digit) return false;
+        // Always skip last market while recovering; also skip on reversal style
+        if (recovering && last_market && e.symbol === last_market) return false;
         if (settings.strategy === 'reversal' && last_market && e.symbol === last_market) return false;
-        // While recovering losses, stay on the same trade direction
+        // Recovery: only setups that produce the locked trade direction
         if (locked_direction) {
             const trade_dir = resolveTradeDirection(e.direction, settings.strategy);
             if (trade_dir !== locked_direction) return false;
@@ -151,8 +167,12 @@ const pickTarget = (
         return true;
     });
     if (!eligible.length) return null;
-    // Prefer the strongest streak among the markets the user selected (not random).
-    const best = [...eligible].sort((a, b) => b.count - a.count || a.symbol.localeCompare(b.symbol))[0];
+    const best = [...eligible].sort(
+        (a, b) =>
+            scoreSetup(b, last_market) - scoreSetup(a, last_market) ||
+            b.count - a.count ||
+            a.symbol.localeCompare(b.symbol)
+    )[0];
     const trade_direction = resolveTradeDirection(best.direction, settings.strategy);
     return {
         symbol: best.symbol,
@@ -191,6 +211,8 @@ let snapshot: TEngineSnapshot = {
     log: [],
     stop_reason: null,
     status_message: '',
+    recovery_direction: null,
+    banned_symbols: [],
 };
 
 const notify = (patch: Partial<TEngineSnapshot>) => {
@@ -208,6 +230,8 @@ const buying = { current: false };
 const last_setup = { current: null as TLastSetup | null };
 const last_market = { current: null as string | null };
 const locked_direction = { current: null as TScanDirection | null };
+/** Markets banned until a win (Custom Pro recovery). */
+const banned_markets = { current: new Set<string>() };
 const last_epoch = { current: null as number | null };
 const currency = { current: 'USD' };
 const symbols = { current: [] as TSymbolOption[] };
@@ -239,7 +263,8 @@ const hunt = () => {
         last_setup.current,
         last_market.current,
         locked_direction.current,
-        allowed
+        allowed,
+        banned_markets.current
     );
     if (next) {
         // Lock direction on the first trade of a sequence
@@ -289,34 +314,61 @@ const onSettled = (won: boolean, profit: number, traded: TLockedTarget) => {
     notify({ session_profit: session_profit.current });
 
     last_setup.current = { symbol: traded.symbol, digit: traded.digit };
-    last_market.current = snapshot.settings.strategy === 'reversal' ? traded.symbol : null;
+    last_market.current = traded.symbol;
 
     const limit = checkLimits();
     if (limit) {
         locked_direction.current = null;
+        banned_markets.current.clear();
+        notify({ recovery_direction: null, banned_symbols: [] });
         stopEngine(limit);
         return;
     }
     if (!running.current) return;
 
     if (won) {
+        // Custom Pro: win resets recovery — clear bans, unlock direction, base stake
         loss_streak.current = 0;
         stake.current = roundStake(snapshot.settings.initial_stake);
-        locked_direction.current = null; // unlock after a win
-        notify({ loss_streak: 0, stake: stake.current });
+        locked_direction.current = null;
+        banned_markets.current.clear();
+        notify({
+            loss_streak: 0,
+            stake: stake.current,
+            recovery_direction: null,
+            banned_symbols: [],
+            status_message: '',
+        });
     } else {
         const next_losses = loss_streak.current + 1;
         loss_streak.current = next_losses;
+        // Ban the losing market until the next win; recover on other markets
+        banned_markets.current.add(traded.symbol);
+        // Lock trade direction for the recovery sequence
+        if (!locked_direction.current) {
+            locked_direction.current = traded.trade_direction;
+        }
         if (next_losses >= snapshot.settings.max_martingale_steps) {
             locked_direction.current = null;
-            notify({ loss_streak: next_losses });
+            banned_markets.current.clear();
+            notify({
+                loss_streak: next_losses,
+                recovery_direction: null,
+                banned_symbols: [],
+            });
             stopEngine('max_martingale');
             return;
         }
         stake.current = roundStake(
             snapshot.settings.initial_stake * Math.pow(snapshot.settings.martingale_mult, next_losses)
         );
-        notify({ loss_streak: next_losses, stake: stake.current });
+        notify({
+            loss_streak: next_losses,
+            stake: stake.current,
+            recovery_direction: locked_direction.current,
+            banned_symbols: [...banned_markets.current],
+            status_message: `Recovering ${locked_direction.current?.toUpperCase() || ''} — banned ${[...banned_markets.current].join(', ')}`,
+        });
     }
 
     setLockedTarget(null);
@@ -471,6 +523,7 @@ const startEngine = (
     session_profit.current = 0;
     last_setup.current = null;
     last_market.current = null;
+    banned_markets.current.clear();
     // Applied here, before the one and only hunt() call below, so the very
     // first pick already respects the direction — never picking a target
     // and then immediately re-picking a different one once a lock lands
@@ -493,6 +546,8 @@ const startEngine = (
         status: 'running',
         phase: 'hunting',
         target: null,
+        recovery_direction: lock_direction,
+        banned_symbols: [],
     });
     setLockedTarget(null);
     attachScannerListener();
@@ -586,6 +641,8 @@ export const useCustomBotEngine = (next_currency: string, next_symbols: TSymbolO
         log: state.log,
         stop_reason: state.stop_reason,
         status_message: state.status_message,
+        recovery_direction: state.recovery_direction,
+        banned_symbols: state.banned_symbols,
         start,
         stop,
     };
