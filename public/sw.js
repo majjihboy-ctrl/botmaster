@@ -1,15 +1,12 @@
-// Minimal service worker - exists mainly to satisfy PWA installability
-// criteria (Chrome/Edge require an active fetch handler to show the
-// install prompt). Deliberately conservative: this is a live trading site
-// where WebSocket ticks and account/balance data must always be fresh, so
-// almost nothing is cached. Only genuinely static, versioned-by-filename
-// assets (icons, fonts) are cached; everything else always goes to the
-// network untouched.
+// Minimal service worker - exists mainly to satisfy PWA installability.
+// Live trading data must stay fresh, so almost nothing is cached.
+// HTML / JS / CSS are never intercepted — only static image/font assets.
 
-const CACHE_NAME = 'botmaster-static-v1';
+const CACHE_NAME = 'botmaster-static-v2';
 const STATIC_CACHE_PATTERNS = [/\/icons\//, /\.(?:png|jpg|jpeg|svg|webp|woff2?|ttf)$/];
 
 self.addEventListener('install', event => {
+    // Activate updated SW immediately so deploys are not stuck behind an old worker.
     self.skipWaiting();
 });
 
@@ -22,13 +19,15 @@ self.addEventListener('activate', event => {
     );
 });
 
+self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
 self.addEventListener('fetch', event => {
     const { request } = event;
 
-    // Only ever handle simple same-origin GETs for static assets. Everything
-    // else (HTML, JS/CSS bundles, WebSocket upgrades, any API-style call,
-    // cross-origin requests to Deriv's domains) passes straight through to
-    // the network exactly as if no service worker existed.
     if (request.method !== 'GET') return;
 
     let url;
@@ -38,6 +37,21 @@ self.addEventListener('fetch', event => {
         return;
     }
     if (url.origin !== self.location.origin) return;
+
+    // Never cache HTML, JS, CSS, or the service worker itself — always network.
+    if (
+        url.pathname === '/' ||
+        url.pathname === '/index.html' ||
+        url.pathname === '/sw.js' ||
+        url.pathname.endsWith('.js') ||
+        url.pathname.endsWith('.css') ||
+        url.pathname.endsWith('.html') ||
+        url.pathname.endsWith('.json') ||
+        url.pathname.endsWith('.map')
+    ) {
+        return;
+    }
+
     if (!STATIC_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname))) return;
 
     event.respondWith(
