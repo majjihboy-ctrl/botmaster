@@ -5,14 +5,26 @@ import {
     LabelPairedCircleCheckMdRegularIcon,
     LabelPairedCircleXmarkMdRegularIcon,
 } from '@deriv/quill-icons/LabelPaired';
-import { Localize } from '@deriv-com/translations';
+import { Localize, localize } from '@deriv-com/translations';
 
 type TContractResultOverlayProps = {
     profit: number;
+    exit_spot?: string | number | null;
 };
 
-const ContractResultOverlay = ({ profit }: TContractResultOverlayProps) => {
+/** Extract the last digit from a spot/price value */
+const getExitDigit = (spot: string | number | undefined | null): string | null => {
+    if (spot === undefined || spot === null || spot === '') return null;
+    const str = String(spot);
+    for (let i = str.length - 1; i >= 0; i--) {
+        if (/\d/.test(str[i])) return str[i];
+    }
+    return null;
+};
+
+const ContractResultOverlay = ({ profit, exit_spot }: TContractResultOverlayProps) => {
     const has_won_contract = profit >= 0;
+    const exit_digit = getExitDigit(exit_spot);
 
     return (
         <div
@@ -34,6 +46,22 @@ const ContractResultOverlay = ({ profit }: TContractResultOverlayProps) => {
                     </React.Fragment>
                 )}
             </Text>
+
+            {exit_digit !== null && (
+                <Text
+                    weight='bold'
+                    size='s'
+                    className='db-contract-card__result-digit'
+                    style={{
+                        marginTop: 4,
+                        display: 'block',
+                        fontSize: '1.25em',
+                        letterSpacing: '0.04em',
+                    }}
+                >
+                    {localize('Digit')}: {exit_digit}
+                </Text>
+            )}
         </div>
     );
 };
