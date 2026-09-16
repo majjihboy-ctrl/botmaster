@@ -2,9 +2,7 @@ import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { useSyntheticSymbols } from '@/pages/analysis-tool/use-digit-stats';
-import { launchXmlBot, describeTradeDirection, resolveTradeDirection, TTradeStrategy } from '@/pages/digit-pattern/launch-xml-bot';
-import { startCustomEngineFromSignal } from '@/pages/custom-bots/use-custom-bot-engine';
-import { DBOT_TABS } from '@/constants/bot-contents';
+import { launchXmlBot, describeTradeDirection, TTradeStrategy } from '@/pages/digit-pattern/launch-xml-bot';
 import { loadLastSettings } from '@/pages/digit-pattern/trade-settings';
 import { useSignalStreak, useAllDigitStreaks, TSignalDirection, TDigitStreakRow } from './use-signal-streak';
 import './signals.scss';
@@ -145,20 +143,6 @@ const Signals = observer(() => {
         setViewMode('single');
     };
 
-    const [execution_mode, setExecutionMode] = React.useState<'custom' | 'blockly'>(() => {
-        try {
-            const raw = localStorage.getItem('signals_execution_mode');
-            return raw === 'blockly' ? 'blockly' : 'custom';
-        } catch {
-            return 'custom';
-        }
-    });
-    const setModeAndPersist = (m: 'custom' | 'blockly') => {
-        setExecutionMode(m);
-        try {
-            localStorage.setItem('signals_execution_mode', m);
-        } catch {}
-    };
 
     const tradeThis = async (digit: number, current_streak: number, current_direction: TSignalDirection | null) => {
         if (!current_direction) return;
@@ -166,45 +150,22 @@ const Signals = observer(() => {
         const last = loadLastSettings();
         const stake = last.initial_stake ?? 0.35;
 
-        if (execution_mode === 'custom') {
-            // Hand off to the continuous Custom Bots engine so trades are visible
-            // in that tab and martingale / risk limits keep running.
-            const engineStrategy =
-                strategy === 'reversal' || strategy === 'continuation' ? strategy : 'continuation';
-            const trade_dir = resolveTradeDirection(current_direction, engineStrategy);
-            startCustomEngineFromSignal({
-                symbols: symbol_options,
+        await launchXmlBot(
+            { load_modal, dashboard, run_panel },
+            {
                 mode: subTab,
-                strategy: engineStrategy,
+                symbol,
+                digit,
+                direction: current_direction,
+                strategy,
                 threshold_digit: overUnderThreshold,
-                min_streak: last.min_streak ?? 7,
-                initial_stake: last.initial_stake ?? 0.35,
+                initial_stake: stake,
                 martingale_mult: last.martingale_mult ?? 2,
                 max_martingale_steps: last.max_martingale_steps ?? 5,
                 stop_loss: last.stop_loss ?? 5,
                 take_profit: last.take_profit ?? 100,
-                lock_direction: trade_dir,
-            });
-            dashboard.setActiveTab(DBOT_TABS.CUSTOM_BOTS);
-        } else {
-            // Classic Blockly path.
-            await launchXmlBot(
-                { load_modal, dashboard, run_panel },
-                {
-                    mode: subTab,
-                    symbol,
-                    digit,
-                    direction: current_direction,
-                    strategy,
-                    threshold_digit: overUnderThreshold,
-                    initial_stake: stake,
-                    martingale_mult: last.martingale_mult ?? 2,
-                    max_martingale_steps: last.max_martingale_steps ?? 5,
-                    stop_loss: last.stop_loss ?? 5,
-                    take_profit: last.take_profit ?? 100,
-                }
-            );
-        }
+            }
+        );
     };
 
     const is_live = viewMode === 'single' ? active.is_loading : activeAll.is_loading;
@@ -314,31 +275,6 @@ const Signals = observer(() => {
                         Mixed
                     </button>
                 </div>
-            </div>
-
-            {/* Custom Engine / Blockly — own clean row so it no longer squeezes the subtabs */}
-            <div className='signals__exec-row'>
-                <div className='signals__view-toggle signals__exec-toggle'>
-                    <button
-                        className={`signals__view-btn ${execution_mode === 'custom' ? 'active' : ''}`}
-                        onClick={() => setModeAndPersist('custom')}
-                        title='Places the trade immediately via live API — almost never misses the entry'
-                    >
-                        Custom Engine
-                    </button>
-                    <button
-                        className={`signals__view-btn ${execution_mode === 'blockly' ? 'active' : ''}`}
-                        onClick={() => setModeAndPersist('blockly')}
-                        title='Loads a Blockly XML bot into Bot Builder (classic path)'
-                    >
-                        Blockly
-                    </button>
-                </div>
-                <p className='signals__field-hint'>
-                    {execution_mode === 'custom'
-                        ? 'Custom Engine places the trade immediately — almost never misses the entry.'
-                        : 'Blockly loads the strategy into Bot Builder. There can be a short delay before the entry.'}
-                </p>
             </div>
 
             <div className='signals__panel'>
