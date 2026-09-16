@@ -37,8 +37,21 @@ ReactDOM.createRoot(document.getElementById('root')!).render(<AuthWrapper />);
 // affect the trading app itself.
 if ('serviceWorker' in navigator && process.env.NODE_ENV !== 'development') {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {
-            // Non-fatal — the site still works fully as a regular web page.
-        });
+        navigator.serviceWorker
+            .register('/sw.js', { updateViaCache: 'none' })
+            .then(reg => {
+                // Check for a newer SW on every load so deploys apply without a hard refresh.
+                reg.update().catch(() => {});
+                // If a new worker takes control, reload once to pick up the new bundles.
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (refreshing) return;
+                    refreshing = true;
+                    window.location.reload();
+                });
+            })
+            .catch(() => {
+                // Non-fatal — the site still works fully as a regular web page.
+            });
     });
 }
