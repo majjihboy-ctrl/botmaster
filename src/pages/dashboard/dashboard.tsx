@@ -23,7 +23,9 @@ const DashboardComponent = observer(({ handleTabChange }: TMobileIconGuide) => {
     const { isDesktop, isTablet } = useDevice();
 
     return (
-        <React.Fragment>
+        // Single root so Tabs content flex does not leave an empty right column
+        // (Fragment used to emit tab__dashboard + InfoPanel as siblings).
+        <div className='tab__dashboard-root'>
             <div
                 className={classNames('tab__dashboard', {
                     'tab__dashboard--tour-active': active_tour,
@@ -73,7 +75,7 @@ const DashboardComponent = observer(({ handleTabChange }: TMobileIconGuide) => {
             </div>
             <InfoPanel />
             {active_tab === 0 && <OnboardTourHandler is_mobile={!isDesktop} />}
-        </React.Fragment>
+        </div>
     );
 });
 
