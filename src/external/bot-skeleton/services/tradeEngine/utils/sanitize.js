@@ -13,13 +13,17 @@ export const expectPositiveInteger = (num, msg) => {
 };
 
 const expectOptions = options => {
+    if (!options) {
+        throw createError('OptionError', localize('Underlying market is not selected'));
+    }
+
     const { symbol, contractTypes } = options;
 
     if (!symbol) {
         throw createError('OptionError', localize('Underlying market is not selected'));
     }
 
-    if (!contractTypes[0]) {
+    if (!contractTypes?.[0]) {
         throw createError('OptionError', localize('Contract type is not selected'));
     }
 };
