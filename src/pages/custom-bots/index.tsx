@@ -10,16 +10,16 @@ import './custom-bots.scss';
 
 const DIGIT_OPTIONS = Array.from({ length: 10 }, (_, i) => i);
 
-const phaseLabel = (phase: string) => {
+const phaseLabel = (phase: string, min_streak: number) => {
     switch (phase) {
         case 'armed':
-            return localize('Ready');
+            return localize('Armed — waiting for next tick');
         case 'in_trade':
             return localize('In trade');
         case 'waiting':
-            return localize('Waiting');
+            return localize(`Waiting for a ${min_streak}+ streak`);
         default:
-            return localize('Scanning');
+            return localize(`Scanning for ${min_streak}+ streaks`);
     }
 };
 
@@ -246,10 +246,16 @@ const CustomBots = observer(() => {
                     <div className='custom-bots__panel'>
                         <h2>{localize('Status')}</h2>
                         <div className={`custom-bots__engine-status ${phase}`}>
-                            <span className='label'>{phaseLabel(is_running ? phase : 'hunting')}</span>
-                            {is_running && (
-                                <span className='lock'>{localize('Active')}</span>
-                            )}
+                            <span className='label'>{phaseLabel(is_running ? phase : 'hunting', min_streak)}</span>
+                            {target ? (
+                                <span className='lock'>
+                                    {target.display_name} · digit <strong>{target.digit}</strong> ·{' '}
+                                    {target.count}x {target.streak_direction.toUpperCase()} → expect{' '}
+                                    <strong>{target.trade_direction.toUpperCase()}</strong>
+                                </span>
+                            ) : is_running ? (
+                                <span className='lock'>{localize('Looking for setup…')}</span>
+                            ) : null}
                             {!is_logged_in && (
                                 <span className='warn'>{localize('Log in to start AutoTrade.')}</span>
                             )}
@@ -365,7 +371,8 @@ const CustomBots = observer(() => {
                                         <div className='custom-bots__log-main'>
                                             <span className='symbol'>{entry.display_name}</span>
                                             <span className='contract-type'>
-                                                {localize('Trade')}
+                                                digit {entry.digit} · {entry.contract_type}
+                                                {entry.strategy ? ` · ${entry.strategy}` : ''}
                                             </span>
                                         </div>
                                         <div className='custom-bots__log-side'>
