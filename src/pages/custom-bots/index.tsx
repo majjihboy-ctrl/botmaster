@@ -42,6 +42,8 @@ const CustomBots = observer(() => {
         log,
         stop_reason,
         status_message,
+        recovery_direction,
+        banned_symbols,
         start,
         stop,
     } = useCustomBotEngine(currency, symbol_options);
@@ -76,7 +78,7 @@ const CustomBots = observer(() => {
         <div className='custom-bots'>
             <div className='custom-bots__topbar'>
                 <div className='custom-bots__title'>
-                    <h1>{localize('AutoTrade')}</h1>
+                    <h1>{localize('Custom Pro')}</h1>
                     <span className={`custom-bots__live ${scanner.is_loading ? 'connecting' : is_running ? '' : 'idle'}`}>
                         <span className='custom-bots__pulse' />
                         {scanner.is_loading
@@ -87,7 +89,7 @@ const CustomBots = observer(() => {
                     </span>
                 </div>
                 <p className='custom-bots__field-hint'>
-                    {localize('Automated trading. Runs in the background while you use other tabs.')}
+                    {localize('Best-market scoring · recover on other markets · direction lock on losses.')}
                 </p>
             </div>
 
@@ -261,6 +263,14 @@ const CustomBots = observer(() => {
                             )}
                             {status_message && <span className='warn'>{status_message}</span>}
                             {stop_copy && <span className='ok'>{stop_copy}</span>}
+                            {is_running && recovery_direction && (
+                                <span className='lock'>
+                                    {localize('Recovery')}: <strong>{recovery_direction.toUpperCase()}</strong>
+                                    {banned_symbols?.length
+                                        ? ` · skip ${banned_symbols.join(', ')}`
+                                        : ''}
+                                </span>
+                            )}
                         </div>
                         <div className='custom-bots__engine-actions'>
                             {!is_running ? (
