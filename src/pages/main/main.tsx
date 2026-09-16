@@ -33,7 +33,6 @@ import {
 import {
     LabelPairedChartCandlestickCaptionRegularIcon,
     LabelPairedChartLineCaptionRegularIcon,
-    LabelPairedChartTrendUpCaptionRegularIcon,
     LabelPairedObjectsColumnCaptionRegularIcon,
     LabelPairedArrowsRotateCaptionRegularIcon,
     LabelPairedUsersCaptionRegularIcon,
@@ -53,7 +52,6 @@ import FreeBotsTab from '../free-bots/free-bots-tab';
 import CopyTrading from '../copy-trading';
 import Signals from '../signals';
 import DigitPattern from '../digit-pattern';
-import UpsDownsTool from '../ups-downs-tool';
 import CustomBots from '../custom-bots';
 import './main.scss';
 
@@ -94,10 +92,10 @@ const AppWrapper = observer(() => {
         CHART,
         ANALYSIS_TOOL,
         FREE_BOTS,
-        CUSTOM_BOTS,
+        AUTOTRADE,
     } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool', 'ups_downs_tool', 'digit_pattern', 'signals', 'copy_trading', 'custom_bots'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool', 'autotrade', 'digit_pattern', 'signals', 'copy_trading'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -466,17 +464,17 @@ const AppWrapper = observer(() => {
                             <div
                                 label={
                                     <>
-                                        <LabelPairedChartTrendUpCaptionRegularIcon
+                                        <LabelPairedPlayLgFillIcon
                                             height='24px'
                                             width='24px'
                                             fill='currentColor'
                                         />
-                                        <Localize i18n_default_text='Ups/Downs' />
+                                        <Localize i18n_default_text='AutoTrade' />
                                     </>
                                 }
-                                id='id-ups-downs-tool'
+                                id='id-autotrade'
                             >
-                                <UpsDownsTool />
+                                <CustomBots />
                             </div>
                             <div
                                 label={
@@ -523,21 +521,6 @@ const AppWrapper = observer(() => {
                             >
                                 <CopyTrading />
                             </div>
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedPlayLgFillIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='currentColor'
-                                        />
-                                        <Localize i18n_default_text='Custom Bots' />
-                                    </>
-                                }
-                                id='id-custom-bots'
-                            >
-                                <CustomBots />
-                            </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
                     </div>
@@ -547,7 +530,7 @@ const AppWrapper = observer(() => {
                 {/* Only float Run/Stop + RunPanel on tabs where a bot can actually run.
                     Previously this wrapper was absolute-positioned on every tab and
                     collided with the expanded tab bar (Free Bots, Digit Pattern, etc.). */}
-                {([BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS, CUSTOM_BOTS].includes(active_tab) ||
+                {([BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS, AUTOTRADE].includes(active_tab) ||
                     !!active_tour) && (
                     <div className='main__run-strategy-wrapper'>
                         <RunStrategy />
