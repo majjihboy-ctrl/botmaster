@@ -203,10 +203,7 @@ const CustomBots = observer(() => {
 
                         {is_running && recovery_direction && (
                             <div className='custom-bots__recovery'>
-                                {localize('Recovery locked to')} <strong>{recovery_direction.toUpperCase()}</strong>
-                                {banned_symbols?.length ? (
-                                    <span className='skip'>
-                                        {localize('skipping')} {banned_symbols.join(', ')}
+                                {localize('Recovery locked to')} <strong>{recovery_direction.toUpperCase()}</strong> {banned_symbols.join(', ')}
                                     </span>
                                 ) : null}
                             </div>
@@ -224,26 +221,15 @@ const CustomBots = observer(() => {
                                     recent_digits.map((d, i) => (
                                         <span
                                             key={`${i}-${d}`}
-                                            className={[
-                                                'digit',
-                                                d <= 2 ? 'low' : '',
-                                                d >= 7 ? 'high' : '',
-                                                !isAnchorDigit(d) ? 'mid' : '',
-                                                target && d === target.digit ? 'locked' : '',
-                                            ]
-                                                .filter(Boolean)
-                                                .join(' ')}
+                                            className={
+                                                target && d === target.digit ? 'digit locked' : 'digit'
+                                            }
                                         >
                                             {d}
                                         </span>
                                     ))
                                 )}
                             </div>
-                            <p className='custom-bots__legend'>
-                                <span className='swatch low' /> {localize('0–2 under')}
-                                <span className='swatch high' /> {localize('7–9 over')}
-                                <span className='swatch mid' /> {localize('3–6 ignored')}
-                            </p>
                         </div>
                     </div>
 
