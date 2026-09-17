@@ -10,16 +10,16 @@ import './custom-bots.scss';
 
 const DIGIT_OPTIONS = Array.from({ length: 10 }, (_, i) => i);
 
-const phaseLabel = (phase: string, min_streak: number) => {
+const phaseLabel = (phase: string, need: number, strategy: string) => {
     switch (phase) {
         case 'armed':
-            return localize('Armed — waiting for next tick');
+            return localize('Armed — waiting for anchor digit to appear');
         case 'in_trade':
             return localize('In trade');
         case 'waiting':
-            return localize(`Waiting for a ${min_streak}+ streak`);
+            return localize(`Waiting for a ${need}+ pattern (${strategy})`);
         default:
-            return localize(`Scanning for ${min_streak}+ streaks`);
+            return localize(`Scanning ${strategy} patterns (${need}+)`);
     }
 };
 
@@ -53,9 +53,11 @@ const CustomBots = observer(() => {
     const scanner = useMarketScanner(symbol_options, mode, threshold_digit, false);
 
     const is_running = status === 'running';
-    const min_streak = settings.min_streak;
+    const continuation_streak = settings.continuation_streak ?? settings.min_streak ?? 3;
+    const reversal_streak = settings.reversal_streak ?? 7;
+    const need_streak =
+        settings.strategy === 'reversal' ? reversal_streak : continuation_streak;
     const setStrategy = (v: TCustomStrategy) => updateSettings({ strategy: v });
-    const setMinStreak = (v: number) => updateSettings({ min_streak: v });
 
     const onMode = (v: TScanMode) => updateSettings({ mode: v });
     const onThreshold = (v: number) => updateSettings({ threshold_digit: v });
@@ -152,23 +154,45 @@ const CustomBots = observer(() => {
                             )}
 
                             <div className='custom-bots__field-group inline grow'>
-                                <label className='custom-bots__field-label' htmlFor='cb-min-streak'>
-                                    {localize('Sensitivity')}: <strong>{min_streak}</strong>
+                                <label className='custom-bots__field-label' htmlFor='cb-cont-streak'>
+                                    {localize('Continuation at')}: <strong>{continuation_streak}+</strong>
                                 </label>
                                 <input
-                                    id='cb-min-streak'
+                                    id='cb-cont-streak'
                                     type='range'
-                                    min={3}
-                                    max={12}
+                                    min={2}
+                                    max={8}
                                     step={1}
-                                    value={min_streak}
+                                    value={continuation_streak}
                                     disabled={is_running}
-                                    onChange={e => setMinStreak(Number(e.target.value))}
+                                    onChange={e =>
+                                        updateSettings({
+                                            continuation_streak: Number(e.target.value),
+                                            min_streak: Number(e.target.value),
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className='custom-bots__field-group inline grow'>
+                                <label className='custom-bots__field-label' htmlFor='cb-rev-streak'>
+                                    {localize('Reversal at')}: <strong>{reversal_streak}+</strong>
+                                </label>
+                                <input
+                                    id='cb-rev-streak'
+                                    type='range'
+                                    min={5}
+                                    max={15}
+                                    step={1}
+                                    value={reversal_streak}
+                                    disabled={is_running}
+                                    onChange={e =>
+                                        updateSettings({ reversal_streak: Number(e.target.value) })
+                                    }
                                 />
                             </div>
                         </div>
 
-                        <p className='custom-bots__field-hint'>{localize('Choose a style, then start.')}</p>
+                        <p className='custom-bots__field-hint'>{localize('Continuation: pattern keeps going after the digit. Reversal: long pattern breaks. Trade only when that digit appears again.')}</p>
                     </div>
 
                     <div className='custom-bots__panel'>
@@ -248,7 +272,7 @@ const CustomBots = observer(() => {
                     <div className='custom-bots__panel'>
                         <h2>{localize('Status')}</h2>
                         <div className={`custom-bots__engine-status ${phase}`}>
-                            <span className='label'>{phaseLabel(is_running ? phase : 'hunting', min_streak)}</span>
+                            <span className='label'>{phaseLabel(is_running ? phase : 'hunting', need_streak, settings.strategy)}</span>
                             {target ? (
                                 <span className='lock'>
                                     {target.display_name} · digit <strong>{target.digit}</strong> ·{' '}
