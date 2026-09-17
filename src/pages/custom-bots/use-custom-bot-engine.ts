@@ -129,6 +129,32 @@ const roundStake = (n: number) => Math.max(0.35, Math.round(n * 100) / 100);
 const resolveTradeDirection = (dir: TScanDirection, strategy: TCustomStrategy): TScanDirection =>
     strategy === 'reversal' ? opposite(dir) : dir;
 
+/** Anchor digits allowed for UNDER setups (and even/odd pool). */
+const LOW_DIGITS = new Set([0, 1, 2]);
+/** Anchor digits allowed for OVER setups (and even/odd pool). */
+const HIGH_DIGITS = new Set([7, 8, 9]);
+const ANCHOR_DIGITS = new Set([0, 1, 2, 7, 8, 9]);
+
+/**
+ * Digit gate:
+ * - Over/Under: 0–2 only for UNDER trades, 7–9 only for OVER trades.
+ * - Even/Odd: same anchor digits only (0–2 and 7–9); direction still even/odd.
+ */
+const digitAllowsTrade = (
+    digit: number,
+    mode: TScanMode,
+    trade_direction: TScanDirection
+): boolean => {
+    if (!ANCHOR_DIGITS.has(digit)) return false;
+    if (mode === 'overunder') {
+        if (trade_direction === 'under') return LOW_DIGITS.has(digit);
+        if (trade_direction === 'over') return HIGH_DIGITS.has(digit);
+        return false;
+    }
+    // evenodd — only low/high anchors, any even/odd trade direction
+    return true;
+};
+
 type TLastSetup = { symbol: string; digit: number };
 
 type TEngineSnapshot = {
@@ -173,11 +199,13 @@ const pickTarget = (
         // Always skip last market while recovering; also skip on reversal style
         if (recovering && last_market && e.symbol === last_market) return false;
         if (settings.strategy === 'reversal' && last_market && e.symbol === last_market) return false;
+
+        const trade_dir = resolveTradeDirection(e.direction, settings.strategy);
+        // Only 012 → under / 789 → over; even/odd uses same digit set
+        if (!digitAllowsTrade(e.digit, settings.mode, trade_dir)) return false;
+
         // Recovery: only setups that produce the locked trade direction
-        if (locked_direction) {
-            const trade_dir = resolveTradeDirection(e.direction, settings.strategy);
-            if (trade_dir !== locked_direction) return false;
-        }
+        if (locked_direction && trade_dir !== locked_direction) return false;
         return true;
     });
     if (!eligible.length) return null;
