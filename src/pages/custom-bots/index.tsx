@@ -203,9 +203,8 @@ const CustomBots = observer(() => {
 
                         {is_running && recovery_direction && (
                             <div className='custom-bots__recovery'>
-                                {localize('Recovery locked to')} <strong>{recovery_direction.toUpperCase()}</strong> {banned_symbols.join(', ')}
-                                    </span>
-                                ) : null}
+                                {localize('Recovery locked to')} <strong>{recovery_direction.toUpperCase()}</strong>
+                                {banned_symbols.length > 0 ? ` · ${banned_symbols.join(', ')}` : ''}
                             </div>
                         )}
 
@@ -461,13 +460,13 @@ const CustomBots = observer(() => {
                         <p className='custom-bots__hint'>
                             {localize('Worst case for this sequence')}:{' '}
                             <strong>
-                                $
-                                {Array.from(
-                                    { length: settings.max_martingale_steps },
-                                    (_, i) => settings.initial_stake * Math.pow(settings.martingale_mult, i)
-                                )
-                                    .reduce((sum, v) => sum + v, 0)
-                                    .toFixed(2)}
+                                ${
+                                    Array.from(
+                                        { length: settings.max_martingale_steps },
+                                        (_, i) => settings.initial_stake * Math.pow(settings.martingale_mult, i)
+                                    )
+                                        .reduce((sum, v) => sum + v, 0)
+                                        .toFixed(2)}
                             </strong>{' '}
                             {localize('if every step loses.')}
                         </p>
