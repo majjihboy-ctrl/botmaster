@@ -192,7 +192,7 @@ const CustomBots = observer(() => {
                             </div>
                         </div>
 
-                        <p className='custom-bots__field-hint'>{localize('Continuation: pattern keeps going after the digit. Reversal: long pattern breaks. Trade only when that digit appears again.')}</p>
+                        <p className='custom-bots__field-hint'>{localize('Anchors: 0–2 for UNDER, 7–9 for OVER (Even/Odd uses the same digits). Wait for that digit again, then trade.')}</p>
                     </div>
 
                     <div className='custom-bots__panel'>
