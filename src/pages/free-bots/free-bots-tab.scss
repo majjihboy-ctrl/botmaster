@@ -9,8 +9,12 @@
     overflow-y: auto;
 
     @include mobile-or-tablet-screen {
-        height: var(--tab-content-height-mobile);
-        padding-bottom: 8rem;
+        height: auto;
+        min-height: 0;
+        max-height: var(--tab-content-height-mobile);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
     }
 
     &__grid {
