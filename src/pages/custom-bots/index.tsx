@@ -381,8 +381,13 @@ const CustomBots = observer(() => {
                                         <div className='custom-bots__log-main'>
                                             <span className='symbol'>{entry.display_name}</span>
                                             <span className='contract-type'>
-                                                digit {entry.digit} · {entry.contract_type}
+                                                anchor {entry.digit} · {entry.contract_type}
                                                 {entry.strategy ? ` · ${entry.strategy}` : ''}
+                                                {typeof entry.result_digit === 'number'
+                                                    ? ` · result ${entry.result_digit}`
+                                                    : entry.status === 'pending'
+                                                      ? ' · result …'
+                                                      : ''}
                                             </span>
                                         </div>
                                         <div className='custom-bots__log-side'>
