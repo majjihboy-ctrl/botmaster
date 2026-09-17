@@ -20,7 +20,7 @@ const smartchartsDist = path.join(
 export default defineConfig({
   plugins: [
     pluginSass({
-      sassLoaderOptions: { sourceMap: true },
+      sassLoaderOptions: { sourceMap: false },
       exclude: /node_modules/,
     }),
     pluginReact(),
