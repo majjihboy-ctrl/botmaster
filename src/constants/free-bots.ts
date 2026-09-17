@@ -26,11 +26,6 @@ export const FREE_BOTS: TFreeBot[] = [
         description: 'Fast-entry Digit Differs strategy with martingale recovery.',
     },
     {
-        id: 'smartdiffers-x6',
-        title: 'SmartDiffers X6',
-        description: 'Six combined Digit Differs strategies in one bot, with martingale recovery.',
-    },
-    {
         id: 'over-2-under-7-master-bot',
         title: 'Over 2 / Under 7 Master Bot',
         description: 'Digit Over/Under strategy.',
