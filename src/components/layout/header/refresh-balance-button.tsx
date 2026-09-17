@@ -2,7 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Localize, localize } from '@deriv-com/translations';
 import { LegacyRefresh1pxIcon } from '@deriv/quill-icons/Legacy';
-import { api_base } from '@/external/bot-skeleton';
+// Imported from the module directly rather than the '@/external/bot-skeleton'
+// barrel: that barrel re-exports the Blockly scratch layer, which fails to
+// load under Jest and took the whole account-switcher suite down with it.
+import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import { getAuthInfo } from '@/external/deriv-core';
 import { DerivWSAccountsService } from '@/services/derivws-accounts.service';
 import { useStore } from '@/hooks/useStore';

@@ -105,9 +105,16 @@ export const resolveActiveSymbols = (
 export const loadCustomBotSettings = (): TCustomBotSettings => {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? { ...DEFAULT_CUSTOM_BOT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_CUSTOM_BOT_SETTINGS;
+        const loaded = raw
+            ? { ...DEFAULT_CUSTOM_BOT_SETTINGS, ...JSON.parse(raw) }
+            : { ...DEFAULT_CUSTOM_BOT_SETTINGS };
+        // A stored barrier of 0 or 9 makes one side unwinnable (DIGITUNDER 0 /
+        // DIGITOVER 9 can never resolve in your favour). The picker no longer
+        // offers those, but older saved settings can still carry them.
+        loaded.threshold_digit = Math.min(8, Math.max(1, Number(loaded.threshold_digit) || 5));
+        return loaded;
     } catch {
-        return DEFAULT_CUSTOM_BOT_SETTINGS;
+        return { ...DEFAULT_CUSTOM_BOT_SETTINGS };
     }
 };
 

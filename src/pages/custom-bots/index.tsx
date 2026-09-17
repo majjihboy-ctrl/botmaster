@@ -10,6 +10,18 @@ import './custom-bots.scss';
 
 const DIGIT_OPTIONS = Array.from({ length: 10 }, (_, i) => i);
 
+// Barrier 0 and 9 make one side impossible: DIGITUNDER 0 can never win (no
+// digit is below 0) and DIGITOVER 9 can never win. The engine trades BOTH
+// directions off the same barrier, so only 1-8 is safe to offer.
+const BARRIER_OPTIONS = DIGIT_OPTIONS.filter(d => d >= 1 && d <= 8);
+
+// True win probability on a uniform 0-9 last digit. The barrier digit itself
+// loses both ways, so over% + under% is 90%, not 100%.
+const overWinPct = (barrier: number) => (9 - barrier) * 10;
+const underWinPct = (barrier: number) => barrier * 10;
+// Payout must exceed this for the contract to break even.
+const breakEvenPayout = (win_pct: number) => (win_pct > 0 ? 100 / win_pct : Infinity);
+
 // Anchor digits the engine is allowed to trade from: 0-2 (UNDER) and 7-9 (OVER).
 const isAnchorDigit = (d: number) => d <= 2 || d >= 7;
 
@@ -340,12 +352,32 @@ const CustomBots = observer(() => {
                                     disabled={is_running}
                                     onChange={e => updateSettings({ threshold_digit: Number(e.target.value) })}
                                 >
-                                    {DIGIT_OPTIONS.map(d => (
+                                    {BARRIER_OPTIONS.map(d => (
                                         <option key={d} value={d}>
                                             {d}
                                         </option>
                                     ))}
                                 </select>
+                                {/* The two sides are NOT symmetric — the barrier digit
+                                    itself loses both ways. Surfaced here because the
+                                    engine trades whichever side the anchor picks. */}
+                                <div className='custom-bots__odds'>
+                                    <div className='custom-bots__odds-row'>
+                                        <span>{localize('Over wins')}</span>
+                                        <strong>{overWinPct(threshold_digit)}%</strong>
+                                        <span className='be'>
+                                            {localize('needs')} {breakEvenPayout(overWinPct(threshold_digit)).toFixed(2)}x
+                                        </span>
+                                    </div>
+                                    <div className='custom-bots__odds-row'>
+                                        <span>{localize('Under wins')}</span>
+                                        <strong>{underWinPct(threshold_digit)}%</strong>
+                                        <span className='be'>
+                                            {localize('needs')}{' '}
+                                            {breakEvenPayout(underWinPct(threshold_digit)).toFixed(2)}x
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         )}
 

@@ -1,8 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { LogoMark } from '../LogoMark';
+import { getAppName } from '../../../../utils/branding';
 
 // No NEXT_PUBLIC_DERIV_APP_NAME / preview name in the test env, so getAppName()
-// resolves to brand.config.json platform.name ("Deriv Trading Bot").
+// resolves to brand.config.json platform.name. Assert against getAppName()
+// rather than a hard-coded brand string — these tests previously pinned
+// "Deriv Trading Bot"/"D" and broke on the botmaster rebrand even though the
+// component was behaving correctly.
+const APP_NAME = getAppName();
+const BADGE_LETTER = APP_NAME.trim().charAt(0).toUpperCase() || 'A';
 describe('LogoMark', () => {
     const originalAppBuild = process.env.NEXT_PUBLIC_APP_BUILD;
 
@@ -12,7 +18,7 @@ describe('LogoMark', () => {
 
     it('renders the resolved app name', () => {
         render(<LogoMark />);
-        expect(screen.getByText('Deriv Trading Bot')).toBeInTheDocument();
+        expect(screen.getByText(APP_NAME)).toBeInTheDocument();
     });
 
     it('renders the logo image (first candidate) by default', () => {
@@ -30,7 +36,7 @@ describe('LogoMark', () => {
         }
         expect(screen.queryByRole('img')).not.toBeInTheDocument();
         // Letter badge shows the first letter of the app name.
-        expect(screen.getByText('D')).toBeInTheDocument();
+        expect(screen.getByText(BADGE_LETTER)).toBeInTheDocument();
     });
 
     it('skips logo file probing in the preview build and renders the letter badge', () => {
@@ -40,6 +46,6 @@ describe('LogoMark', () => {
         process.env.NEXT_PUBLIC_APP_BUILD = 'true';
         render(<LogoMark />);
         expect(screen.queryByRole('img')).not.toBeInTheDocument();
-        expect(screen.getByText('D')).toBeInTheDocument();
+        expect(screen.getByText(BADGE_LETTER)).toBeInTheDocument();
     });
 });
