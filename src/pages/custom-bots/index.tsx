@@ -51,6 +51,19 @@ const CustomBots = observer(() => {
     const mode = settings.mode;
     const threshold_digit = settings.threshold_digit;
     const scanner = useMarketScanner(symbol_options, mode, threshold_digit, false);
+    const recent_digits: number[] = React.useMemo(() => {
+        const map = (scanner as { recent_by_symbol?: Record<string, number[]> }).recent_by_symbol || {};
+        if (target?.symbol && map[target.symbol]?.length) return map[target.symbol];
+        // Prefer a market that has ticks; otherwise empty
+        for (const s of symbol_options) {
+            if (map[s.symbol]?.length) return map[s.symbol];
+        }
+        return [];
+    }, [scanner, target?.symbol, symbol_options]);
+    const recent_label =
+        target?.display_name ||
+        symbol_options.find(s => (scanner as any).recent_by_symbol?.[s.symbol]?.length)?.display_name ||
+        '';
 
     const is_running = status === 'running';
     const continuation_streak = settings.continuation_streak ?? settings.min_streak ?? 3;
@@ -202,6 +215,38 @@ const CustomBots = observer(() => {
 
                     <div className='custom-bots__panel'>
                         <h2>{localize('Status')}</h2>
+                        <div className='custom-bots__recent-ticks'>
+                            <div className='custom-bots__recent-ticks-head'>
+                                <span>{localize('Recent ticks')}</span>
+                                {recent_label ? <span className='market'>{recent_label}</span> : null}
+                            </div>
+                            <div className='custom-bots__digit-track'>
+                                {recent_digits.length === 0 ? (
+                                    <span className='empty'>{localize('Waiting for ticks…')}</span>
+                                ) : (
+                                    recent_digits.map((d, i) => {
+                                        const is_anchor = d <= 2 || d >= 7;
+                                        const is_locked = target && d === target.digit;
+                                        return (
+                                            <span
+                                                key={`${i}-${d}`}
+                                                className={[
+                                                    'digit',
+                                                    d <= 2 ? 'low' : '',
+                                                    d >= 7 ? 'high' : '',
+                                                    is_locked ? 'locked' : '',
+                                                    !is_anchor ? 'mid' : '',
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' ')}
+                                            >
+                                                {d}
+                                            </span>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
                         <div className={`custom-bots__engine-status ${phase}`}>
                             <span className='label'>{phaseLabel(is_running ? phase : 'hunting', need_streak, settings.strategy)}</span>
                             {target ? (
