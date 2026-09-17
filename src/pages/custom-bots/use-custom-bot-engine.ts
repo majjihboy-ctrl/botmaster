@@ -284,6 +284,80 @@ const last_market = { current: null as string | null };
 const locked_direction = { current: null as TScanDirection | null };
 /** Markets banned until a win (Custom Pro recovery). */
 const banned_markets = { current: new Set<string>() };
+
+/** Fresh proposal id ready so buy is one hop when the anchor digit prints. */
+type TCachedProposal = {
+    id: string;
+    symbol: string;
+    contract_type: string;
+    stake: number;
+    barrier?: number;
+    ts: number;
+};
+const cached_proposal = { current: null as TCachedProposal | null };
+let proposal_refresh_timer: ReturnType<typeof setInterval> | null = null;
+
+const stopProposalRefresh = () => {
+    if (proposal_refresh_timer) {
+        clearInterval(proposal_refresh_timer);
+        proposal_refresh_timer = null;
+    }
+};
+
+const buildProposalRequest = (locked: TLockedTarget, bought_stake: number) => {
+    const s = snapshot.settings;
+    const proposal_request: Record<string, unknown> = {
+        proposal: 1,
+        amount: bought_stake,
+        basis: 'stake',
+        contract_type: locked.contract_type,
+        currency: currency.current || 'USD',
+        duration: 1,
+        duration_unit: 't',
+        underlying_symbol: locked.symbol,
+    };
+    if (s.mode === 'overunder') proposal_request.barrier = s.threshold_digit;
+    return proposal_request;
+};
+
+const prefetchProposal = async (locked: TLockedTarget) => {
+    if (!api_base.api || api_base.api.connection?.readyState !== 1) return;
+    if (!running.current || in_trade.current || buying.current) return;
+    if (!target.current || target.current.symbol !== locked.symbol) return;
+    try {
+        const bought_stake = stake.current;
+        const proposal_request = buildProposalRequest(locked, bought_stake);
+        const proposal_res = await api_base.api.send(proposal_request);
+        if (proposal_res?.error) return;
+        const proposal_id = proposal_res?.proposal?.id;
+        if (!proposal_id) return;
+        // Still the same lock?
+        if (!target.current || target.current.symbol !== locked.symbol) return;
+        cached_proposal.current = {
+            id: proposal_id,
+            symbol: locked.symbol,
+            contract_type: locked.contract_type,
+            stake: bought_stake,
+            barrier: snapshot.settings.mode === 'overunder' ? snapshot.settings.threshold_digit : undefined,
+            ts: Date.now(),
+        };
+    } catch {
+        // non-fatal — buyNow will request a fresh proposal
+    }
+};
+
+const startProposalRefresh = (locked: TLockedTarget) => {
+    stopProposalRefresh();
+    cached_proposal.current = null;
+    void prefetchProposal(locked);
+    // Deriv proposals expire quickly; keep a hot one while armed
+    proposal_refresh_timer = setInterval(() => {
+        if (!running.current || in_trade.current || buying.current) return;
+        if (!target.current) return;
+        void prefetchProposal(target.current);
+    }, 4000);
+};
+
 const last_epoch = { current: null as number | null };
 const currency = { current: 'USD' };
 const symbols = { current: [] as TSymbolOption[] };
@@ -299,6 +373,12 @@ const setLockedTarget = (next: TLockedTarget | null) => {
         target: next,
         phase: next ? 'armed' : running.current ? 'hunting' : snapshot.phase,
     });
+    if (next) {
+        startProposalRefresh(next);
+    } else {
+        stopProposalRefresh();
+        cached_proposal.current = null;
+    }
 };
 
 const hunt = () => {
@@ -343,6 +423,8 @@ const checkLimits = (): string | null => {
 };
 
 const stopEngine = (reason?: string) => {
+    stopProposalRefresh();
+    cached_proposal.current = null;
     running.current = false;
     in_trade.current = false;
     buying.current = false;
@@ -507,25 +589,46 @@ const buyNow = async (locked: TLockedTarget) => {
     }
 
     try {
-        const proposal_request: Record<string, unknown> = {
-            proposal: 1,
-            amount: bought_stake,
-            basis: 'stake',
-            contract_type: locked.contract_type,
-            currency: currency.current || 'USD',
-            duration: 1,
-            duration_unit: 't',
-            underlying_symbol: locked.symbol,
-        };
-        if (s.mode === 'overunder') proposal_request.barrier = s.threshold_digit;
+        stopProposalRefresh();
+        let proposal_id: string | undefined;
+        const cached = cached_proposal.current;
+        const cache_ok =
+            cached &&
+            cached.symbol === locked.symbol &&
+            cached.contract_type === locked.contract_type &&
+            Math.abs(cached.stake - bought_stake) < 0.001 &&
+            Date.now() - cached.ts < 12000;
 
-        const proposal_res = await api_base.api.send(proposal_request);
-        if (proposal_res?.error) throw new Error(proposal_res.error.message || 'Proposal failed');
-        const proposal_id = proposal_res?.proposal?.id;
-        if (!proposal_id) throw new Error('No proposal returned');
+        if (cache_ok) {
+            // Fast path: only the buy call — proposal was prefetched while armed
+            proposal_id = cached.id;
+        } else {
+            const proposal_request = buildProposalRequest(locked, bought_stake);
+            const proposal_res = await api_base.api.send(proposal_request);
+            if (proposal_res?.error) throw new Error(proposal_res.error.message || 'Proposal failed');
+            proposal_id = proposal_res?.proposal?.id;
+            if (!proposal_id) throw new Error('No proposal returned');
+        }
+        cached_proposal.current = null;
 
         const buy_res = await api_base.api.send({ buy: proposal_id, price: bought_stake });
-        if (buy_res?.error) throw new Error(buy_res.error.message || 'Buy was rejected');
+        if (buy_res?.error) {
+            // Cached proposal may have expired — one retry with a fresh proposal
+            if (cache_ok) {
+                const proposal_request = buildProposalRequest(locked, bought_stake);
+                const proposal_res = await api_base.api.send(proposal_request);
+                if (proposal_res?.error) throw new Error(proposal_res.error.message || 'Proposal failed');
+                proposal_id = proposal_res?.proposal?.id;
+                if (!proposal_id) throw new Error('No proposal returned');
+                const buy_res2 = await api_base.api.send({ buy: proposal_id, price: bought_stake });
+                if (buy_res2?.error) throw new Error(buy_res2.error.message || 'Buy was rejected');
+                const contract_id2 = buy_res2?.buy?.contract_id;
+                if (!contract_id2) throw new Error('No contract id returned');
+                trackContract(contract_id2, log_id, locked, bought_stake);
+                return;
+            }
+            throw new Error(buy_res.error.message || 'Buy was rejected');
+        }
         const contract_id = buy_res?.buy?.contract_id;
         if (!contract_id) throw new Error('No contract id returned');
 
