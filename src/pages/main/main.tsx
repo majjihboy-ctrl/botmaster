@@ -92,12 +92,11 @@ const AppWrapper = observer(() => {
         CHART,
         ANALYSIS_TOOL,
         FREE_BOTS,
-        AUTOTRADE,
     } = DBOT_TABS;
     // Single source of truth for "can a bot actually run on this tab?" — used by
     // both the desktop floating wrapper and the mobile drawer below.
     const show_run_controls =
-        [BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS, AUTOTRADE].includes(active_tab) || !!active_tour;
+        [BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS].includes(active_tab) || !!active_tour;
     const init_render = React.useRef(true);
     const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool', 'autotrade', 'digit_pattern', 'signals', 'copy_trading'];
     const { isDesktop } = useDevice();
