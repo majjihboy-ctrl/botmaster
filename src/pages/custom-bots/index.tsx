@@ -27,8 +27,8 @@ const CustomBots = observer(() => {
     const { client } = useStore() ?? {};
     const is_logged_in = !!client?.is_logged_in;
     const currency = client?.currency || 'USD';
-    // Full synthetic list including 1-second volatility (1HZ...) markets.
-    const symbol_options = useSyntheticSymbols();
+    // Exclude 1-second volatility (1HZ...) markets.
+    const symbol_options = useSyntheticSymbols().filter(s => !s.symbol.startsWith('1HZ'));
 
     const {
         settings,
@@ -64,6 +64,11 @@ const CustomBots = observer(() => {
 
     const handleStart = () => {
         if (!is_logged_in || is_running) return;
+        // Use every non-1s market; no manual volatility picker.
+        updateSettings({
+            selected_symbols: [],
+            max_markets: Math.max(symbol_options.length, 1),
+        });
         start();
     };
 
@@ -193,80 +198,6 @@ const CustomBots = observer(() => {
                         </div>
 
                         <p className='custom-bots__field-hint'>{localize('Anchors: 0–2 for UNDER, 7–9 for OVER (Even/Odd uses the same digits). Wait for that digit again, then trade.')}</p>
-                    </div>
-
-                    <div className='custom-bots__panel'>
-                        <h2>{localize('Markets')}</h2>
-                        <p className='custom-bots__field-hint'>
-                            {localize(
-                                'Pick exact markets, or leave none selected and set how many markets to use from the list (in order).'
-                            )}
-                        </p>
-                        <div className='custom-bots__field-group inline'>
-                            <label className='custom-bots__field-label' htmlFor='cb-max-markets'>
-                                {localize('Number of markets')}
-                            </label>
-                            <input
-                                id='cb-max-markets'
-                                type='number'
-                                min={1}
-                                max={Math.max(1, symbol_options.length)}
-                                value={settings.max_markets}
-                                disabled={is_running || (settings.selected_symbols?.length > 0)}
-                                onChange={e =>
-                                    updateSettings({
-                                        max_markets: Math.max(1, Math.min(symbol_options.length, Number(e.target.value) || 1)),
-                                    })
-                                }
-                            />
-                        </div>
-                        <div className='custom-bots__market-actions'>
-                            <button
-                                type='button'
-                                className='custom-bots__btn'
-                                disabled={is_running}
-                                onClick={() =>
-                                    updateSettings({ selected_symbols: symbol_options.map(s => s.symbol) })
-                                }
-                            >
-                                {localize('Select all')}
-                            </button>
-                            <button
-                                type='button'
-                                className='custom-bots__btn'
-                                disabled={is_running}
-                                onClick={() => updateSettings({ selected_symbols: [] })}
-                            >
-                                {localize('Clear')}
-                            </button>
-                            <span className='custom-bots__field-hint'>
-                                {settings.selected_symbols?.length
-                                    ? `${settings.selected_symbols.length} selected`
-                                    : `Using first ${settings.max_markets} markets`}
-                            </span>
-                        </div>
-                        <div className='custom-bots__market-list'>
-                            {symbol_options.map(s => {
-                                const checked = settings.selected_symbols?.includes(s.symbol);
-                                return (
-                                    <label key={s.symbol} className='custom-bots__market-item'>
-                                        <input
-                                            type='checkbox'
-                                            disabled={is_running}
-                                            checked={!!checked}
-                                            onChange={() => {
-                                                const cur = settings.selected_symbols || [];
-                                                const next = checked
-                                                    ? cur.filter(x => x !== s.symbol)
-                                                    : [...cur, s.symbol];
-                                                updateSettings({ selected_symbols: next });
-                                            }}
-                                        />
-                                        <span>{s.display_name || s.symbol}</span>
-                                    </label>
-                                );
-                            })}
-                        </div>
                     </div>
 
                     <div className='custom-bots__panel'>
