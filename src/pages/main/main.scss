@@ -62,11 +62,19 @@
     overflow: hidden;
     width: 100%;
     height: calc(100vh - 9rem);
+    height: calc(100dvh - 9rem);
     padding: 1.6rem;
+    min-height: 0; // allow flex children to shrink and scroll
 
     @include mobile-or-tablet-screen {
-        height: calc(100vh - 6rem);
+        // Header ~5.6rem + footer ~3.6rem; use dvh so URL bar doesn't clip content
+        height: calc(100dvh - 5.6rem - 3.6rem - env(safe-area-inset-bottom, 0px));
+        max-height: calc(100dvh - 5.6rem - 3.6rem - env(safe-area-inset-bottom, 0px));
         padding: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
     }
 
     &__container {
@@ -159,7 +167,8 @@
 
                         flex-direction: column;
                         justify-content: flex-start;
-                        height: 100vh;
+                        height: auto;
+                        min-height: 100%;
                         margin-top: 5rem;
 
                         svg {
@@ -358,9 +367,13 @@
         overflow-y: auto;
 
         @include mobile-or-tablet-screen {
-            height: var(--tab-content-height-mobile);
+            height: auto;
+            min-height: var(--tab-content-height-mobile);
+            max-height: none;
             background: var(--general-main-1);
-            padding-bottom: 8rem;
+            padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
 
             .smartcharts {
                 height: calc(100% - 4rem);
@@ -478,7 +491,9 @@
     padding-bottom: 6rem;
 
     @include mobile-or-tablet-screen {
-        padding-bottom: 8rem;
+        padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .injectionDiv {
@@ -509,7 +524,12 @@
         top: 5.6rem;
         inset-inline-start: 0;
         width: 100vw;
-        height: var(--tab-content-height-mobile);
+        height: auto;
+        min-height: var(--tab-content-height-mobile);
+        max-height: var(--tab-content-height-mobile);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
     }
 }
 
