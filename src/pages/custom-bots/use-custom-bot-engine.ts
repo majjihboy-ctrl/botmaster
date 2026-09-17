@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { api_base } from '@/external/bot-skeleton';
+import { getLastDigitForList } from '@/external/bot-skeleton/services/tradeEngine/utils/helpers';
 import { TSymbolOption } from '@/pages/analysis-tool/use-digit-stats';
 import {
     TScanDirection,
@@ -19,7 +20,12 @@ export type TCustomBotSettings = {
     mode: TScanMode;
     strategy: TCustomStrategy;
     threshold_digit: number;
+    /** @deprecated kept for storage compat — use continuation_streak / reversal_streak */
     min_streak: number;
+    /** Enter Continuation when anchor digit has produced the same outcome this many times */
+    continuation_streak: number;
+    /** Enter Reversal when the pattern is this long (unhealthy / stretched) */
+    reversal_streak: number;
     initial_stake: number;
     martingale_mult: number;
     max_martingale_steps: number;
@@ -61,7 +67,9 @@ export const DEFAULT_CUSTOM_BOT_SETTINGS: TCustomBotSettings = {
     mode: 'evenodd',
     strategy: 'continuation',
     threshold_digit: 5,
-    min_streak: 7,
+    min_streak: 3,
+    continuation_streak: 3,
+    reversal_streak: 7,
     initial_stake: 0.35,
     martingale_mult: 2,
     max_martingale_steps: 4,
@@ -70,6 +78,12 @@ export const DEFAULT_CUSTOM_BOT_SETTINGS: TCustomBotSettings = {
     selected_symbols: [],
     max_markets: 10,
 };
+
+/** Active streak length required for the current style. */
+export const requiredStreak = (s: TCustomBotSettings): number =>
+    s.strategy === 'reversal'
+        ? s.reversal_streak ?? s.min_streak ?? 7
+        : s.continuation_streak ?? s.min_streak ?? 3;
 
 /** Resolve which markets the engine may trade on. */
 export const resolveActiveSymbols = (
@@ -154,7 +168,7 @@ const pickTarget = (
     const eligible = entries.filter(e => {
         if (allowed_symbols && !allowed_symbols.has(e.symbol)) return false;
         if (banned_symbols.has(e.symbol)) return false;
-        if (e.count < settings.min_streak) return false;
+        if (e.count < requiredStreak(settings)) return false;
         if (last && e.symbol === last.symbol && e.digit === last.digit) return false;
         // Always skip last market while recovering; also skip on reversal style
         if (recovering && last_market && e.symbol === last_market) return false;
@@ -272,9 +286,11 @@ const hunt = () => {
             locked_direction.current = next.trade_direction;
         }
         setLockedTarget(next);
-        notify({ status_message: '' });
-        // Buy immediately — waiting for the same digit to reappear missed most entries.
-        void buyNow(next);
+        notify({
+            status_message: `Armed digit ${next.digit} — waiting for it to appear again, then ${next.trade_direction.toUpperCase()}`,
+        });
+        // Do NOT buy yet. Custom Pro waits until the anchor digit prints again,
+        // then places the 1-tick trade (continuation or reversal of the pattern).
     } else {
         setLockedTarget(null);
         notify({ phase: 'waiting' });
@@ -478,13 +494,15 @@ const attachTickListener = () => {
         if (epoch && epoch === last_epoch.current) return;
         last_epoch.current = epoch || null;
 
-        // Backup path: if immediate buy did not run, take the next tick on this market.
-        // Do not wait for the locked digit to reappear — that was the main source of misses.
-        if (!stillValid(locked, entriesNow(), snapshot.settings.min_streak)) {
-            setLockedTarget(null);
-            hunt();
-            return;
-        }
+        const pip_size =
+            api_base?.pip_sizes?.[locked.symbol] ??
+            String(data.tick.quote).split('.')[1]?.length ??
+            2;
+        const digit = Number(getLastDigitForList(Number(data.tick.quote), pip_size));
+
+        // Core rule: only execute when the anchor digit appears again.
+        // Example: streak is "after 4 → OVER". When 4 prints, buy OVER/UNDER for the next tick.
+        if (digit !== locked.digit) return;
 
         void buyNow(locked);
     });
@@ -497,10 +515,14 @@ const attachScannerListener = () => {
         if (!running.current || in_trade.current || buying.current) return;
         const locked = target.current;
         if (locked) {
-            // Keep an armed target; do not cancel it on every scanner flicker.
-            // Invalidation only if the streak direction clearly flipped.
-            if (!stillValid(locked, entriesNow(), snapshot.settings.min_streak)) {
-                // leave lock; tick/buy path will clear if needed
+            // Stay armed until the anchor digit appears (or user stops).
+            // Only cancel if the pattern direction clearly flipped against the lock.
+            const row = entriesNow().find(
+                e => e.symbol === locked.symbol && e.digit === locked.digit
+            );
+            if (row && row.direction && row.direction !== locked.streak_direction) {
+                setLockedTarget(null);
+                hunt();
             }
             return;
         }
