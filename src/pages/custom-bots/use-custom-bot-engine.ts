@@ -345,6 +345,12 @@ const stopEngine = (reason?: string) => {
     tick_unsub = null;
     scanner_unsub?.();
     scanner_unsub = null;
+    // Contracts that never reach `is_sold` (dropped subscription, forgotten
+    // server-side) would otherwise keep their listener attached forever,
+    // inspecting every future WS message. The set was tracked but never
+    // drained anywhere, so this was a dead safety net until now.
+    pending_subs.forEach(sub => sub.unsubscribe());
+    pending_subs.clear();
     notify({
         target: null,
         phase: 'hunting',

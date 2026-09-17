@@ -223,7 +223,18 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
                     'animation--disabled': is_disabled,
                 })}
             >
-                {show_overlay && <ContractResultOverlay profit={profit} exit_spot={contract_info?.exit_spot} />}
+                {/* The typed field is `exit_tick`; some payloads also carry
+                    `exit_spot`, so fall back to it at runtime without asserting
+                    it onto the type. */}
+                {show_overlay && (
+                    <ContractResultOverlay
+                        profit={profit}
+                        exit_spot={
+                            contract_info?.exit_tick ??
+                            (contract_info as { exit_spot?: string | number | null })?.exit_spot
+                        }
+                    />
+                )}
                 <span className='animation__text'>
                     <ContractStageText contract_stage={contract_stage} />
                 </span>

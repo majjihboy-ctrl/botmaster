@@ -10,16 +10,20 @@ import './custom-bots.scss';
 
 const DIGIT_OPTIONS = Array.from({ length: 10 }, (_, i) => i);
 
-const phaseLabel = (phase: string, need: number, strategy: string) => {
+// Anchor digits the engine is allowed to trade from: 0-2 (UNDER) and 7-9 (OVER).
+const isAnchorDigit = (d: number) => d <= 2 || d >= 7;
+
+const phaseCopy = (phase: string, is_running: boolean) => {
+    if (!is_running) return localize('Idle');
     switch (phase) {
         case 'armed':
-            return localize('Armed — waiting for anchor digit to appear');
+            return localize('Armed — waiting for the anchor digit to print');
         case 'in_trade':
-            return localize('In trade');
+            return localize('Trade open');
         case 'waiting':
-            return localize(`Waiting for a ${need}+ pattern (${strategy})`);
+            return localize('Waiting for a qualifying streak');
         default:
-            return localize(`Scanning ${strategy} patterns (${need}+)`);
+            return localize('Scanning markets for a setup');
     }
 };
 
@@ -27,8 +31,12 @@ const CustomBots = observer(() => {
     const { client } = useStore() ?? {};
     const is_logged_in = !!client?.is_logged_in;
     const currency = client?.currency || 'USD';
-    // Exclude 1-second volatility (1HZ...) markets.
-    const symbol_options = useSyntheticSymbols().filter(s => !s.symbol.startsWith('1HZ'));
+
+    // Exclude 1-second volatility (1HZ...) markets. Memoised so the array
+    // identity is stable — it feeds hook deps below and a fresh array on every
+    // render would retrigger them needlessly.
+    const all_symbols = useSyntheticSymbols();
+    const symbol_options = React.useMemo(() => all_symbols.filter(s => !s.symbol.startsWith('1HZ')), [all_symbols]);
 
     const {
         settings,
@@ -51,37 +59,29 @@ const CustomBots = observer(() => {
     const mode = settings.mode;
     const threshold_digit = settings.threshold_digit;
     const scanner = useMarketScanner(symbol_options, mode, threshold_digit, false);
-    const recent_digits: number[] = React.useMemo(() => {
-        const map = (scanner as { recent_by_symbol?: Record<string, number[]> }).recent_by_symbol || {};
-        if (target?.symbol && map[target.symbol]?.length) return map[target.symbol];
-        // Prefer a market that has ticks; otherwise empty
-        for (const s of symbol_options) {
-            if (map[s.symbol]?.length) return map[s.symbol];
-        }
-        return [];
-    }, [scanner, target?.symbol, symbol_options]);
-    const recent_label =
-        target?.display_name ||
-        symbol_options.find(s => (scanner as any).recent_by_symbol?.[s.symbol]?.length)?.display_name ||
-        '';
 
     const is_running = status === 'running';
     const continuation_streak = settings.continuation_streak ?? settings.min_streak ?? 3;
     const reversal_streak = settings.reversal_streak ?? 7;
-    const need_streak =
-        settings.strategy === 'reversal' ? reversal_streak : continuation_streak;
-    const setStrategy = (v: TCustomStrategy) => updateSettings({ strategy: v });
 
-    const onMode = (v: TScanMode) => updateSettings({ mode: v });
-    const onThreshold = (v: number) => updateSettings({ threshold_digit: v });
+    // Digit strip for the locked market, falling back to any market that has
+    // ticks yet so the panel isn't blank while hunting.
+    const { recent_digits, recent_label } = React.useMemo(() => {
+        const map = scanner.recent_by_symbol || {};
+        if (target?.symbol && map[target.symbol]?.length) {
+            return { recent_digits: map[target.symbol], recent_label: target.display_name };
+        }
+        const first = symbol_options.find(s => map[s.symbol]?.length);
+        return {
+            recent_digits: first ? map[first.symbol] : [],
+            recent_label: first?.display_name ?? '',
+        };
+    }, [scanner.recent_by_symbol, target?.symbol, target?.display_name, symbol_options]);
 
     const handleStart = () => {
         if (!is_logged_in || is_running) return;
         // Use every non-1s market; no manual volatility picker.
-        updateSettings({
-            selected_symbols: [],
-            max_markets: Math.max(symbol_options.length, 1),
-        });
+        updateSettings({ selected_symbols: [], max_markets: Math.max(symbol_options.length, 1) });
         start();
     };
 
@@ -94,226 +94,298 @@ const CustomBots = observer(() => {
                 ? localize('Stopped — max martingale steps reached.')
                 : null;
 
+    const connection_state = scanner.is_loading ? 'connecting' : is_running ? 'live' : 'idle';
+    const connection_copy = scanner.is_loading
+        ? localize('Connecting')
+        : is_running
+          ? localize('Live')
+          : localize('Idle');
+
     return (
         <div className='custom-bots'>
-            <div className='custom-bots__topbar'>
-                <div className='custom-bots__title'>
+            {/* ---- Control bar: status, the one primary action, and the numbers
+                 that matter while it runs. Previously Start/Stop was buried at
+                 the bottom of a crowded Status panel. ---- */}
+            <header className='custom-bots__bar'>
+                <div className='custom-bots__bar-id'>
                     <h1>{localize('Custom Pro')}</h1>
-                    <span className={`custom-bots__live ${scanner.is_loading ? 'connecting' : is_running ? '' : 'idle'}`}>
+                    <span className={`custom-bots__live ${connection_state}`}>
                         <span className='custom-bots__pulse' />
-                        {scanner.is_loading
-                            ? localize('CONNECTING')
-                            : is_running
-                              ? localize('RUNNING')
-                              : localize('IDLE')}
+                        {connection_copy}
                     </span>
                 </div>
-                <p className='custom-bots__field-hint'>
-                    {localize('Best-market scoring · recover on other markets · direction lock on losses.')}
-                </p>
-            </div>
+
+                <div className='custom-bots__bar-stats'>
+                    <div className='custom-bots__stat'>
+                        <span className='k'>{localize('Stake')}</span>
+                        <span className='v'>${stake.toFixed(2)}</span>
+                    </div>
+                    <div className='custom-bots__stat'>
+                        <span className='k'>{localize('Loss streak')}</span>
+                        <span className='v'>
+                            {loss_streak}/{settings.max_martingale_steps}
+                        </span>
+                    </div>
+                    <div className='custom-bots__stat'>
+                        <span className='k'>{localize('Session P/L')}</span>
+                        <span className={`v ${session_profit >= 0 ? 'up' : 'down'}`}>
+                            {session_profit >= 0 ? '+' : ''}
+                            {session_profit.toFixed(2)}
+                        </span>
+                    </div>
+                </div>
+
+                {!is_running ? (
+                    <button className='custom-bots__btn primary' disabled={!is_logged_in} onClick={handleStart}>
+                        {localize('Start')}
+                    </button>
+                ) : (
+                    <button className='custom-bots__btn danger' onClick={stop}>
+                        {localize('Stop')}
+                    </button>
+                )}
+            </header>
+
+            {/* Alerts live directly under the bar so they're never missed. */}
+            {(!is_logged_in || status_message || stop_copy) && (
+                <div className='custom-bots__alerts'>
+                    {!is_logged_in && (
+                        <div className='custom-bots__alert warn'>{localize('Log in to start Custom Pro.')}</div>
+                    )}
+                    {status_message && <div className='custom-bots__alert warn'>{status_message}</div>}
+                    {stop_copy && <div className='custom-bots__alert ok'>{stop_copy}</div>}
+                </div>
+            )}
 
             <div className='custom-bots__grid'>
-                <div className='custom-bots__col-main'>
+                <section className='custom-bots__col'>
+                    {/* ---- Live ---- */}
                     <div className='custom-bots__panel'>
-                        <div className='custom-bots__scanner-controls'>
-                            <div className='custom-bots__mode-toggle'>
-                                <button
-                                    className={mode === 'evenodd' ? 'active' : ''}
-                                    disabled={is_running}
-                                    onClick={() => onMode('evenodd')}
-                                >
-                                    Even / Odd
-                                </button>
-                                <button
-                                    className={mode === 'overunder' ? 'active' : ''}
-                                    disabled={is_running}
-                                    onClick={() => onMode('overunder')}
-                                >
-                                    Over / Under
-                                </button>
-                            </div>
-
-                            <div className='custom-bots__mode-toggle'>
-                                <button
-                                    className={settings.strategy === 'continuation' ? 'active' : ''}
-                                    disabled={is_running}
-                                    onClick={() => setStrategy('continuation')}
-                                >
-                                    Continuation
-                                </button>
-                                <button
-                                    className={settings.strategy === 'reversal' ? 'active' : ''}
-                                    disabled={is_running}
-                                    onClick={() => setStrategy('reversal')}
-                                >
-                                    Reversal
-                                </button>
-                            </div>
-
-                            {mode === 'overunder' && (
-                                <div className='custom-bots__field-group inline'>
-                                    <label className='custom-bots__field-label' htmlFor='cb-threshold'>
-                                        {localize('Threshold')}
-                                    </label>
-                                    <select
-                                        id='cb-threshold'
-                                        value={threshold_digit}
-                                        disabled={is_running}
-                                        onChange={e => onThreshold(Number(e.target.value))}
-                                    >
-                                        {DIGIT_OPTIONS.map(d => (
-                                            <option key={d} value={d}>
-                                                {d}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            <div className='custom-bots__field-group inline grow'>
-                                <label className='custom-bots__field-label' htmlFor='cb-cont-streak'>
-                                    {localize('Continuation at')}: <strong>{continuation_streak}+</strong>
-                                </label>
-                                <input
-                                    id='cb-cont-streak'
-                                    type='range'
-                                    min={2}
-                                    max={8}
-                                    step={1}
-                                    value={continuation_streak}
-                                    disabled={is_running}
-                                    onChange={e =>
-                                        updateSettings({
-                                            continuation_streak: Number(e.target.value),
-                                            min_streak: Number(e.target.value),
-                                        })
-                                    }
-                                />
-                            </div>
-                            <div className='custom-bots__field-group inline grow'>
-                                <label className='custom-bots__field-label' htmlFor='cb-rev-streak'>
-                                    {localize('Reversal at')}: <strong>{reversal_streak}+</strong>
-                                </label>
-                                <input
-                                    id='cb-rev-streak'
-                                    type='range'
-                                    min={5}
-                                    max={15}
-                                    step={1}
-                                    value={reversal_streak}
-                                    disabled={is_running}
-                                    onChange={e =>
-                                        updateSettings({ reversal_streak: Number(e.target.value) })
-                                    }
-                                />
-                            </div>
+                        <div className='custom-bots__panel-head'>
+                            <h2>{localize('Live')}</h2>
+                            <span className={`custom-bots__phase ${phase}`}>{phaseCopy(phase, is_running)}</span>
                         </div>
 
-                        <p className='custom-bots__field-hint'>{localize('Anchors: 0–2 for UNDER, 7–9 for OVER (Even/Odd uses the same digits). Wait for that digit again, then trade.')}</p>
-                    </div>
+                        {target ? (
+                            <div className='custom-bots__lock'>
+                                <div className='custom-bots__lock-market'>{target.display_name}</div>
+                                <div className='custom-bots__lock-detail'>
+                                    <span>
+                                        {localize('Anchor')} <strong>{target.digit}</strong>
+                                    </span>
+                                    <span className='sep'>·</span>
+                                    <span>
+                                        {target.count}× {target.streak_direction.toUpperCase()}
+                                    </span>
+                                    <span className='sep'>·</span>
+                                    <span className='custom-bots__expect'>
+                                        {localize('Trade')} <strong>{target.trade_direction.toUpperCase()}</strong>
+                                    </span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className='custom-bots__lock empty'>
+                                {is_running ? localize('Looking for a setup…') : localize('Not running.')}
+                            </div>
+                        )}
 
-                    <div className='custom-bots__panel'>
-                        <h2>{localize('Status')}</h2>
-                        <div className='custom-bots__recent-ticks'>
-                            <div className='custom-bots__recent-ticks-head'>
-                                <span>{localize('Recent ticks')}</span>
+                        {is_running && recovery_direction && (
+                            <div className='custom-bots__recovery'>
+                                {localize('Recovery locked to')} <strong>{recovery_direction.toUpperCase()}</strong>
+                                {banned_symbols?.length ? (
+                                    <span className='skip'>
+                                        {localize('skipping')} {banned_symbols.join(', ')}
+                                    </span>
+                                ) : null}
+                            </div>
+                        )}
+
+                        <div className='custom-bots__ticks'>
+                            <div className='custom-bots__ticks-head'>
+                                <span>{localize('Recent digits')}</span>
                                 {recent_label ? <span className='market'>{recent_label}</span> : null}
                             </div>
                             <div className='custom-bots__digit-track'>
                                 {recent_digits.length === 0 ? (
                                     <span className='empty'>{localize('Waiting for ticks…')}</span>
                                 ) : (
-                                    recent_digits.map((d, i) => {
-                                        const is_anchor = d <= 2 || d >= 7;
-                                        const is_locked = target && d === target.digit;
-                                        return (
-                                            <span
-                                                key={`${i}-${d}`}
-                                                className={[
-                                                    'digit',
-                                                    d <= 2 ? 'low' : '',
-                                                    d >= 7 ? 'high' : '',
-                                                    is_locked ? 'locked' : '',
-                                                    !is_anchor ? 'mid' : '',
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(' ')}
-                                            >
-                                                {d}
-                                            </span>
-                                        );
-                                    })
+                                    recent_digits.map((d, i) => (
+                                        <span
+                                            key={`${i}-${d}`}
+                                            className={[
+                                                'digit',
+                                                d <= 2 ? 'low' : '',
+                                                d >= 7 ? 'high' : '',
+                                                !isAnchorDigit(d) ? 'mid' : '',
+                                                target && d === target.digit ? 'locked' : '',
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' ')}
+                                        >
+                                            {d}
+                                        </span>
+                                    ))
                                 )}
                             </div>
-                        </div>
-                        <div className={`custom-bots__engine-status ${phase}`}>
-                            <span className='label'>{phaseLabel(is_running ? phase : 'hunting', need_streak, settings.strategy)}</span>
-                            {target ? (
-                                <span className='lock'>
-                                    {target.display_name} · digit <strong>{target.digit}</strong> ·{' '}
-                                    {target.count}x {target.streak_direction.toUpperCase()} → expect{' '}
-                                    <strong>{target.trade_direction.toUpperCase()}</strong>
-                                </span>
-                            ) : is_running ? (
-                                <span className='lock'>{localize('Looking for setup…')}</span>
-                            ) : null}
-                            {!is_logged_in && (
-                                <span className='warn'>{localize('Log in to start AutoTrade.')}</span>
-                            )}
-                            {status_message && <span className='warn'>{status_message}</span>}
-                            {stop_copy && <span className='ok'>{stop_copy}</span>}
-                            {is_running && recovery_direction && (
-                                <span className='lock'>
-                                    {localize('Recovery')}: <strong>{recovery_direction.toUpperCase()}</strong>
-                                    {banned_symbols?.length
-                                        ? ` · skip ${banned_symbols.join(', ')}`
-                                        : ''}
-                                </span>
-                            )}
-                        </div>
-                        <div className='custom-bots__engine-actions'>
-                            {!is_running ? (
-                                <button
-                                    className='custom-bots__btn primary'
-                                    disabled={!is_logged_in}
-                                    onClick={handleStart}
-                                >
-                                    {localize('Start')}
-                                </button>
-                            ) : (
-                                <button className='custom-bots__btn danger' onClick={stop}>
-                                    {localize('Stop')}
-                                </button>
-                            )}
-                            <div className='custom-bots__mini-stats'>
-                                <div>
-                                    <span className='k'>{localize('Stake')}</span>
-                                    <span className='v'>${stake.toFixed(2)}</span>
-                                </div>
-                                <div>
-                                    <span className='k'>{localize('Loss streak')}</span>
-                                    <span className='v'>
-                                        {loss_streak}/{settings.max_martingale_steps}
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className='k'>{localize('Session P/L')}</span>
-                                    <span className={`v ${session_profit >= 0 ? 'up' : 'down'}`}>
-                                        {session_profit >= 0 ? '+' : ''}
-                                        {session_profit.toFixed(2)}
-                                    </span>
-                                </div>
-                            </div>
+                            <p className='custom-bots__legend'>
+                                <span className='swatch low' /> {localize('0–2 under')}
+                                <span className='swatch high' /> {localize('7–9 over')}
+                                <span className='swatch mid' /> {localize('3–6 ignored')}
+                            </p>
                         </div>
                     </div>
 
-                    
-                </div>
-
-                <div className='custom-bots__col-side'>
+                    {/* ---- Trade log ---- */}
                     <div className='custom-bots__panel'>
-                        <h2>{localize('Trade settings')}</h2>
+                        <div className='custom-bots__panel-head'>
+                            <h2>{localize('Trade log')}</h2>
+                            {log.length > 0 && <span className='custom-bots__count'>{log.length}</span>}
+                        </div>
+                        {log.length === 0 ? (
+                            <div className='custom-bots__empty-state'>{localize('No trades yet.')}</div>
+                        ) : (
+                            <div className='custom-bots__log-list'>
+                                {log.map(entry => (
+                                    <div key={entry.id} className={`custom-bots__log-item ${entry.status}`}>
+                                        <div className='custom-bots__log-row'>
+                                            <span className='symbol'>{entry.display_name}</span>
+                                            <span className={`badge ${entry.status}`}>{entry.status}</span>
+                                        </div>
+                                        <div className='custom-bots__log-row sub'>
+                                            <span className='meta'>
+                                                {localize('anchor')} {entry.digit} · {entry.contract_type}
+                                                {entry.strategy ? ` · ${entry.strategy}` : ''}
+                                                {typeof entry.result_digit === 'number'
+                                                    ? ` · ${localize('result')} ${entry.result_digit}`
+                                                    : entry.status === 'pending'
+                                                      ? ` · ${localize('result')} …`
+                                                      : ''}
+                                            </span>
+                                            <span className='amounts'>
+                                                <span className='stake'>${entry.stake.toFixed(2)}</span>
+                                                {typeof entry.profit === 'number' && (
+                                                    <span className={`profit ${entry.profit >= 0 ? 'up' : 'down'}`}>
+                                                        {entry.profit >= 0 ? '+' : ''}
+                                                        {entry.profit.toFixed(2)}
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </div>
+                                        {entry.fail_reason && (
+                                            <div className='custom-bots__log-reason'>{entry.fail_reason}</div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                <section className='custom-bots__col'>
+                    {/* ---- Strategy ---- */}
+                    <div className='custom-bots__panel'>
+                        <div className='custom-bots__panel-head'>
+                            <h2>{localize('Strategy')}</h2>
+                            {is_running && <span className='custom-bots__locked-note'>{localize('Stop to edit')}</span>}
+                        </div>
+
+                        <div className='custom-bots__field'>
+                            <label className='custom-bots__label'>{localize('Contract')}</label>
+                            <div className='custom-bots__seg'>
+                                <button
+                                    className={mode === 'evenodd' ? 'active' : ''}
+                                    disabled={is_running}
+                                    onClick={() => updateSettings({ mode: 'evenodd' as TScanMode })}
+                                >
+                                    {localize('Even / Odd')}
+                                </button>
+                                <button
+                                    className={mode === 'overunder' ? 'active' : ''}
+                                    disabled={is_running}
+                                    onClick={() => updateSettings({ mode: 'overunder' as TScanMode })}
+                                >
+                                    {localize('Over / Under')}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className='custom-bots__field'>
+                            <label className='custom-bots__label'>{localize('Entry style')}</label>
+                            <div className='custom-bots__seg'>
+                                <button
+                                    className={settings.strategy === 'continuation' ? 'active' : ''}
+                                    disabled={is_running}
+                                    onClick={() => updateSettings({ strategy: 'continuation' as TCustomStrategy })}
+                                >
+                                    {localize('Continuation')}
+                                </button>
+                                <button
+                                    className={settings.strategy === 'reversal' ? 'active' : ''}
+                                    disabled={is_running}
+                                    onClick={() => updateSettings({ strategy: 'reversal' as TCustomStrategy })}
+                                >
+                                    {localize('Reversal')}
+                                </button>
+                            </div>
+                        </div>
+
+                        {mode === 'overunder' && (
+                            <div className='custom-bots__field'>
+                                <label className='custom-bots__label' htmlFor='cb-threshold'>
+                                    {localize('Barrier digit')}
+                                </label>
+                                <select
+                                    id='cb-threshold'
+                                    value={threshold_digit}
+                                    disabled={is_running}
+                                    onChange={e => updateSettings({ threshold_digit: Number(e.target.value) })}
+                                >
+                                    {DIGIT_OPTIONS.map(d => (
+                                        <option key={d} value={d}>
+                                            {d}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        <SliderField
+                            label={localize('Continuation streak')}
+                            value={continuation_streak}
+                            min={2}
+                            max={8}
+                            step={1}
+                            disabled={is_running}
+                            onChange={v =>
+                                updateSettings({ continuation_streak: Math.round(v), min_streak: Math.round(v) })
+                            }
+                            suffix='+'
+                            decimals={0}
+                        />
+                        <SliderField
+                            label={localize('Reversal streak')}
+                            value={reversal_streak}
+                            min={5}
+                            max={15}
+                            step={1}
+                            disabled={is_running}
+                            onChange={v => updateSettings({ reversal_streak: Math.round(v) })}
+                            suffix='+'
+                            decimals={0}
+                        />
+
+                        <p className='custom-bots__hint'>
+                            {localize(
+                                'Only digits 0–2 (under) and 7–9 (over) are used as anchors. Once a qualifying streak is found, the bot waits for that anchor digit to print again, then buys.'
+                            )}
+                        </p>
+                    </div>
+
+                    {/* ---- Risk ---- */}
+                    <div className='custom-bots__panel'>
+                        <div className='custom-bots__panel-head'>
+                            <h2>{localize('Risk')}</h2>
+                        </div>
                         <SliderField
                             label={localize('Initial stake')}
                             value={settings.initial_stake}
@@ -368,51 +440,21 @@ const CustomBots = observer(() => {
                             prefix='$'
                             decimals={2}
                         />
+                        <p className='custom-bots__hint'>
+                            {localize('Worst case for this sequence')}:{' '}
+                            <strong>
+                                $
+                                {Array.from(
+                                    { length: settings.max_martingale_steps },
+                                    (_, i) => settings.initial_stake * Math.pow(settings.martingale_mult, i)
+                                )
+                                    .reduce((sum, v) => sum + v, 0)
+                                    .toFixed(2)}
+                            </strong>{' '}
+                            {localize('if every step loses.')}
+                        </p>
                     </div>
-
-                    <div className='custom-bots__panel'>
-                        <h2>{localize('Trade log')}</h2>
-                        {log.length === 0 ? (
-                            <div className='custom-bots__empty-state'>{localize('No trades yet.')}</div>
-                        ) : (
-                            <div className='custom-bots__log-list'>
-                                {log.map(entry => (
-                                    <div key={entry.id} className={`custom-bots__log-item ${entry.status}`}>
-                                        <div className='custom-bots__log-main'>
-                                            <span className='symbol'>{entry.display_name}</span>
-                                            <span className='contract-type'>
-                                                anchor {entry.digit} · {entry.contract_type}
-                                                {entry.strategy ? ` · ${entry.strategy}` : ''}
-                                                {typeof entry.result_digit === 'number'
-                                                    ? ` · result ${entry.result_digit}`
-                                                    : entry.status === 'pending'
-                                                      ? ' · result …'
-                                                      : ''}
-                                            </span>
-                                        </div>
-                                        <div className='custom-bots__log-side'>
-                                            <span className='stake'>${entry.stake.toFixed(2)}</span>
-                                            <span className={`badge ${entry.status}`}>{entry.status}</span>
-                                        </div>
-                                        {entry.fail_reason && (
-                                            <div className='custom-bots__log-reason'>{entry.fail_reason}</div>
-                                        )}
-                                        {typeof entry.profit === 'number' && (
-                                            <div
-                                                className={`custom-bots__log-profit ${
-                                                    entry.profit >= 0 ? 'up' : 'down'
-                                                }`}
-                                            >
-                                                {entry.profit >= 0 ? '+' : ''}
-                                                {entry.profit.toFixed(2)}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                </section>
             </div>
         </div>
     );

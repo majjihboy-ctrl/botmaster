@@ -94,6 +94,10 @@ const AppWrapper = observer(() => {
         FREE_BOTS,
         AUTOTRADE,
     } = DBOT_TABS;
+    // Single source of truth for "can a bot actually run on this tab?" — used by
+    // both the desktop floating wrapper and the mobile drawer below.
+    const show_run_controls =
+        [BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS, AUTOTRADE].includes(active_tab) || !!active_tour;
     const init_render = React.useRef(true);
     const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool', 'autotrade', 'digit_pattern', 'signals', 'copy_trading'];
     const { isDesktop } = useDevice();
@@ -530,8 +534,7 @@ const AppWrapper = observer(() => {
                 {/* Only float Run/Stop + RunPanel on tabs where a bot can actually run.
                     Previously this wrapper was absolute-positioned on every tab and
                     collided with the expanded tab bar (Free Bots, Digit Pattern, etc.). */}
-                {([BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS, AUTOTRADE].includes(active_tab) ||
-                    !!active_tour) && (
+                {show_run_controls && (
                     <div className='main__run-strategy-wrapper'>
                         <RunStrategy />
                         <RunPanel />
@@ -540,7 +543,9 @@ const AppWrapper = observer(() => {
                 <ChartModal />
                 <TradingViewModal />
             </DesktopWrapper>
-            <MobileWrapper>{!is_open && <RunPanel />}</MobileWrapper>
+            {/* Same gate on mobile — the drawer used to mount on every tab, so the
+                Run bar floated over tabs that have no bot to run. */}
+            <MobileWrapper>{!is_open && show_run_controls && <RunPanel />}</MobileWrapper>
             <Dialog
                 cancel_button_text={cancel_button_text || localize('Cancel')}
                 className='dc-dialog__wrapper--fixed'
