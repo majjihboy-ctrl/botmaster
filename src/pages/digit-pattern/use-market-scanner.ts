@@ -18,6 +18,17 @@ type TDigitRun = { direction: TScanDirection | null; count: number };
 type TSymbolState = {
     last_digit: number | null;
     runs: Map<number, TDigitRun>; // per reference-digit run, 0-9
+    /** Rolling last digits for UI digit track (newest at the end). */
+    recent: number[];
+};
+
+const RECENT_TICKS_MAX = 24;
+
+const pushRecent = (st: TSymbolState, digit: number) => {
+    st.recent.push(digit);
+    if (st.recent.length > RECENT_TICKS_MAX) {
+        st.recent.splice(0, st.recent.length - RECENT_TICKS_MAX);
+    }
 };
 
 const classify = (digit: number, mode: TScanMode, threshold_digit: number): TScanDirection | null => {
@@ -30,7 +41,7 @@ const classify = (digit: number, mode: TScanMode, threshold_digit: number): TSca
 const freshSymbolState = (): TSymbolState => {
     const runs = new Map<number, TDigitRun>();
     for (let d = 0; d <= 9; d++) runs.set(d, { direction: null, count: 0 });
-    return { last_digit: null, runs };
+    return { last_digit: null, runs, recent: [] };
 };
 
 /** Feeds a run of past digits through the exact same streak logic used for
@@ -39,6 +50,7 @@ const freshSymbolState = (): TSymbolState => {
 const applyDigitSequence = (st: TSymbolState, digits: number[], mode: TScanMode, threshold_digit: number) => {
     digits.forEach(digit => {
         const prev = st.last_digit;
+        pushRecent(st, digit);
         st.last_digit = digit;
         if (prev === null) return;
         const run = st.runs.get(prev);
@@ -246,8 +258,12 @@ const ensureScannerRunning = (symbols: TSymbolOption[], mode: TScanMode, thresho
         if (!st) return;
 
         const prev = st.last_digit;
+        pushRecent(st, digit);
         st.last_digit = digit;
-        if (prev === null) return;
+        if (prev === null) {
+            schedulePublish();
+            return;
+        }
 
         const run = st.runs.get(prev);
         if (!run) return;
@@ -304,12 +320,19 @@ const ensureScannerRunning = (symbols: TSymbolOption[], mode: TScanMode, thresho
     })();
 };
 
-const getSnapshot = () => ({
-    entries: singleton.entries,
-    is_loading: singleton.is_loading,
-    connected_count: singleton.connected_count,
-    total_count: singleton.total_count,
-});
+const getSnapshot = () => {
+    const recent_by_symbol: Record<string, number[]> = {};
+    singleton.stateRef.forEach((st, symbol) => {
+        recent_by_symbol[symbol] = st.recent.slice();
+    });
+    return {
+        entries: singleton.entries,
+        is_loading: singleton.is_loading,
+        connected_count: singleton.connected_count,
+        total_count: singleton.total_count,
+        recent_by_symbol,
+    };
+};
 
 let cached_snapshot = getSnapshot();
 const subscribe = (onStoreChange: () => void) => {
