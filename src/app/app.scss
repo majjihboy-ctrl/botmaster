@@ -6,7 +6,9 @@
     --drawer-scroll-height: calc(100vh - 365px);
     --drawer-content-height-mobile: calc(100% - 233px);
     --tab-content-height: calc(100vh - 16.6rem);
-    --tab-content-height-mobile: calc(100vh - 12.6rem);
+    /* 100dvh avoids mobile browser chrome clipping; extra bottom for fixed footer + safe area */
+    --tab-content-height-mobile: calc(100dvh - 14rem - env(safe-area-inset-bottom, 0px));
+    --tab-content-height-mobile-fallback: calc(100vh - 14rem);
     --zindex-drawer: 5;
     --zindex-modal: 6;
     --zindex-draggable-modal: 7;
@@ -42,4 +44,12 @@
 
 strong {
     font-weight: bold;
+}
+
+
+/* mobile scroll unlock */
+@supports not (height: 100dvh) {
+    .bot {
+        --tab-content-height-mobile: var(--tab-content-height-mobile-fallback);
+    }
 }
