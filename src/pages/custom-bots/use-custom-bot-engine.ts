@@ -52,7 +52,10 @@ export type TCustomTradeLog = {
     time: number;
     symbol: string;
     display_name: string;
+    /** Anchor digit that triggered the trade */
     digit: number;
+    /** Last digit of the exit tick (result) */
+    result_digit?: number;
     contract_type: string;
     strategy: TCustomStrategy;
     stake: number;
@@ -432,7 +435,25 @@ const trackContract = (contract_id: number, log_id: string, traded: TLockedTarge
 
         const profit = Number(poc.sell_price ?? poc.bid_price ?? 0) - Number(poc.buy_price ?? bought_stake);
         const won = profit > 0;
-        patchLog(log_id, { status: won ? 'won' : 'lost', profit });
+        // Resulting digit from the exit tick so the log proves the contract outcome
+        let result_digit: number | undefined;
+        try {
+            const exit_raw = poc.exit_tick ?? poc.exit_spot ?? poc.sell_spot;
+            if (exit_raw !== undefined && exit_raw !== null && exit_raw !== '') {
+                const pip_size =
+                    api_base?.pip_sizes?.[traded.symbol] ??
+                    String(exit_raw).split('.')[1]?.length ??
+                    2;
+                result_digit = Number(getLastDigitForList(Number(exit_raw), pip_size));
+            }
+        } catch {
+            result_digit = undefined;
+        }
+        patchLog(log_id, {
+            status: won ? 'won' : 'lost',
+            profit,
+            ...(result_digit !== undefined && !Number.isNaN(result_digit) ? { result_digit } : {}),
+        });
 
         subscription.unsubscribe();
         pending_subs.delete(subscription);
