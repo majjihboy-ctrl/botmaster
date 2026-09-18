@@ -6,10 +6,19 @@ export type TFreeBot = {
     // Run step entirely — loads the strategy into Bot Builder and starts
     // it running immediately, instead of just navigating there.
     auto_run?: boolean;
+    /** Highlight card with a gold treatment in the Free Bots grid */
+    golden?: boolean;
 };
 
 // Each `id` must match a file name (without extension) in `src/xml/free-bots/`.
 export const FREE_BOTS: TFreeBot[] = [
+    {
+        id: 'sifuna-v1',
+        title: 'Sifuna v1',
+        description:
+            'Alternating Digit Over 3 / Under 6 on 1s Volatility 10. Stake 3, ×2.5 martingale, take profit 45, stop loss 30.',
+        golden: true,
+    },
     {
         id: 'over-destroyer',
         title: 'Over Destroyer',
