@@ -26,7 +26,14 @@ export default Engine =>
                     buy,
                 });
 
+                // Keep prior IDs so late settlement messages still reach Transactions
+                if (this.contractId) {
+                    if (!this.trackedContractIds) this.trackedContractIds = new Set();
+                    this.trackedContractIds.add(this.contractId);
+                }
                 this.contractId = buy.contract_id;
+                if (!this.trackedContractIds) this.trackedContractIds = new Set();
+                this.trackedContractIds.add(buy.contract_id);
                 this.store.dispatch(purchaseSuccessful());
 
                 if (this.is_proposal_subscription_required) {
