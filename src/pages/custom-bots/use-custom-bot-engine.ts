@@ -136,6 +136,22 @@ const CONTRACT_BY_DIRECTION: Record<TScanDirection, string> = {
 
 const roundStake = (n: number) => Math.max(0.35, Math.round(n * 100) / 100);
 
+/** Bound any API promise so a hung socket cannot freeze the engine forever. */
+const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+    new Promise<T>((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+        p.then(
+            v => {
+                clearTimeout(t);
+                resolve(v);
+            },
+            e => {
+                clearTimeout(t);
+                reject(e);
+            }
+        );
+    });
+
 const resolveTradeDirection = (dir: TScanDirection, strategy: TCustomStrategy): TScanDirection =>
     strategy === 'reversal' ? opposite(dir) : dir;
 
@@ -326,7 +342,7 @@ const prefetchProposal = async (locked: TLockedTarget) => {
     if (!target.current || target.current.symbol !== locked.symbol) return;
     try {
         const bought_stake = stake.current;
-        const proposal_res = await api_base.api.send(buildProposalRequest(locked, bought_stake));
+        const proposal_res = await withTimeout(api_base.api.send(buildProposalRequest(locked, bought_stake)), 12000, 'proposal');
         if (proposal_res?.error) return;
         const proposal_id = proposal_res?.proposal?.id;
         if (!proposal_id) return;
@@ -515,41 +531,95 @@ const appendLog = (entry: TCustomTradeLog) => notify({ log: [entry, ...snapshot.
 const patchLog = (id: string, patch: Partial<TCustomTradeLog>) =>
     notify({ log: snapshot.log.map(e => (e.id === id ? { ...e, ...patch } : e)) });
 
+const finishContract = (
+    poc: any,
+    log_id: string,
+    traded: TLockedTarget,
+    bought_stake: number,
+    cleanup: () => void
+) => {
+    const profit = Number(poc.sell_price ?? poc.bid_price ?? 0) - Number(poc.buy_price ?? bought_stake);
+    const won = profit > 0;
+    let result_digit: number | undefined;
+    try {
+        const exit_raw = poc.exit_tick ?? poc.exit_spot ?? poc.sell_spot;
+        if (exit_raw !== undefined && exit_raw !== null && exit_raw !== '') {
+            const pip_size =
+                api_base?.pip_sizes?.[traded.symbol] ??
+                String(exit_raw).split('.')[1]?.length ??
+                2;
+            result_digit = Number(getLastDigitForList(Number(exit_raw), pip_size));
+        }
+    } catch {
+        result_digit = undefined;
+    }
+    patchLog(log_id, {
+        status: won ? 'won' : 'lost',
+        profit,
+        ...(result_digit !== undefined && !Number.isNaN(result_digit) ? { result_digit } : {}),
+    });
+    cleanup();
+    onSettled(won, profit, traded);
+};
+
 const trackContract = (contract_id: number, log_id: string, traded: TLockedTarget, bought_stake: number) => {
     if (!api_base.api) return;
+    let settled = false;
+    let poll_timer: ReturnType<typeof setInterval> | null = null;
+    let hard_timer: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = () => {
+        if (settled) return;
+        settled = true;
+        if (poll_timer) clearInterval(poll_timer);
+        if (hard_timer) clearTimeout(hard_timer);
+        try {
+            subscription.unsubscribe();
+        } catch {
+            // ignore
+        }
+        pending_subs.delete(subscription);
+    };
+
     const subscription = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
+        if (settled) return;
         if (data?.msg_type !== 'proposal_open_contract') return;
         const poc = data.proposal_open_contract;
         if (!poc || poc.contract_id !== contract_id || !poc.is_sold) return;
-
-        const profit = Number(poc.sell_price ?? poc.bid_price ?? 0) - Number(poc.buy_price ?? bought_stake);
-        const won = profit > 0;
-        // Resulting digit from the exit tick so the log proves the contract outcome
-        let result_digit: number | undefined;
-        try {
-            const exit_raw = poc.exit_tick ?? poc.exit_spot ?? poc.sell_spot;
-            if (exit_raw !== undefined && exit_raw !== null && exit_raw !== '') {
-                const pip_size =
-                    api_base?.pip_sizes?.[traded.symbol] ??
-                    String(exit_raw).split('.')[1]?.length ??
-                    2;
-                result_digit = Number(getLastDigitForList(Number(exit_raw), pip_size));
-            }
-        } catch {
-            result_digit = undefined;
-        }
-        patchLog(log_id, {
-            status: won ? 'won' : 'lost',
-            profit,
-            ...(result_digit !== undefined && !Number.isNaN(result_digit) ? { result_digit } : {}),
-        });
-
-        subscription.unsubscribe();
-        pending_subs.delete(subscription);
-        onSettled(won, profit, traded);
+        finishContract(poc, log_id, traded, bought_stake, cleanup);
     });
     pending_subs.add(subscription);
     api_base.api.send({ proposal_open_contract: 1, contract_id, subscribe: 1 });
+
+    // Safety net: re-fetch open contract periodically if the push never arrives
+    poll_timer = setInterval(async () => {
+        if (settled || !api_base.api) return;
+        try {
+            const res = await withTimeout(
+                api_base.api.send({ proposal_open_contract: 1, contract_id }),
+                8000,
+                'contract poll'
+            );
+            const poc = res?.proposal_open_contract;
+            if (poc?.is_sold) finishContract(poc, log_id, traded, bought_stake, cleanup);
+        } catch {
+            // keep waiting until hard timeout
+        }
+    }, 2500);
+
+    // Absolute ceiling: 1-tick contracts should settle in seconds; never freeze the session
+    hard_timer = setTimeout(() => {
+        if (settled) return;
+        cleanup();
+        patchLog(log_id, {
+            status: 'failed',
+            fail_reason: 'Settlement timed out — check journal; engine resumed',
+        });
+        buying.current = false;
+        in_trade.current = false;
+        setLockedTarget(null);
+        if (running.current) hunt();
+    }, 45000);
 };
 
 const buyNow = async (locked: TLockedTarget) => {
@@ -596,21 +666,21 @@ const buyNow = async (locked: TLockedTarget) => {
         if (cache_ok) {
             proposal_id = cached.id;
         } else {
-            const proposal_res = await api_base.api.send(buildProposalRequest(locked, bought_stake));
+            const proposal_res = await withTimeout(api_base.api.send(buildProposalRequest(locked, bought_stake)), 12000, 'proposal');
             if (proposal_res?.error) throw new Error(proposal_res.error.message || 'Proposal failed');
             proposal_id = proposal_res?.proposal?.id;
             if (!proposal_id) throw new Error('No proposal returned');
         }
         cached_proposal.current = null;
 
-        const buy_res = await api_base.api.send({ buy: proposal_id, price: bought_stake });
+        const buy_res = await withTimeout(api_base.api.send({ buy: proposal_id, price: bought_stake }), 12000, 'buy');
         if (buy_res?.error) {
             if (cache_ok) {
-                const proposal_res = await api_base.api.send(buildProposalRequest(locked, bought_stake));
+                const proposal_res = await withTimeout(api_base.api.send(buildProposalRequest(locked, bought_stake)), 12000, 'proposal');
                 if (proposal_res?.error) throw new Error(proposal_res.error.message || 'Proposal failed');
                 proposal_id = proposal_res?.proposal?.id;
                 if (!proposal_id) throw new Error('No proposal returned');
-                const buy_res2 = await api_base.api.send({ buy: proposal_id, price: bought_stake });
+                const buy_res2 = await withTimeout(api_base.api.send({ buy: proposal_id, price: bought_stake }), 12000, 'buy retry');
                 if (buy_res2?.error) throw new Error(buy_res2.error.message || 'Buy was rejected');
                 const contract_id2 = buy_res2?.buy?.contract_id;
                 if (!contract_id2) throw new Error('No contract id returned');
