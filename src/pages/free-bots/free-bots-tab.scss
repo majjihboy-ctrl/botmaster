@@ -63,6 +63,47 @@
         }
     }
 
+
+
+    &__card--golden {
+        background: linear-gradient(135deg, #1a1408 0%, #3d2e0f 45%, #1a1408 100%);
+        box-shadow:
+            0 0 0 1px rgba(234, 179, 8, 0.45),
+            0 8px 28px rgba(234, 179, 8, 0.18),
+            inset 0 1px 0 rgba(253, 224, 71, 0.15);
+
+        &::before {
+            background: radial-gradient(circle, rgba(253, 224, 71, 0.22) 0%, transparent 70%);
+        }
+
+        &:hover {
+            box-shadow:
+                0 0 0 1px rgba(250, 204, 21, 0.75),
+                0 14px 36px rgba(234, 179, 8, 0.28),
+                inset 0 1px 0 rgba(253, 224, 71, 0.2);
+        }
+
+        .free-bots-tab__card-title {
+            color: #fef3c7;
+        }
+
+        .free-bots-tab__card-description {
+            color: #d6c48a;
+        }
+
+        .free-bots-tab__card-load {
+            background: linear-gradient(135deg, #ca8a04, #eab308 50%, #facc15);
+            color: #1c1917;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+        }
+    }
+
+    &__card-badge--golden {
+        color: #fef08a;
+        background: rgba(234, 179, 8, 0.15);
+        border: 1px solid rgba(250, 204, 21, 0.45);
+    }
+
     &__card-badge {
         font-size: var(--text-size-xxs);
         font-weight: 700;
