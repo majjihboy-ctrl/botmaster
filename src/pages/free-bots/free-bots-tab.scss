@@ -65,44 +65,92 @@
 
 
 
+
+    /* Featured / golden — deliberately different layout from standard cards */
     &__card--golden {
-        background: linear-gradient(135deg, #1a1408 0%, #3d2e0f 45%, #1a1408 100%);
+        grid-column: 1 / -1; // full row on the grid
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1.2rem 1.6rem;
+        padding: 2.2rem 2.4rem;
+        border-radius: 20px;
+        background:
+            linear-gradient(145deg, #0c0a06 0%, #2a1f0a 40%, #4a3508 70%, #1a1406 100%);
+        border: 2px solid #eab308;
         box-shadow:
-            0 0 0 1px rgba(234, 179, 8, 0.45),
-            0 8px 28px rgba(234, 179, 8, 0.18),
-            inset 0 1px 0 rgba(253, 224, 71, 0.15);
+            0 0 0 1px rgba(250, 204, 21, 0.35),
+            0 0 40px rgba(234, 179, 8, 0.25),
+            0 12px 32px rgba(0, 0, 0, 0.45),
+            inset 0 1px 0 rgba(254, 243, 199, 0.2);
 
         &::before {
-            background: radial-gradient(circle, rgba(253, 224, 71, 0.22) 0%, transparent 70%);
+            top: -60px;
+            right: -20px;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(250, 204, 21, 0.35) 0%, transparent 65%);
+            opacity: 1;
+        }
+
+        &::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            background: linear-gradient(
+                105deg,
+                transparent 40%,
+                rgba(254, 243, 199, 0.08) 50%,
+                transparent 60%
+            );
         }
 
         &:hover {
+            transform: translateY(-3px) scale(1.01);
             box-shadow:
-                0 0 0 1px rgba(250, 204, 21, 0.75),
-                0 14px 36px rgba(234, 179, 8, 0.28),
-                inset 0 1px 0 rgba(253, 224, 71, 0.2);
+                0 0 0 2px rgba(250, 204, 21, 0.55),
+                0 0 48px rgba(234, 179, 8, 0.35),
+                0 16px 40px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(254, 243, 199, 0.25);
         }
 
         .free-bots-tab__card-title {
-            color: #fef3c7;
-        }
-
-        .free-bots-tab__card-description {
-            color: #d6c48a;
+            flex: 1 1 auto;
+            font-size: var(--text-size-m);
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            color: #fef9c3;
+            text-shadow: 0 0 18px rgba(250, 204, 21, 0.35);
         }
 
         .free-bots-tab__card-load {
-            background: linear-gradient(135deg, #ca8a04, #eab308 50%, #facc15);
+            align-self: center;
+            flex: 0 0 auto;
+            min-width: 12rem;
+            margin-top: 0;
+            padding: 1rem 1.8rem;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #a16207, #eab308 45%, #fde047);
             color: #1c1917;
-            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            box-shadow: 0 4px 14px rgba(234, 179, 8, 0.35);
         }
     }
 
     &__card-badge--golden {
-        color: #fef08a;
-        background: rgba(234, 179, 8, 0.15);
-        border: 1px solid rgba(250, 204, 21, 0.45);
+        color: #1c1917;
+        background: linear-gradient(135deg, #facc15, #eab308);
+        border: none;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        box-shadow: 0 2px 8px rgba(234, 179, 8, 0.4);
     }
+
+
+
 
     &__card-badge {
         font-size: var(--text-size-xxs);
