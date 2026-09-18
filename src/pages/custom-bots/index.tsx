@@ -366,34 +366,40 @@ const CustomBots = observer(() => {
                             </div>
                         )}
 
-                        <SliderField
-                            label={localize('Continuation streak')}
-                            value={continuation_streak}
-                            min={2}
-                            max={8}
-                            step={1}
-                            disabled={is_running}
-                            onChange={v =>
-                                updateSettings({ continuation_streak: Math.round(v), min_streak: Math.round(v) })
-                            }
-                            suffix='+'
-                            decimals={0}
-                        />
-                        <SliderField
-                            label={localize('Reversal streak')}
-                            value={reversal_streak}
-                            min={5}
-                            max={15}
-                            step={1}
-                            disabled={is_running}
-                            onChange={v => updateSettings({ reversal_streak: Math.round(v) })}
-                            suffix='+'
-                            decimals={0}
-                        />
+                        {settings.strategy === 'continuation' ? (
+                            <SliderField
+                                label={localize('Continuation streak')}
+                                value={continuation_streak}
+                                min={2}
+                                max={8}
+                                step={1}
+                                disabled={is_running}
+                                onChange={v =>
+                                    updateSettings({
+                                        continuation_streak: Math.round(v),
+                                        min_streak: Math.round(v),
+                                    })
+                                }
+                                suffix='+'
+                                decimals={0}
+                            />
+                        ) : (
+                            <SliderField
+                                label={localize('Reversal streak')}
+                                value={reversal_streak}
+                                min={5}
+                                max={15}
+                                step={1}
+                                disabled={is_running}
+                                onChange={v => updateSettings({ reversal_streak: Math.round(v) })}
+                                suffix='+'
+                                decimals={0}
+                            />
+                        )}
 
                         <p className='custom-bots__hint'>
                             {localize(
-                                'Only digits 0–2 (under) and 7–9 (over) are used as anchors. Once a qualifying streak is found, the bot waits for that anchor digit to print again, then buys.'
+                                'Anchors only: 0–2 for UNDER and 7–9 for OVER. Digits 3–6 never trigger a trade, even with a long streak. Bot waits for the anchor digit to print again, then buys.'
                             )}
                         </p>
                     </div>
