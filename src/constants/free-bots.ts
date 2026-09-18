@@ -15,73 +15,69 @@ export const FREE_BOTS: TFreeBot[] = [
     {
         id: 'sifuna-v1',
         title: 'Sifuna v1',
-        description:
-            'Alternating Digit Over 3 / Under 6 on 1s Volatility 10. Stake 3, ×2.5 martingale, take profit 45, stop loss 30.',
+        description: '',
         golden: true,
     },
     {
         id: 'over-destroyer',
         title: 'Over Destroyer',
-        description: 'Digit Over/Under strategy with martingale recovery.',
+        description: '',
     },
     {
         id: 'kuomoka-digit-under',
         title: 'Kuomoka Digit Under',
-        description: 'Digit Under strategy with martingale recovery.',
+        description: '',
     },
     {
         id: 'differ-killer-bot',
         title: 'Differ Killer Bot',
-        description: 'Fast-entry Digit Differs strategy with martingale recovery.',
+        description: '',
     },
     {
         id: 'over-2-under-7-master-bot',
         title: 'Over 2 / Under 7 Master Bot',
-        description: 'Digit Over/Under strategy.',
+        description: '',
     },
     {
         id: 'over-1-entry-search-after-loss',
         title: 'Over 1 – Entry Search After Loss',
-        description: 'Digit Over strategy that searches for a fresh entry point after a loss.',
+        description: '',
     },
     {
         id: 'last-digit-martingale',
         title: 'Last Digit Bot with Martingale',
-        description: 'Digit Under strategy with martingale recovery.',
+        description: '',
     },
     {
         id: 'savior-bot',
         title: 'Savior Bot',
-        description: 'Rise & Equals strategy with martingale recovery. Engineered to recover losses fast.',
+        description: '',
     },
     {
         id: 'kichele-v1-9',
         title: 'Kichele V1.9',
-        description: 'Digit Under 8 strategy, entry-gated on a last digit of 1, with a Digit Over 3 martingale recovery arm on loss.',
+        description: '',
     },
     {
         id: 'fable-v1-pro',
         title: 'Fable V1 Pro',
-        description: 'Digit Over/Under recovery strategy with martingale.',
+        description: '',
     },
     {
         id: 'even-odd-v2',
         title: 'Even/Odd V2',
-        description:
-            'Single-digit trigger: every time the chosen digit appears as the last digit, bets the reversal (Even or Odd) on the next tick. Martingale on loss, capped stop loss/take profit. Loads and starts running immediately.',
+        description: '',
         auto_run: true,
     },
     {
         id: 'digitpulse-pro',
         title: 'DigitPulse Pro',
-        description:
-            'Original strategy: waits for a clear Even/Odd imbalance + a 3-streak of the opposite side + confirmation that the last digit is not already the target side. Then bets the suppressed side. Mild ×1.6 recovery (max 4 steps), hard stop after max steps. Designed for cleaner entries than single-trigger bots.',
+        description: '',
     },
     {
         id: 'over-under-v2',
         title: 'Over/Under V2',
-        description:
-            'Single-digit trigger: every time the chosen digit appears as the last digit, bets the reversal (Over or Under a configurable barrier) on the next tick. Martingale on loss, capped stop loss/take profit. Loads and starts running immediately.',
+        description: '',
         auto_run: true,
     },
 ];
