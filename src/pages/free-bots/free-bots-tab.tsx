@@ -78,7 +78,11 @@ const FreeBotsTab = observer(() => {
                                 </div>
                             )}
                             <div className='free-bots-tab__card-title'>{bot.title}</div>
-                            <div className='free-bots-tab__card-description'>{bot.description}</div>
+                            {bot.description ? (
+                                {bot.description ? (
+                                <div className='free-bots-tab__card-description'>{bot.description}</div>
+                            ) : null}
+                            ) : null}
                             <button
                                 type='button'
                                 className='free-bots-tab__card-load'
@@ -98,7 +102,11 @@ const FreeBotsTab = observer(() => {
                         <div key={bot.id} className='free-bots-tab__card'>
                             <div className='free-bots-tab__card-badge'>{localize('PREMIUM')}</div>
                             <div className='free-bots-tab__card-title'>{bot.title}</div>
-                            <div className='free-bots-tab__card-description'>{bot.description}</div>
+                            {bot.description ? (
+                                {bot.description ? (
+                                <div className='free-bots-tab__card-description'>{bot.description}</div>
+                            ) : null}
+                            ) : null}
                             <a
                                 className='free-bots-tab__card-load'
                                 href={bot.whatsapp_url}
