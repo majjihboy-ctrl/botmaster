@@ -68,7 +68,15 @@ const FreeBotsTab = observer(() => {
             ) : (
                 <div className='free-bots-tab__grid'>
                     {FREE_BOTS.map(bot => (
-                        <div key={bot.id} className='free-bots-tab__card'>
+                        <div
+                            key={bot.id}
+                            className={`free-bots-tab__card${bot.golden ? ' free-bots-tab__card--golden' : ''}`}
+                        >
+                            {bot.golden && (
+                                <div className='free-bots-tab__card-badge free-bots-tab__card-badge--golden'>
+                                    {localize('FEATURED')}
+                                </div>
+                            )}
                             <div className='free-bots-tab__card-title'>{bot.title}</div>
                             <div className='free-bots-tab__card-description'>{bot.description}</div>
                             <button
