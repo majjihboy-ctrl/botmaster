@@ -79,9 +79,7 @@ const FreeBotsTab = observer(() => {
                             )}
                             <div className='free-bots-tab__card-title'>{bot.title}</div>
                             {bot.description ? (
-                                {bot.description ? (
                                 <div className='free-bots-tab__card-description'>{bot.description}</div>
-                            ) : null}
                             ) : null}
                             <button
                                 type='button'
@@ -103,9 +101,7 @@ const FreeBotsTab = observer(() => {
                             <div className='free-bots-tab__card-badge'>{localize('PREMIUM')}</div>
                             <div className='free-bots-tab__card-title'>{bot.title}</div>
                             {bot.description ? (
-                                {bot.description ? (
                                 <div className='free-bots-tab__card-description'>{bot.description}</div>
-                            ) : null}
                             ) : null}
                             <a
                                 className='free-bots-tab__card-load'
