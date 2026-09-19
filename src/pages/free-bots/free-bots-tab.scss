@@ -66,77 +66,31 @@
 
 
 
-    /* Featured / golden — deliberately different layout from standard cards */
+    /* Featured / golden — same size & layout as other cards; gold colors only */
     &__card--golden {
-        grid-column: 1 / -1; // full row on the grid
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 1.2rem 1.6rem;
-        padding: 2.2rem 2.4rem;
-        border-radius: 20px;
-        background:
-            linear-gradient(145deg, #0c0a06 0%, #2a1f0a 40%, #4a3508 70%, #1a1406 100%);
-        border: 2px solid #eab308;
+        background: linear-gradient(135deg, #1a1408 0%, #3d2e0f 50%, #1a1408 100%);
+        border: 1px solid rgba(234, 179, 8, 0.55);
         box-shadow:
-            0 0 0 1px rgba(250, 204, 21, 0.35),
-            0 0 40px rgba(234, 179, 8, 0.25),
-            0 12px 32px rgba(0, 0, 0, 0.45),
-            inset 0 1px 0 rgba(254, 243, 199, 0.2);
+            0 0 0 1px rgba(234, 179, 8, 0.35),
+            0 6px 20px rgba(234, 179, 8, 0.15);
 
         &::before {
-            top: -60px;
-            right: -20px;
-            width: 200px;
-            height: 200px;
-            background: radial-gradient(circle, rgba(250, 204, 21, 0.35) 0%, transparent 65%);
-            opacity: 1;
-        }
-
-        &::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            pointer-events: none;
-            background: linear-gradient(
-                105deg,
-                transparent 40%,
-                rgba(254, 243, 199, 0.08) 50%,
-                transparent 60%
-            );
+            background: radial-gradient(circle, rgba(250, 204, 21, 0.22) 0%, transparent 70%);
         }
 
         &:hover {
-            transform: translateY(-3px) scale(1.01);
             box-shadow:
-                0 0 0 2px rgba(250, 204, 21, 0.55),
-                0 0 48px rgba(234, 179, 8, 0.35),
-                0 16px 40px rgba(0, 0, 0, 0.5),
-                inset 0 1px 0 rgba(254, 243, 199, 0.25);
+                0 0 0 1px rgba(250, 204, 21, 0.65),
+                0 12px 32px rgba(234, 179, 8, 0.25);
         }
 
         .free-bots-tab__card-title {
-            flex: 1 1 auto;
-            font-size: var(--text-size-m);
-            font-weight: 800;
-            letter-spacing: 0.04em;
             color: #fef9c3;
-            text-shadow: 0 0 18px rgba(250, 204, 21, 0.35);
         }
 
         .free-bots-tab__card-load {
-            align-self: center;
-            flex: 0 0 auto;
-            min-width: 12rem;
-            margin-top: 0;
-            padding: 1rem 1.8rem;
-            border-radius: 999px;
-            background: linear-gradient(135deg, #a16207, #eab308 45%, #fde047);
+            background: linear-gradient(135deg, #ca8a04, #eab308 50%, #facc15);
             color: #1c1917;
-            font-weight: 800;
-            letter-spacing: 0.03em;
-            box-shadow: 0 4px 14px rgba(234, 179, 8, 0.35);
         }
     }
 
@@ -145,8 +99,7 @@
         background: linear-gradient(135deg, #facc15, #eab308);
         border: none;
         font-weight: 800;
-        letter-spacing: 0.1em;
-        box-shadow: 0 2px 8px rgba(234, 179, 8, 0.4);
+        letter-spacing: 0.06em;
     }
 
 
