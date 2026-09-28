@@ -8,31 +8,40 @@ import APIMiddleware from './api-middleware';
 let derivApiInstance = null;
 let derivApiPromise = null;
 let currentWebSocketURL = null;
+/** Timestamp when the current socket entered CONNECTING — used to detect stuck connects. */
+let connectingSince = null;
+
+const CONNECT_TIMEOUT_MS = 10000; // abort sockets that never open
+const STUCK_CONNECTING_MS = 12000; // treat long CONNECTING as dead
 
 /**
  * Clears the singleton instance (useful for logout or forced reconnection).
- * @param {boolean} keepPromise - If true, do not null derivApiPromise (used while a new
- *   instance is being created so concurrent callers still await the same creation).
+ * @param {boolean} keepPromise - If true, do not null derivApiPromise (mid-creation URL switch).
  */
 export const clearDerivApiInstance = (keepPromise = false) => {
     if (derivApiInstance?.connection) {
         try {
-            // Remove reference first so the close event of the OLD socket does not
-            // null out a brand-new instance that was assigned in the meantime.
             const conn = derivApiInstance.connection;
             derivApiInstance = null;
             currentWebSocketURL = null;
+            connectingSince = null;
             if (conn.readyState === WebSocket.OPEN || conn.readyState === WebSocket.CONNECTING) {
-                conn.close();
+                try {
+                    conn.close();
+                } catch (_) {
+                    /* ignore */
+                }
             }
         } catch (error) {
             console.error('[DerivAPI] Error closing WebSocket:', error);
             derivApiInstance = null;
             currentWebSocketURL = null;
+            connectingSince = null;
         }
     } else {
         derivApiInstance = null;
         currentWebSocketURL = null;
+        connectingSince = null;
     }
     if (!keepPromise) {
         derivApiPromise = null;
@@ -40,58 +49,129 @@ export const clearDerivApiInstance = (keepPromise = false) => {
 };
 
 /**
- * Generates a Deriv API instance with WebSocket connection using singleton pattern
- * Prevents multiple WebSocket connections by reusing existing instance
- * Now supports async WebSocket URL fetching with authenticated flow
+ * True when the live socket has been CONNECTING longer than STUCK_CONNECTING_MS.
+ * Under multi-user / network pressure Deriv sockets can hang in state 0 forever
+ * until the page is refreshed — this detects that without requiring a refresh.
+ */
+const isStuckConnecting = () => {
+    if (!derivApiInstance?.connection) return false;
+    const rs = derivApiInstance.connection.readyState;
+    if (rs !== WebSocket.CONNECTING) return false;
+    if (!connectingSince) {
+        connectingSince = Date.now();
+        return false;
+    }
+    return Date.now() - connectingSince > STUCK_CONNECTING_MS;
+};
+
+/**
+ * Wait until a WebSocket is OPEN, or reject on timeout / error / early close.
+ */
+const waitForOpen = (socket, timeoutMs = CONNECT_TIMEOUT_MS) =>
+    new Promise((resolve, reject) => {
+        if (socket.readyState === WebSocket.OPEN) {
+            resolve();
+            return;
+        }
+        let settled = false;
+        const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            try {
+                socket.close();
+            } catch (_) {
+                /* ignore */
+            }
+            reject(new Error(`[DerivAPI] WebSocket open timeout after ${timeoutMs}ms`));
+        }, timeoutMs);
+
+        const onOpen = () => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            resolve();
+        };
+        const onError = () => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(new Error('[DerivAPI] WebSocket error while connecting'));
+        };
+        const onClose = () => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(new Error('[DerivAPI] WebSocket closed before open'));
+        };
+        const cleanup = () => {
+            clearTimeout(timer);
+            socket.removeEventListener('open', onOpen);
+            socket.removeEventListener('error', onError);
+            socket.removeEventListener('close', onClose);
+        };
+        socket.addEventListener('open', onOpen);
+        socket.addEventListener('error', onError);
+        socket.addEventListener('close', onClose);
+    });
+
+/**
+ * Generates a Deriv API instance with WebSocket connection using singleton pattern.
  * @param {boolean} forceNew - Force creation of new instance (default: false)
  * @returns Promise with DerivAPIBasic instance
  */
 export const generateDerivApiInstance = async (forceNew = false) => {
-    // If forcing new instance, clear existing one
-    if (forceNew) {
-        console.log('[DerivAPI] Forcing new instance creation');
+    if (forceNew || isStuckConnecting()) {
+        if (isStuckConnecting()) {
+            console.warn('[DerivAPI] Socket stuck in CONNECTING — forcing new connection');
+        } else {
+            console.log('[DerivAPI] Forcing new instance creation');
+        }
         clearDerivApiInstance();
     }
 
-    // If there's already an instance, check its state
     if (derivApiInstance) {
         const readyState = derivApiInstance.connection?.readyState;
-        // Return existing instance if it's connecting or open
-        if (readyState === WebSocket.CONNECTING || readyState === WebSocket.OPEN) {
+        if (readyState === WebSocket.OPEN) {
             console.log('[DerivAPI] Reusing existing instance (state:', readyState, ')');
             return derivApiInstance;
         }
-        // Connection is closed (3) or closing (2) — discard and create new
-        console.log('[DerivAPI] Existing instance not usable (state:', readyState, '), creating new');
-        clearDerivApiInstance();
+        // CONNECTING but not yet stuck — reuse the in-flight creation promise if any
+        if (readyState === WebSocket.CONNECTING && derivApiPromise) {
+            console.log('[DerivAPI] Reusing existing creation promise (still connecting)');
+            try {
+                return await derivApiPromise;
+            } catch (e) {
+                console.warn('[DerivAPI] In-flight creation failed, retrying:', e);
+                clearDerivApiInstance();
+            }
+        } else {
+            console.log('[DerivAPI] Existing instance not usable (state:', readyState, '), creating new');
+            clearDerivApiInstance();
+        }
     }
 
-    // If there's already a creation in progress, return that promise
     if (derivApiPromise) {
         console.log('[DerivAPI] Reusing existing creation promise');
         try {
             return await derivApiPromise;
         } catch (e) {
-            // Previous creation failed — fall through and try again
             console.warn('[DerivAPI] Previous creation promise failed, retrying:', e);
             derivApiPromise = null;
         }
     }
 
-    // Create new instance
     derivApiPromise = (async () => {
         try {
-            // Await the async getSocketURL() function
             const wsURL = await getSocketURL();
 
-            // Account switch (demo ↔ real): URL changed — close old socket only,
-            // keep this creation promise so concurrent callers still resolve here.
             if (currentWebSocketURL && currentWebSocketURL !== wsURL) {
                 console.log('[DerivAPI] WebSocket URL changed, clearing old instance');
                 clearDerivApiInstance(true);
             }
 
             currentWebSocketURL = wsURL;
+            connectingSince = Date.now();
 
             console.log('[DerivAPI] Creating new WebSocket connection to:', wsURL);
             const deriv_socket = new WebSocket(wsURL);
@@ -100,43 +180,43 @@ export const generateDerivApiInstance = async (forceNew = false) => {
                 middleware: new APIMiddleware({}),
             });
 
-            // Store the instance immediately (don't wait for connection)
             derivApiInstance = deriv_api;
 
-            // Set up close handler to clear instance ONLY if it is still the active one
             deriv_socket.addEventListener('close', () => {
                 console.log('[DerivAPI] WebSocket connection closed');
                 if (derivApiInstance === deriv_api) {
                     derivApiInstance = null;
                     currentWebSocketURL = null;
+                    connectingSince = null;
                 }
             });
 
-            // Log when connection opens
             deriv_socket.addEventListener('open', () => {
                 console.log('[DerivAPI] WebSocket connection established');
+                connectingSince = null;
             });
 
             deriv_socket.addEventListener('error', error => {
                 console.error('[DerivAPI] WebSocket connection error:', error);
             });
 
+            // Block until OPEN (or timeout) so callers never get a half-dead socket
+            await waitForOpen(deriv_socket, CONNECT_TIMEOUT_MS);
+            connectingSince = null;
+
             return deriv_api;
         } catch (error) {
             console.error('[DerivAPI] Error creating instance:', error);
-            derivApiInstance = null;
-            currentWebSocketURL = null;
+            // Ensure a timed-out socket is fully discarded
+            clearDerivApiInstance(true);
             throw error;
         } finally {
-            // Clear the promise after a short delay to allow reuse during concurrent calls
             setTimeout(() => {
                 derivApiPromise = null;
             }, 150);
         }
     })();
 
-    // Prevent "Uncaught (in promise)" when no waiter handles a rejection.
-    // Callers that await still receive the error normally.
     derivApiPromise.catch(() => {});
 
     return derivApiPromise;
