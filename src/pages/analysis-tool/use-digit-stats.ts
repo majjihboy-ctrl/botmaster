@@ -243,6 +243,20 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
     };
 };
 
+/** Wait until api_base.api exists and the socket is open (readyState === 1). */
+const waitForApi = async (isCancelled: () => boolean, maxMs = 15000): Promise<boolean> => {
+    const start = Date.now();
+    while (!isCancelled() && Date.now() - start < maxMs) {
+        const api = api_base?.api;
+        const rs = api?.connection?.readyState;
+        if (api && typeof api.send === 'function' && (rs === 1 || rs === undefined)) {
+            return true;
+        }
+        await new Promise(r => setTimeout(r, 300));
+    }
+    return !!(api_base?.api && typeof api_base.api.send === 'function');
+};
+
 export const useDigitStats = (symbol: string, tick_count: number, over_under_digit: number) => {
     const [stats, setStats] = useState<TDigitStats>(EMPTY_STATS);
     const quotesRef = useRef<number[]>([]);
@@ -251,6 +265,9 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
     const overUnderDigitRef = useRef<number>(over_under_digit);
     const lastTickAtRef = useRef<number>(0);
     const lastEpochRef = useRef<number | null>(null);
+    // Generation counter so stale async recoveries from a previous effect
+    // cannot overwrite a newer subscription after symbol/tick_count change.
+    const generationRef = useRef(0);
 
     useEffect(() => {
         overUnderDigitRef.current = over_under_digit;
@@ -261,20 +278,62 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
         let message_subscription: { unsubscribe: () => void } | null = null;
         let watchdog: ReturnType<typeof setInterval> | null = null;
         let resubscribing = false;
+        const generation = ++generationRef.current;
+
+        const isActive = () => !is_cancelled && generationRef.current === generation;
+
+        const forgetCurrent = async () => {
+            if (subscriptionIdRef.current && api_base?.api) {
+                try {
+                    await api_base.api.send({ forget: subscriptionIdRef.current });
+                } catch {
+                    // ignore
+                }
+                subscriptionIdRef.current = null;
+            }
+        };
+
+        const attachMessageListener = () => {
+            message_subscription?.unsubscribe();
+            message_subscription = null;
+            if (!api_base?.api?.onMessage) return;
+
+            const normalize = (s: string) => (s || '').trim().toUpperCase();
+            const target_symbol = normalize(symbol);
+
+            message_subscription = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
+                if (!isActive()) return;
+                if (data?.msg_type === 'tick' && normalize(data?.tick?.symbol) === target_symbol) {
+                    // Guards against the brief window (on resubscribe, when
+                    // symbol/tick_count changes) where the old subscription's
+                    // `forget` is still in flight and a new one is already
+                    // live — Deriv then delivers the same tick twice.
+                    const epoch = Number(data.tick.epoch);
+                    if (epoch && epoch === lastEpochRef.current) return;
+                    lastEpochRef.current = epoch || null;
+
+                    if (data.tick.id) subscriptionIdRef.current = data.tick.id;
+                    lastTickAtRef.current = Date.now();
+                    quotesRef.current = [...quotesRef.current, Number(data.tick.quote)].slice(-tick_count);
+                    setStats(prev => ({
+                        ...computeStats(quotesRef.current, pipSizeRef.current, overUnderDigitRef.current),
+                        is_loading: false,
+                        is_stale: false,
+                    }));
+                }
+            });
+        };
 
         const subscribeToTicks = async (): Promise<boolean> => {
-            if (resubscribing) return false; // avoid overlapping attempts from watchdog + retries
+            if (resubscribing || !isActive()) return false;
             resubscribing = true;
             try {
-                // Clear out any subscription THIS hook previously held for this
-                // symbol before asking for a fresh one.
-                if (subscriptionIdRef.current) {
-                    await api_base.api.send({ forget: subscriptionIdRef.current }).catch(() => {});
-                    subscriptionIdRef.current = null;
-                }
+                if (!(await waitForApi(() => !isActive()))) return false;
 
-                for (let attempt = 0; attempt < 3; attempt++) {
-                    if (is_cancelled) return false;
+                await forgetCurrent();
+
+                for (let attempt = 0; attempt < 4; attempt++) {
+                    if (!isActive()) return false;
                     try {
                         const sub_res = await api_base.api.send({ ticks: symbol, subscribe: 1 });
                         if (sub_res?.error) throw sub_res.error;
@@ -284,21 +343,16 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                     } catch (sub_error: any) {
                         const code = sub_error?.error?.code || sub_error?.code;
                         if (code === 'AlreadySubscribed') {
-                            // Deriv's forget_all only accepts a subscription
-                            // TYPE ('ticks'), not a symbol filter — it will
-                            // clear every tick subscription on this connection,
-                            // not just this one. Only reach for it on the
-                            // final attempt, after a plain short-delay retry
-                            // (which resolves it if the stale subscription was
-                            // just about to be cleaned up naturally) has
-                            // already failed twice.
-                            if (attempt === 2) {
+                            // forget_all('ticks') clears every tick sub on this
+                            // connection — only use it as last resort.
+                            if (attempt >= 2) {
                                 await api_base.api.send({ forget_all: 'ticks' }).catch(() => {});
                             }
-                            await new Promise(r => setTimeout(r, 400));
+                            await new Promise(r => setTimeout(r, 500 + attempt * 200));
                             continue;
                         }
-                        return false;
+                        // RateLimit / disconnected — back off and retry
+                        await new Promise(r => setTimeout(r, 800 + attempt * 400));
                     }
                 }
                 return false;
@@ -307,93 +361,126 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
             }
         };
 
-        const start = async () => {
-            setStats(prev => ({ ...prev, is_loading: true }));
-            lastEpochRef.current = null;
-
-            const pip_size_lookup = api_base?.pip_sizes?.[symbol];
+        const loadHistory = async (): Promise<boolean> => {
+            if (!isActive()) return false;
+            if (!(await waitForApi(() => !isActive()))) return false;
 
             try {
+                const pip_size_lookup = api_base?.pip_sizes?.[symbol];
                 const history_res = await api_base.api.send({
                     ticks_history: symbol,
                     count: Math.min(tick_count, 5000),
                     end: 'latest',
                     style: 'ticks',
                 });
-                if (is_cancelled) return;
+                if (!isActive()) return false;
 
                 const raw_prices: (string | number)[] = history_res?.history?.prices ?? [];
+                if (!raw_prices.length) return false;
+
                 const pip_size = pip_size_lookup ?? inferPipSize(raw_prices) ?? 2;
                 pipSizeRef.current = pip_size;
 
                 const prices: number[] = raw_prices.map(Number);
                 quotesRef.current = prices;
-                setStats(computeStats(prices, pip_size, overUnderDigitRef.current));
-
-                // Symbol match is normalized (trim + uppercase) defensively —
-                // if Deriv ever pushes a tick whose symbol string differs in
-                // case/whitespace from what we requested, a strict `===`
-                // comparison would silently drop every live tick for that
-                // symbol while the initial history fetch (which doesn't
-                // depend on this comparison) still succeeds. That exact
-                // pattern — historical loads fine, live never updates — is
-                // what a silent mismatch here would look like.
-                const normalize = (s: string) => (s || '').trim().toUpperCase();
-                const target_symbol = normalize(symbol);
-
-                message_subscription = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
-                    if (data?.msg_type === 'tick' && normalize(data?.tick?.symbol) === target_symbol) {
-                        // Guards against the brief window (on resubscribe, when
-                        // symbol/tick_count changes) where the old subscription's
-                        // `forget` is still in flight and a new one is already
-                        // live — Deriv then delivers the same tick twice, which
-                        // otherwise shows up as every digit doubled in a row.
-                        const epoch = Number(data.tick.epoch);
-                        if (epoch && epoch === lastEpochRef.current) return;
-                        lastEpochRef.current = epoch || null;
-
-                        if (data.tick.id) subscriptionIdRef.current = data.tick.id;
-                        lastTickAtRef.current = Date.now();
-                        quotesRef.current = [...quotesRef.current, Number(data.tick.quote)].slice(-tick_count);
-                        setStats(prev => ({
-                            ...computeStats(quotesRef.current, pipSizeRef.current, overUnderDigitRef.current),
-                            is_loading: false,
-                            is_stale: false,
-                        }));
-                    }
+                setStats({
+                    ...computeStats(prices, pip_size, overUnderDigitRef.current),
+                    is_loading: false,
+                    is_stale: false,
                 });
-
-                await subscribeToTicks();
-                setStats(prev => ({ ...prev, is_loading: false }));
-
-                // Watchdog: volatility indices tick roughly every 1-2 seconds
-                // (1s indices even faster). If nothing has arrived for 6s
-                // after we believe we're subscribed, the feed has silently
-                // stalled — force a clean resubscribe rather than sitting
-                // frozen while still displaying "LIVE".
-                watchdog = setInterval(() => {
-                    if (is_cancelled) return;
-                    const silent_for = Date.now() - lastTickAtRef.current;
-                    if (silent_for > 6000) {
-                        setStats(prev => ({ ...prev, is_stale: true }));
-                        subscribeToTicks();
-                    }
-                }, 2000);
-            } catch (e) {
-                if (!is_cancelled) setStats(prev => ({ ...prev, is_loading: false }));
+                lastTickAtRef.current = Date.now();
+                return true;
+            } catch {
+                return false;
             }
         };
 
+        /**
+         * Full recovery: re-attach message listener, optionally refresh history
+         * if the buffer is empty/stale, and re-subscribe to live ticks.
+         * Safe to call repeatedly from the watchdog.
+         */
+        const fullRecover = async (refreshHistory: boolean) => {
+            if (!isActive() || resubscribing) return;
+            setStats(prev => ({ ...prev, is_stale: true }));
+
+            attachMessageListener();
+
+            if (refreshHistory || quotesRef.current.length < 10) {
+                await loadHistory();
+            }
+
+            const ok = await subscribeToTicks();
+            if (ok && isActive()) {
+                setStats(prev => ({ ...prev, is_loading: false, is_stale: false }));
+            }
+        };
+
+        const start = async () => {
+            setStats(prev => ({ ...prev, is_loading: true, is_stale: false }));
+            lastEpochRef.current = null;
+            quotesRef.current = [];
+
+            // Wait for the shared Deriv socket before doing anything.
+            const ready = await waitForApi(() => !isActive(), 20000);
+            if (!isActive()) return;
+
+            if (!ready) {
+                // Socket still not ready — mark stale and let the watchdog retry.
+                setStats(prev => ({ ...prev, is_loading: false, is_stale: true }));
+            } else {
+                attachMessageListener();
+                await loadHistory();
+                if (!isActive()) return;
+                await subscribeToTicks();
+                if (isActive()) setStats(prev => ({ ...prev, is_loading: false }));
+            }
+
+            // Watchdog runs forever while this effect is alive.
+            // - 6s silence  → soft resubscribe (ticks only)
+            // - 15s silence → full recovery (history + listener + ticks)
+            // - Also re-checks socket readyState so a dead connection is recovered
+            //   even if lastTickAt was recently updated before the drop.
+            watchdog = setInterval(() => {
+                if (!isActive()) return;
+                const silent_for = Date.now() - lastTickAtRef.current;
+                const rs = api_base?.api?.connection?.readyState;
+                const socket_dead = rs !== undefined && rs !== 1;
+
+                if (socket_dead || silent_for > 15000) {
+                    fullRecover(true);
+                } else if (silent_for > 6000) {
+                    setStats(prev => ({ ...prev, is_stale: true }));
+                    // Soft path: just re-subscribe ticks + re-attach listener
+                    attachMessageListener();
+                    subscribeToTicks();
+                }
+            }, 2500);
+        };
+
         start();
+
+        // When the browser tab becomes visible again, force a recovery —
+        // mobile browsers often suspend WebSockets in the background.
+        const onVisibility = () => {
+            if (document.visibilityState === 'visible' && isActive()) {
+                const silent_for = Date.now() - lastTickAtRef.current;
+                if (silent_for > 4000) fullRecover(true);
+            }
+        };
+        const onOnline = () => {
+            if (isActive()) fullRecover(true);
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('online', onOnline);
 
         return () => {
             is_cancelled = true;
             message_subscription?.unsubscribe();
             if (watchdog) clearInterval(watchdog);
-            if (subscriptionIdRef.current) {
-                api_base.api.send({ forget: subscriptionIdRef.current }).catch(() => {});
-                subscriptionIdRef.current = null;
-            }
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('online', onOnline);
+            forgetCurrent();
         };
     }, [symbol, tick_count]);
 
@@ -401,7 +488,11 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
     // re-subscribing when only the over/under threshold digit changes.
     useEffect(() => {
         if (quotesRef.current.length) {
-            setStats(prev => ({ ...computeStats(quotesRef.current, pipSizeRef.current, over_under_digit), is_loading: prev.is_loading }));
+            setStats(prev => ({
+                ...computeStats(quotesRef.current, pipSizeRef.current, over_under_digit),
+                is_loading: prev.is_loading,
+                is_stale: prev.is_stale,
+            }));
         }
     }, [over_under_digit]);
 
