@@ -528,25 +528,43 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
             lastEpochRef.current = null;
             quotesRef.current = [];
 
-            // Brief wait for the shared Deriv socket (fast path if already open).
-            const ready = await waitForApi(() => !isActive(), 6000);
-            if (!isActive()) return;
+            // Hard cap: never leave the UI on CONNECTING forever
+            const loadingCap = setTimeout(() => {
+                if (isActive()) {
+                    setStats(prev => ({ ...prev, is_loading: false, is_stale: true }));
+                }
+            }, 8000);
 
-            if (!ready) {
-                // Socket still not ready — mark stale and let the watchdog retry.
-                setStats(prev => ({ ...prev, is_loading: false, is_stale: true }));
-            } else {
-                attachMessageListener();
-                // History first so the UI fills quickly; subscribe can follow.
-                await loadHistory();
+            try {
+                // Brief wait for the shared Deriv socket (fast path if already open).
+                const ready = await waitForApi(() => !isActive(), 4000);
                 if (!isActive()) return;
-                // Don't block UI on subscribe — fire and let watchdog recover if needed
-                subscribeToTicks().then(ok => {
-                    if (ok && isActive()) {
-                        setStats(prev => ({ ...prev, is_loading: false, is_stale: false }));
+
+                if (!ready) {
+                    // Socket still not ready — mark stale and let the watchdog retry.
+                    setStats(prev => ({ ...prev, is_loading: false, is_stale: true }));
+                } else {
+                    attachMessageListener();
+                    // History first so the UI fills quickly; subscribe can follow.
+                    const gotHistory = await loadHistory();
+                    if (!isActive()) return;
+                    // Don't block UI on subscribe — fire and let watchdog recover if needed
+                    subscribeToTicks().then(ok => {
+                        if (ok && isActive()) {
+                            setStats(prev => ({ ...prev, is_loading: false, is_stale: false }));
+                        }
+                    });
+                    // Clear loading as soon as history is in (or even if not — watchdog retries)
+                    if (isActive()) {
+                        setStats(prev => ({
+                            ...prev,
+                            is_loading: false,
+                            is_stale: !gotHistory,
+                        }));
                     }
-                });
-                if (isActive()) setStats(prev => ({ ...prev, is_loading: false }));
+                }
+            } finally {
+                clearTimeout(loadingCap);
             }
 
             // Watchdog runs forever while this effect is alive.
