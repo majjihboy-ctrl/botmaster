@@ -69,7 +69,7 @@ class APIBase {
     // Constants for timeouts - extracted magic numbers for better maintainability
     private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000; // 10 seconds
     private readonly ENRICHMENT_TIMEOUT_MS = 10000; // 10 seconds
-    private readonly MAX_RECONNECTION_ATTEMPTS = 5; // Maximum number of reconnection attempts before session reset
+    private readonly MAX_RECONNECTION_ATTEMPTS = 9999; // Keep reconnecting indefinitely for 24/7 tools (analysis, scanners)
 
     unsubscribeAllSubscriptions = () => {
         this.current_auth_subscriptions?.forEach(subscription_promise => {
@@ -233,19 +233,9 @@ class APIBase {
             this.reconnection_attempts += 1;
 
             if (this.reconnection_attempts >= this.MAX_RECONNECTION_ATTEMPTS) {
-                // Reset reconnection counter
+                // Soft reset only — never force-logout. Analysis tool and other
+                // 24/7 features must keep the socket alive through long sessions.
                 this.reconnection_attempts = 0;
-
-                // Properly handle logout through the API
-                setIsAuthorized(false);
-                setAccountList([]);
-                setAuthData(null);
-
-                // Clear necessary storage items
-                localStorage.removeItem('active_loginid');
-                localStorage.removeItem('account_type');
-                localStorage.removeItem('accountsList');
-                localStorage.removeItem('clientAccounts');
             }
 
             this.init(true);
