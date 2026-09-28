@@ -136,13 +136,73 @@ const countDigits = (quotes: number[], pip_size: number): number[] => {
 // Fallback for when api_base.pip_sizes hasn't loaded yet for this symbol:
 // infer decimal precision directly from a real quote string rather than
 // assuming 2 (wrong for e.g. R_10/R_25, which use 3 decimals).
+// Known decimal places for Deriv synthetic indices (pip → decimals).
+// Used when api_base.pip_sizes is empty/wrong-keyed or history prices lost trailing zeros.
+const KNOWN_PIP_DECIMALS: Record<string, number> = {
+    R_10: 3,
+    R_25: 3,
+    R_50: 2,
+    R_75: 2,
+    R_100: 2,
+    '1HZ10V': 2,
+    '1HZ25V': 2,
+    '1HZ50V': 2,
+    '1HZ75V': 2,
+    '1HZ100V': 2,
+    JD10: 2,
+    JD25: 2,
+    JD50: 2,
+    JD75: 2,
+    JD100: 2,
+};
+
+/**
+ * Infer decimal places from price samples.
+ * IMPORTANT: take the MAX across samples — JSON numbers drop trailing zeros, so
+ * a single value like 1234.5 must not lock us into 1 decimal when the symbol is 3.
+ */
 const inferPipSize = (raw_prices: (string | number)[]): number | null => {
+    let max_decimals = 0;
+    let found = false;
     for (const p of raw_prices) {
         const s = String(p);
         const dot = s.indexOf('.');
-        if (dot !== -1) return s.length - dot - 1;
+        if (dot !== -1) {
+            found = true;
+            max_decimals = Math.max(max_decimals, s.length - dot - 1);
+        }
     }
-    return null;
+    return found ? max_decimals : null;
+};
+
+/** Resolve decimal places for a symbol: api map → active_symbols pip → known table → infer. */
+const resolvePipSize = (symbol: string, raw_prices: (string | number)[]): number => {
+    // 1) api_base.pip_sizes (may be keyed by symbol or underlying_symbol)
+    const from_map = api_base?.pip_sizes?.[symbol];
+    if (typeof from_map === 'number' && from_map >= 0 && from_map <= 8) {
+        return from_map;
+    }
+
+    // 2) Live active_symbols list — pip is often 0.01 / 0.001
+    const list = api_base?.active_symbols;
+    if (Array.isArray(list)) {
+        const row = list.find((s: any) => s.symbol === symbol || s.underlying_symbol === symbol);
+        const pip = row?.pip_size ?? row?.pip;
+        if (pip != null && Number(pip) > 0) {
+            // 0.01 → 2, 0.001 → 3 (same formula as active-symbols-processor)
+            const exp = Number(Number(pip).toExponential().substring(3));
+            if (Number.isFinite(exp)) return Math.abs(exp);
+        }
+    }
+
+    // 3) Hardcoded known synthetics
+    if (KNOWN_PIP_DECIMALS[symbol] != null) return KNOWN_PIP_DECIMALS[symbol];
+
+    // 4) Infer from history (max decimals seen)
+    const inferred = inferPipSize(raw_prices);
+    if (inferred != null && inferred > 0) return inferred;
+
+    return 2;
 };
 
 const WINDOW_SIZES = [50, 200];
@@ -314,6 +374,10 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
 
                     if (data.tick.id) subscriptionIdRef.current = data.tick.id;
                     lastTickAtRef.current = Date.now();
+                    // Some tick payloads include pip_size as decimal places — keep display accurate
+                    if (typeof data.tick.pip_size === 'number' && data.tick.pip_size >= 0 && data.tick.pip_size <= 8) {
+                        pipSizeRef.current = data.tick.pip_size;
+                    }
                     quotesRef.current = [...quotesRef.current, Number(data.tick.quote)].slice(-tick_count);
                     setStats(prev => ({
                         ...computeStats(quotesRef.current, pipSizeRef.current, overUnderDigitRef.current),
@@ -366,7 +430,6 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
             if (!(await waitForApi(() => !isActive()))) return false;
 
             try {
-                const pip_size_lookup = api_base?.pip_sizes?.[symbol];
                 const history_res = await api_base.api.send({
                     ticks_history: symbol,
                     count: Math.min(tick_count, 5000),
@@ -378,7 +441,14 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                 const raw_prices: (string | number)[] = history_res?.history?.prices ?? [];
                 if (!raw_prices.length) return false;
 
-                const pip_size = pip_size_lookup ?? inferPipSize(raw_prices) ?? 2;
+                // Deriv ticks_history includes `pip_size` as decimal-place count
+                // (e.g. 2 or 3). Prefer that, then our resolver, so the displayed
+                // price keeps full precision (6073.569 not 6073.6).
+                const from_history =
+                    typeof history_res?.pip_size === 'number' && history_res.pip_size >= 0
+                        ? history_res.pip_size
+                        : null;
+                const pip_size = from_history ?? resolvePipSize(symbol, raw_prices);
                 pipSizeRef.current = pip_size;
 
                 const prices: number[] = raw_prices.map(Number);
