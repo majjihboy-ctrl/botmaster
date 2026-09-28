@@ -303,16 +303,27 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
     };
 };
 
-/** Wait until api_base.api exists and the socket is open (readyState === 1). */
-const waitForApi = async (isCancelled: () => boolean, maxMs = 15000): Promise<boolean> => {
+/**
+ * Wait until api_base.api is usable.
+ * Resolves as soon as the API object exists — CONNECTING (0) or OPEN (1) is fine;
+ * the caller retries on send failure. Keeps initial load fast.
+ */
+const waitForApi = async (isCancelled: () => boolean, maxMs = 6000): Promise<boolean> => {
     const start = Date.now();
+    // Fast path: already ready
+    const api0 = api_base?.api;
+    if (api0 && typeof api0.send === 'function') {
+        const rs = api0.connection?.readyState;
+        if (rs === undefined || rs === 0 || rs === 1) return true;
+    }
     while (!isCancelled() && Date.now() - start < maxMs) {
         const api = api_base?.api;
-        const rs = api?.connection?.readyState;
-        if (api && typeof api.send === 'function' && (rs === 1 || rs === undefined)) {
-            return true;
+        if (api && typeof api.send === 'function') {
+            const rs = api.connection?.readyState;
+            // OPEN or CONNECTING (or no connection object yet) — proceed
+            if (rs === undefined || rs === 0 || rs === 1) return true;
         }
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 80));
     }
     return !!(api_base?.api && typeof api_base.api.send === 'function');
 };
@@ -412,11 +423,11 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                             if (attempt >= 2) {
                                 await api_base.api.send({ forget_all: 'ticks' }).catch(() => {});
                             }
-                            await new Promise(r => setTimeout(r, 500 + attempt * 200));
+                            await new Promise(r => setTimeout(r, 200 + attempt * 150));
                             continue;
                         }
                         // RateLimit / disconnected — back off and retry
-                        await new Promise(r => setTimeout(r, 800 + attempt * 400));
+                        await new Promise(r => setTimeout(r, 300 + attempt * 250));
                     }
                 }
                 return false;
@@ -491,8 +502,8 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
             lastEpochRef.current = null;
             quotesRef.current = [];
 
-            // Wait for the shared Deriv socket before doing anything.
-            const ready = await waitForApi(() => !isActive(), 20000);
+            // Brief wait for the shared Deriv socket (fast path if already open).
+            const ready = await waitForApi(() => !isActive(), 6000);
             if (!isActive()) return;
 
             if (!ready) {
@@ -500,9 +511,15 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                 setStats(prev => ({ ...prev, is_loading: false, is_stale: true }));
             } else {
                 attachMessageListener();
+                // History first so the UI fills quickly; subscribe can follow.
                 await loadHistory();
                 if (!isActive()) return;
-                await subscribeToTicks();
+                // Don't block UI on subscribe — fire and let watchdog recover if needed
+                subscribeToTicks().then(ok => {
+                    if (ok && isActive()) {
+                        setStats(prev => ({ ...prev, is_loading: false, is_stale: false }));
+                    }
+                });
                 if (isActive()) setStats(prev => ({ ...prev, is_loading: false }));
             }
 
