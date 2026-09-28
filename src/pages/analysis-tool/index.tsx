@@ -148,16 +148,16 @@ const AnalysisTool = observer(() => {
             </div>
 
             <div className='analysis-tool__panel'>
-                <h2>Recent ticks</h2>
-                <div className='analysis-tool__ticks-row'>
-                    {stats.recent_digits.map((d, i) => (
-                        <div
-                            className={`analysis-tool__tick-chip ${i === stats.recent_digits.length - 1 ? 'latest' : ''}`}
-                            key={i}
-                        >
-                            {d}
-                        </div>
-                    ))}
+                <h2>Current price</h2>
+                <div className='analysis-tool__price' aria-live='off'>
+                    {stats.current_quote_text ? (
+                        <>
+                            <span className='analysis-tool__price-main'>{stats.current_quote_text.slice(0, -1)}</span>
+                            <span className='analysis-tool__price-last'>{stats.current_quote_text.slice(-1)}</span>
+                        </>
+                    ) : (
+                        <span className='analysis-tool__price-main'>—</span>
+                    )}
                 </div>
             </div>
 
@@ -173,27 +173,32 @@ const AnalysisTool = observer(() => {
                             else if (i === stats.least_idx) cls = 'least';
                             else if (i === stats.second_least_idx) cls = 'second-least';
                             if (i === selectedDigit) cls += ' selected';
-                            // Relative size (rem) — CSS caps it to the column width so the
-                            // five-per-row grid never overflows on narrow phones.
-                            const size = 5.2 + (count / maxCount) * 3.6;
+                            const is_current = i === stats.current_digit;
                             return (
                                 <div className='analysis-tool__digit-col' key={i}>
+                                    {/* Fixed-height slot so the marker never shifts the grid rows */}
+                                    <span className='analysis-tool__current-marker' aria-hidden='true'>
+                                        {is_current ? '▼' : ''}
+                                    </span>
                                     <div
                                         className={`analysis-tool__digit-circle ${cls}`}
-                                        style={{ '--digit-size': `${size}rem` } as React.CSSProperties}
                                         onClick={() => handlePickDigit(i)}
                                         role='button'
                                         tabIndex={0}
                                         title={`Pick digit ${i} for Matches`}
                                     >
-                                        {i}
+                                        <span className='analysis-tool__digit-num'>{i}</span>
+                                        <span className='analysis-tool__digit-pct'>{pct}%</span>
                                     </div>
-                                    <div className='analysis-tool__digit-pct'>{pct}%</div>
                                 </div>
                             );
                         })}
                     </div>
                     <div className='analysis-tool__legend'>
+                        <span>
+                            <span className='analysis-tool__sw analysis-tool__sw--marker'>▼</span>
+                            Current digit
+                        </span>
                         <span>
                             <span className='analysis-tool__sw' style={{ background: 'var(--status-success)' }} />
                             Most appearing

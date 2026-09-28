@@ -276,7 +276,10 @@ const RunPanel = observer(() => {
     }, [onMount, onUnmount]);
 
     React.useEffect(() => {
-        if (!isDesktop) {
+        // Start collapsed on mobile — but only if nothing is running. The panel
+        // now remounts whenever you return to a bot tab, and collapsing it on a
+        // live bot hides the stats/stop state the person is watching.
+        if (!isDesktop && !run_panel.is_running) {
             toggleDrawer(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps

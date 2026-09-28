@@ -2,7 +2,7 @@
 // Live trading data must stay fresh, so almost nothing is cached.
 // HTML / JS / CSS are never intercepted — only static image/font assets.
 
-const CACHE_NAME = 'botmaster-static-v2';
+const CACHE_NAME = 'botmaster-static-v3'; // bump whenever files under /icons or other cached statics change
 const STATIC_CACHE_PATTERNS = [/\/icons\//, /\.(?:png|jpg|jpeg|svg|webp|woff2?|ttf)$/];
 
 self.addEventListener('install', event => {

@@ -77,6 +77,8 @@ export type TDigitStats = {
     recent_quotes: number[];
     digits: number[];
     current_quote: number | null;
+    current_quote_text: string; // full price at the symbol's real decimal precision, e.g. "6073.569"
+    current_digit: number | null;
     quote_change_pct: number;
     rise_pct: number;
     fall_pct: number;
@@ -104,6 +106,8 @@ const EMPTY_STATS: TDigitStats = {
     recent_digits_100: [],
     digits: [],
     current_quote: null,
+    current_quote_text: '',
+    current_digit: null,
     quote_change_pct: 0,
     rise_pct: 0,
     fall_pct: 0,
@@ -218,6 +222,10 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
         recent_quotes: quotes.slice(-100),
         digits,
         current_quote: last_quote ?? null,
+        // toFixed(pip_size) keeps trailing zeros (6073.500, not 6073.5) so the last
+        // digit shown is the same digit the distribution counts.
+        current_quote_text: last_quote !== undefined ? last_quote.toFixed(pip_size) : '',
+        current_digit: digits.length ? digits[digits.length - 1] : null,
         quote_change_pct,
         rise_pct: Number(((rise_count / move_total) * 100).toFixed(1)),
         fall_pct: Number(((fall_count / move_total) * 100).toFixed(1)),

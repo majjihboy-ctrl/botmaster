@@ -763,7 +763,27 @@ export default class RunPanelStore {
         this.is_running = is_running;
     };
 
+    // The four stores below create their MobX reactions once, in their
+    // constructors. RunPanel.onUnmount used to dispose them permanently, but
+    // RunPanel unmounts routinely (mobile menu open/close, switching to a tab
+    // with no bot, tours) and onMount never re-created them. After the first
+    // unmount the stop-reaction, journal persistence and summary/transaction
+    // updates were silently dead, so the panel could get stuck on a stale
+    // contract stage. Re-arm them whenever the panel mounts again.
+    reactions_disposed = false;
+
+    ensureReactions = () => {
+        if (!this.reactions_disposed) return;
+        const { journal, summary_card, transactions } = this.root_store;
+        this.disposeReactionsFn = this.registerReactions();
+        journal.disposeReactionsFn = journal.registerReactions() as unknown as () => void;
+        summary_card.disposeReactionsFn = summary_card.registerReactions() as unknown as () => void;
+        transactions.disposeReactionsFn = transactions.registerReactions() as unknown as () => void;
+        this.reactions_disposed = false;
+    };
+
     onMount = () => {
+        this.ensureReactions();
         const { journal } = this.root_store;
 
         // Create a generic handler for ui.log.error that can extract error codes and use getLocalizedErrorMessage
@@ -851,6 +871,7 @@ export default class RunPanelStore {
             journal.disposeReactionsFn();
             summary_card.disposeReactionsFn();
             transactions.disposeReactionsFn();
+            this.reactions_disposed = true;
         }
 
         observer.unregisterAll('ui.log.error');

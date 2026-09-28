@@ -143,27 +143,68 @@
     }
 
     &__digit-pct {
-        font-size: var(--text-size-xxs);
-        color: var(--text-less-prominent);
+        font-size: 1.05rem;
         font-weight: 500;
+        line-height: 1;
+        opacity: 0.85;
+        font-variant-numeric: tabular-nums;
+    }
+
+    &__digit-num {
+        font-size: var(--text-size-s);
+        font-weight: 700;
+        line-height: 1.1;
+    }
+
+    &__current-marker {
+        height: 1.4rem;
+        line-height: 1.4rem;
+        font-size: 1.2rem;
+        color: #22d3ee;
+    }
+
+    &__price {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.4rem 1.8rem;
+        background: var(--general-section-1);
+        border-radius: 8px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    &__price-main {
+        font-size: 2.8rem;
+        font-weight: 800;
+        color: var(--text-prominent);
+        word-break: break-all;
+    }
+
+    &__price-last {
+        font-size: 2.8rem;
+        font-weight: 800;
+        color: #3b82f6;
     }
 
     &__digit-circle {
-        // Width follows the count-based size but never exceeds the column,
-        // so the ten circles fit any phone width without side-scrolling.
-        width: min(var(--digit-size, 6rem), 100%);
+        // Uniform size: the percentage is now printed inside, so circles no
+        // longer need to scale with count. Fills its column up to 6.4rem, so
+        // five per row fit any phone without side-scrolling.
+        width: 100%;
+        max-width: 6.4rem;
         aspect-ratio: 1 / 1;
-        max-width: var(--digit-size, 6rem);
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 0.2rem;
         border-radius: 50%;
-        background: #d1d5db;
-        color: #fff;
-        font-size: var(--text-size-s);
-        font-weight: 700;
+        background: var(--general-main-1);
+        border: 1.5px solid var(--border-divider);
+        color: var(--text-prominent);
         cursor: pointer;
-        transition: width 0.5s ease, transform 0.15s ease, box-shadow 0.15s ease;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
 
         &:hover {
             transform: scale(1.1);
@@ -172,6 +213,8 @@
 
         &.most {
             background: var(--status-success);
+            border-color: transparent;
+            color: #fff;
             box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
 
             &:hover {
@@ -180,14 +223,20 @@
         }
         &.second {
             background: var(--status-info);
+            border-color: transparent;
+            color: #fff;
             box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
         }
         &.least {
             background: var(--status-danger);
+            border-color: transparent;
+            color: #fff;
             box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
         }
         &.second-least {
             background: var(--status-warning);
+            border-color: transparent;
+            color: #fff;
             box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.18);
         }
         &.selected {
@@ -213,6 +262,15 @@
         height: 9px;
         border-radius: 2px;
         margin-right: 0.4rem;
+    }
+
+    &__sw--marker {
+        width: auto;
+        height: auto;
+        background: none;
+        color: #22d3ee;
+        font-size: 1rem;
+        line-height: 1;
     }
 
     &__legend span {
