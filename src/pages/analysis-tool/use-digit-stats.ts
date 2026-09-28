@@ -37,7 +37,12 @@ export const useSyntheticSymbols = (): TSymbolOption[] => {
 
     useEffect(() => {
         let attempts = 0;
+        // Without this, leaving the tab within the first 5s left the retry timer
+        // running and it called setSymbols on an unmounted component.
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         const tryLoad = () => {
+            if (cancelled) return;
             const list = api_base?.active_symbols;
             if (Array.isArray(list) && list.length) {
                 const synthetic = list
@@ -49,9 +54,13 @@ export const useSyntheticSymbols = (): TSymbolOption[] => {
                 }
             }
             attempts += 1;
-            if (attempts < 10) setTimeout(tryLoad, 500);
+            if (attempts < 10) timer = setTimeout(tryLoad, 500);
         };
         tryLoad();
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
     }, []);
 
     return symbols;
