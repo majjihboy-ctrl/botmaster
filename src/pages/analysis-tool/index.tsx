@@ -171,13 +171,16 @@ const AnalysisTool = observer(() => {
                             if (i === stats.most_idx) cls = 'most';
                             else if (i === stats.second_idx) cls = 'second';
                             else if (i === stats.least_idx) cls = 'least';
+                            else if (i === stats.second_least_idx) cls = 'second-least';
                             if (i === selectedDigit) cls += ' selected';
-                            const size = 5.2 + (count / maxCount) * 3.6; // rem
+                            // Relative size (rem) — CSS caps it to the column width so the
+                            // five-per-row grid never overflows on narrow phones.
+                            const size = 5.2 + (count / maxCount) * 3.6;
                             return (
                                 <div className='analysis-tool__digit-col' key={i}>
                                     <div
                                         className={`analysis-tool__digit-circle ${cls}`}
-                                        style={{ width: `${size}rem`, height: `${size}rem` }}
+                                        style={{ '--digit-size': `${size}rem` } as React.CSSProperties}
                                         onClick={() => handlePickDigit(i)}
                                         role='button'
                                         tabIndex={0}
@@ -202,6 +205,10 @@ const AnalysisTool = observer(() => {
                         <span>
                             <span className='analysis-tool__sw' style={{ background: 'var(--status-danger)' }} />
                             Least appearing
+                        </span>
+                        <span>
+                            <span className='analysis-tool__sw' style={{ background: 'var(--status-warning)' }} />
+                            2nd least appearing
                         </span>
                     </div>
                 </div>

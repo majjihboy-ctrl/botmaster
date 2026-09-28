@@ -125,9 +125,13 @@
 
     &__chart {
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 1.6rem 0.8rem;
         padding: 1rem 0;
+
+        @include mobile-or-tablet-screen {
+            gap: 1.2rem 0.4rem;
+        }
     }
 
     &__digit-col {
@@ -135,6 +139,7 @@
         flex-direction: column;
         align-items: center;
         gap: 0.6rem;
+        min-width: 0; // let the grid cell shrink instead of forcing horizontal scroll
     }
 
     &__digit-pct {
@@ -144,6 +149,11 @@
     }
 
     &__digit-circle {
+        // Width follows the count-based size but never exceeds the column,
+        // so the ten circles fit any phone width without side-scrolling.
+        width: min(var(--digit-size, 6rem), 100%);
+        aspect-ratio: 1 / 1;
+        max-width: var(--digit-size, 6rem);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -153,7 +163,7 @@
         font-size: var(--text-size-s);
         font-weight: 700;
         cursor: pointer;
-        transition: width 0.5s ease, height 0.5s ease, transform 0.15s ease, box-shadow 0.15s ease;
+        transition: width 0.5s ease, transform 0.15s ease, box-shadow 0.15s ease;
 
         &:hover {
             transform: scale(1.1);
@@ -175,6 +185,10 @@
         &.least {
             background: var(--status-danger);
             box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+        }
+        &.second-least {
+            background: var(--status-warning);
+            box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.18);
         }
         &.selected {
             box-shadow: 0 0 0 3px var(--general-main-1), 0 0 0 6px var(--brand-tertiary);

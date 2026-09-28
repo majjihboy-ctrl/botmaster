@@ -64,6 +64,7 @@ export type TDigitStats = {
     most_idx: number;
     second_idx: number;
     least_idx: number;
+    second_least_idx: number;
     even_pct: number;
     odd_pct: number;
     over_pct: number;
@@ -90,6 +91,7 @@ const EMPTY_STATS: TDigitStats = {
     most_idx: 0,
     second_idx: 0,
     least_idx: 0,
+    second_least_idx: 0,
     even_pct: 0,
     odd_pct: 0,
     over_pct: 0,
@@ -143,6 +145,7 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
     const most_idx = ranked[0]?.i ?? 0;
     const second_idx = ranked[1]?.i ?? 0;
     const least_idx = ranked[ranked.length - 1]?.i ?? 0;
+    const second_least_idx = ranked[ranked.length - 2]?.i ?? 0;
 
     const total = digits.length || 1;
     const even_count = digits.filter(d => d % 2 === 0).length;
@@ -202,6 +205,7 @@ const computeStats = (quotes: number[], pip_size: number, over_under_digit: numb
         most_idx,
         second_idx,
         least_idx,
+        second_least_idx,
         even_pct,
         odd_pct: Number((100 - even_pct).toFixed(1)),
         over_pct,
