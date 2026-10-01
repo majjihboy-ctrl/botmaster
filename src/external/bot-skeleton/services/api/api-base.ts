@@ -69,7 +69,7 @@ class APIBase {
     // Constants for timeouts - extracted magic numbers for better maintainability
     private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000; // 10 seconds
     private readonly ENRICHMENT_TIMEOUT_MS = 10000; // 10 seconds
-    private readonly MAX_RECONNECTION_ATTEMPTS = 9999; // Keep reconnecting indefinitely for 24/7 tools (analysis, scanners)
+    private readonly MAX_RECONNECTION_ATTEMPTS = 5; // Maximum number of reconnection attempts before session reset
 
     unsubscribeAllSubscriptions = () => {
         this.current_auth_subscriptions?.forEach(subscription_promise => {
@@ -172,7 +172,7 @@ class APIBase {
                 this.api.connection.removeEventListener('close', this.onsocketclose.bind(this));
             }
 
-            this.api = await generateDerivApiInstance(force_create_connection);
+            this.api = await generateDerivApiInstance();
 
             this.api?.connection.addEventListener('open', this.onsocketopen.bind(this));
             this.api?.connection.addEventListener('close', this.onsocketclose.bind(this));
@@ -229,33 +229,26 @@ class APIBase {
     }
 
     reconnectIfNotConnected = () => {
-        const rs = this.api?.connection?.readyState;
-        // readyState: 0 CONNECTING, 1 OPEN, 2 CLOSING, 3 CLOSED
-        // Also recover when stuck CONNECTING forever (common under multi-user load).
-        const is_dead = rs === undefined || rs > 1;
-        const is_stuck_connecting =
-            rs === 0 &&
-            // If the socket has been connecting with no open for a long stretch,
-            // generateDerivApiInstance will force-new on the next call.
-            true;
-
-        if (is_dead || (is_stuck_connecting && this.reconnection_attempts > 0)) {
+        if (this.api?.connection?.readyState && this.api?.connection?.readyState > 1) {
             this.reconnection_attempts += 1;
 
             if (this.reconnection_attempts >= this.MAX_RECONNECTION_ATTEMPTS) {
-                // Soft reset only — never force-logout. Analysis tool and other
-                // 24/7 features must keep the socket alive through long sessions.
+                // Reset reconnection counter
                 this.reconnection_attempts = 0;
+
+                // Properly handle logout through the API
+                setIsAuthorized(false);
+                setAccountList([]);
+                setAuthData(null);
+
+                // Clear necessary storage items
+                localStorage.removeItem('active_loginid');
+                localStorage.removeItem('account_type');
+                localStorage.removeItem('accountsList');
+                localStorage.removeItem('clientAccounts');
             }
 
             this.init(true);
-        } else if (rs === 0) {
-            // First time we notice CONNECTING — bump counter so next focus/online
-            // or watchdog tick can force a rebuild if still stuck.
-            this.reconnection_attempts += 1;
-            if (this.reconnection_attempts >= 3) {
-                this.init(true);
-            }
         }
     };
 
