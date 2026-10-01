@@ -148,8 +148,14 @@ const useTickDigits = (symbol: string, tick_count: number, disabled: boolean): T
                     } catch (sub_error: any) {
                         const code = sub_error?.error?.code || sub_error?.code;
                         if (code === 'AlreadySubscribed') {
+                            // Another feature already holds a live tick subscription for this
+                            // symbol; tick messages reach every onMessage listener, so share it.
+                            // Never forget_all('ticks') — it cancels every other tool's and
+                            // bot's tick stream on this shared connection. The watchdog
+                            // resubscribes if the feed goes quiet.
                             if (attempt === 2) {
-                                await api_base.api.send({ forget_all: 'ticks' }).catch(() => {});
+                                lastTickAtRef.current = Date.now();
+                                return true;
                             }
                             await new Promise(r => setTimeout(r, 400));
                             continue;

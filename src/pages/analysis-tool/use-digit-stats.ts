@@ -450,10 +450,15 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                     } catch (sub_error: any) {
                         const code = sub_error?.error?.code || sub_error?.code;
                         if (code === 'AlreadySubscribed') {
-                            // forget_all('ticks') clears every tick sub on this
-                            // connection — only use it as last resort.
+                            // Another feature (scanner, signals, a running bot) already
+                            // holds a live tick subscription for this symbol. Tick messages
+                            // reach every onMessage listener, so we can share that feed.
+                            // Never forget_all('ticks') here: it would cancel every other
+                            // tool's and bot's tick stream on this shared connection.
+                            // If the feed goes quiet, the watchdog resubscribes.
                             if (attempt >= 2) {
-                                await api_base.api.send({ forget_all: 'ticks' }).catch(() => {});
+                                lastTickAtRef.current = Date.now();
+                                return true;
                             }
                             await new Promise(r => setTimeout(r, 200 + attempt * 150));
                             continue;
