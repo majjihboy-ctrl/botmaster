@@ -40,6 +40,9 @@ import {
     LabelPairedSignalCaptionRegularIcon,
     LabelPairedStarCaptionRegularIcon,
     LabelPairedPlayLgFillIcon,
+    LabelPairedTrophyCaptionRegularIcon,
+    LabelPairedLightbulbCaptionRegularIcon,
+    LabelPairedSearchCaptionRegularIcon,
 } from '@deriv/quill-icons/LabelPaired';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
@@ -53,6 +56,9 @@ import CopyTrading from '../copy-trading';
 import Signals from '../signals';
 import DigitPattern from '../digit-pattern';
 import CustomBots from '../custom-bots';
+import BestBots from '../best-bots';
+import BotIdeas from '../bot-ideas';
+import Scanner from '../scanner';
 import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
@@ -98,7 +104,20 @@ const AppWrapper = observer(() => {
     const show_run_controls =
         [BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS].includes(active_tab) || !!active_tour;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'free_bots', 'analysis_tool', 'autotrade', 'digit_pattern', 'signals', 'copy_trading'];
+    const hash = [
+        'dashboard',
+        'bot_builder',
+        'chart',
+        'free_bots',
+        'analysis_tool',
+        'autotrade',
+        'digit_pattern',
+        'signals',
+        'copy_trading',
+        'best_bots',
+        'bot_ideas',
+        'scanner',
+    ];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -164,7 +183,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-digit-pattern');
+        const el_tutorial = document.getElementById('id-scanner'); // last tab in the bar
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -523,6 +542,51 @@ const AppWrapper = observer(() => {
                                 id='id-copy-trading'
                             >
                                 <CopyTrading />
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedTrophyCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='currentColor'
+                                        />
+                                        <Localize i18n_default_text='Best Bots' />
+                                    </>
+                                }
+                                id='id-best-bots'
+                            >
+                                <BestBots />
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedLightbulbCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='currentColor'
+                                        />
+                                        <Localize i18n_default_text='Bot Ideas' />
+                                    </>
+                                }
+                                id='id-bot-ideas'
+                            >
+                                <BotIdeas />
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedSearchCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='currentColor'
+                                        />
+                                        <Localize i18n_default_text='Scanner' />
+                                    </>
+                                }
+                                id='id-scanner'
+                            >
+                                <Scanner />
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}

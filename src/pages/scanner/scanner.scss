@@ -1,0 +1,217 @@
+@use 'components/shared/styles/mixins' as *;
+
+.scanner {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+    padding: 1.6rem;
+    box-sizing: border-box;
+    background: var(--general-main-1);
+    color: var(--text-general);
+
+    &__toolbar {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1.2rem;
+        margin-bottom: 1.6rem;
+    }
+
+    &__title {
+        h2 {
+            margin: 0;
+            font-size: 2rem;
+            color: var(--text-prominent);
+        }
+
+        p {
+            margin: 0.4rem 0 0;
+            font-size: 1.3rem;
+            color: var(--text-less-prominent);
+        }
+    }
+
+    &__controls {
+        display: flex;
+        gap: 1.2rem;
+
+        label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            font-size: 1.1rem;
+            color: var(--text-less-prominent);
+        }
+
+        select {
+            height: 3.2rem;
+            padding: 0 0.8rem;
+            border: 1px solid var(--border-normal);
+            border-radius: 0.6rem;
+            background: var(--general-main-2);
+            color: var(--text-prominent);
+            font-size: 1.3rem;
+        }
+    }
+
+    &__notice {
+        padding: 1.2rem 1.6rem;
+        margin-bottom: 1.6rem;
+        border-radius: 0.8rem;
+        background: var(--general-section-1);
+        color: var(--text-prominent);
+        font-size: 1.3rem;
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(30rem, 1fr));
+        gap: 1.2rem;
+
+        @include mobile-or-tablet-screen {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    &__footnote {
+        margin: 1.6rem 0 0;
+        font-size: 1.1rem;
+        color: var(--text-less-prominent);
+    }
+}
+
+.scanner-card {
+    padding: 1.2rem 1.4rem;
+    border: 1px solid var(--border-normal);
+    border-radius: 1rem;
+    background: var(--general-main-2);
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.8rem;
+        margin-bottom: 1rem;
+    }
+
+    &__name {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text-prominent);
+    }
+
+    &__quote {
+        font-size: 1.3rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-less-prominent);
+    }
+
+    &__bars {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 0.4rem;
+        height: 11rem;
+    }
+
+    &__col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 0;
+    }
+
+    &__pct {
+        font-size: 0.9rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-less-prominent);
+    }
+
+    &__track {
+        flex: 1;
+        width: 100%;
+        display: flex;
+        align-items: flex-end;
+        margin: 0.2rem 0;
+    }
+
+    &__bar {
+        width: 100%;
+        min-height: 2px;
+        border-radius: 3px 3px 0 0;
+        background: var(--text-less-prominent);
+        transition: height 0.3s ease;
+
+        &--most {
+            background: var(--status-success);
+        }
+
+        &--least {
+            background: var(--status-danger);
+        }
+    }
+
+    &__digit {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-prominent);
+    }
+
+    &__eo {
+        margin-top: 1rem;
+
+        &-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2rem;
+            color: var(--text-less-prominent);
+
+            .is-lead {
+                color: var(--text-prominent);
+                font-weight: 700;
+            }
+        }
+
+        &-bar {
+            height: 0.6rem;
+            margin-top: 0.4rem;
+            border-radius: 0.3rem;
+            background: var(--general-section-1);
+            overflow: hidden;
+        }
+
+        &-even {
+            height: 100%;
+            background: var(--status-success);
+            transition: width 0.3s ease;
+        }
+    }
+
+    &__last {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 1rem;
+    }
+
+    &__chip {
+        width: 2.2rem;
+        height: 2.2rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-colored-background, #fff);
+
+        &--even {
+            background: var(--status-success);
+        }
+
+        &--odd {
+            background: var(--status-danger);
+        }
+    }
+}

@@ -9,8 +9,9 @@
     overflow: hidden;
 
     .deriv-header {
-        background: var(--general-main-1);
-        height: 5.6rem;
+        background: var(--bm-bar-bg);
+        height: var(--bm-bar-height);
+        min-height: var(--bm-bar-height);
     }
 
     &.quick-strategy-active {

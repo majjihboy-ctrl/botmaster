@@ -2,10 +2,24 @@
 // Removed IBM Plex Sans Google Font import - now using brand font from brand.config.json
 // Third-party developers can add their own font imports if needed
 
+:root {
+    // Single source for the flat header + tab bar colour. Change this one value
+    // to re-colour the whole top bar (e.g. #ff444f for a red bar).
+    --bm-bar-bg: #6d28d9;
+    --bm-bar-fg: #ffffff;
+    --bm-bar-height: 4rem;
+}
+
 body {
     // Updated to use brand font variable from brand.config.json
     font-family: var(--brand-font-primary);
     background: var(--general-main-1);
+}
+
+// Compact, flat top bar
+.deriv-header {
+    height: var(--bm-bar-height) !important;
+    min-height: var(--bm-bar-height) !important;
 }
 
 .icon-general-fill-path {

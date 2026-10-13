@@ -1,0 +1,24 @@
+.header-theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.2rem;
+    height: 3.2rem;
+    margin-inline-end: 0.8rem;
+    border: 0;
+    border-radius: 0.6rem;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    &:hover {
+        background: rgb(255 255 255 / 12%);
+    }
+
+    // Icons sit on the coloured header bar, so force them to the bar's foreground colour
+    svg,
+    svg path,
+    svg g {
+        fill: var(--bm-bar-fg);
+    }
+}

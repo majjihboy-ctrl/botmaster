@@ -2,9 +2,24 @@
 @use 'components/shared/styles/mixins' as *;
 
 .app-header {
+    height: var(--bm-bar-height);
+    min-height: var(--bm-bar-height);
+    box-shadow: none !important;
+    border: 0 !important;
+    color: var(--bm-bar-fg);
+
+    &--mobile {
+        overflow: visible;
+
+        &:before,
+        &:after {
+            display: none !important;
+        }
+    }
+
     &__account-settings {
         padding-inline-end: 1.2rem;
-        border-inline-end: 0.1rem solid var(--general-section-1);
+        border-inline-end: 0.1rem solid rgb(255 255 255 / 20%);
     }
 
     &__account-settings,
@@ -12,7 +27,35 @@
     &__menu {
         svg > path,
         svg > g > path {
-            fill: var(--text-prominent);
+            fill: var(--bm-bar-fg);
+        }
+    }
+
+    // Hamburger icon sits directly on the coloured bar (the drawer's own icons keep their colour)
+    .mobile-menu__toggle {
+        button > svg > path,
+        svg > path {
+            fill: var(--bm-bar-fg);
+        }
+    }
+
+    // Account switcher text sits directly on the coloured bar
+    .acc-info {
+        &__balance-amount,
+        &__balance-currency {
+            color: var(--bm-bar-fg);
+        }
+
+        &__account-type {
+            color: rgb(255 255 255 / 75%);
+        }
+
+        &__select-arrow {
+            color: var(--bm-bar-fg);
+
+            svg path {
+                fill: var(--bm-bar-fg);
+            }
         }
     }
 }

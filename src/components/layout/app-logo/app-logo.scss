@@ -6,6 +6,16 @@
         display: flex;
         align-items: center;
         text-decoration: none;
+
+        // Only in the header bar (the mobile drawer reuses the mark on a light surface)
+        .app-header__logo-text {
+            color: var(--bm-bar-fg);
+        }
+
+        .app-header__logo-badge {
+            background: rgb(255 255 255 / 18%);
+            color: var(--bm-bar-fg);
+        }
     }
 
     // Logo + app name mark (shared by the header and the mobile drawer).
