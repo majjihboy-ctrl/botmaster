@@ -360,8 +360,10 @@ class DBot {
                     BinaryBotPrivateRun(BinaryBotPrivateDuringPurchase);
                 }
                 BinaryBotPrivateTickAnalysis();
-                if (!BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase)) {
-                    break;
+                if (Bot.shouldRunAfterPurchase()) {
+                    if (!BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase)) {
+                        break;
+                    }
                 }
             }
             

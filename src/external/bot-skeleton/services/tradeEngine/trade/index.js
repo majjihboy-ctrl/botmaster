@@ -75,6 +75,8 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         };
         this.is_fast_mode = false;
         this.fastContracts = new Set();
+        this.fastSettledCount = 0;
+        this.fastEvaluatedCount = 0;
         this.subscription_id_for_accumulators = null;
         this.is_proposal_requested_for_accumulators = false;
         this.store = createStore(rootReducer, applyMiddleware(thunk));

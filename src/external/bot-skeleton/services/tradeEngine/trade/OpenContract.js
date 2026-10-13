@@ -56,6 +56,7 @@ export default Engine =>
             if (!contract.is_sold) return;
 
             this.fastContracts.delete(contract.contract_id);
+            this.fastSettledCount++;
             this.data.contract = contract;
             this.updateTotals(contract);
             contractStatus({

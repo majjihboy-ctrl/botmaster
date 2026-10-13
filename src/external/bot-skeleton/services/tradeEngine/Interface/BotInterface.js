@@ -17,6 +17,17 @@ const getBotInterface = tradeEngine => {
         getSellPrice: () => getSellPrice(tradeEngine),
         isResult: result => getDetail(10) === result,
         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
+        // Slow mode: the after-purchase stack always runs (a contract just closed).
+        // Fast mode: contracts close in the background, so run it only when a new
+        // contract has settled since the last time, using the latest settled result.
+        shouldRunAfterPurchase: () => {
+            if (!tradeEngine.is_fast_mode) return true;
+            if (tradeEngine.fastSettledCount > tradeEngine.fastEvaluatedCount) {
+                tradeEngine.fastEvaluatedCount = tradeEngine.fastSettledCount;
+                return true;
+            }
+            return false;
+        },
         readDetails: i => getDetail(i - 1),
     };
 };
