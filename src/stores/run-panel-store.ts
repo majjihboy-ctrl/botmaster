@@ -7,6 +7,7 @@ import { contract_stages, TContractStage } from '@/constants/contract-stage';
 import { run_panel } from '@/constants/run-panel';
 import { ErrorTypes, MessageTypes, observer, unrecoverable_errors } from '@/external/bot-skeleton';
 import { getSelectedTradeType } from '@/external/bot-skeleton/scratch/utils';
+import { getRunMode, setRunMode as setEngineRunMode } from '@/external/bot-skeleton/services/tradeEngine/utils/run-mode';
 import { handleBackendError, isBackendError } from '@/utils/error-handler';
 // import { journalError, switch_account_notification } from '@/utils/bot-notifications';
 import GTM from '@/utils/gtm';
@@ -44,6 +45,8 @@ export default class RunPanelStore {
             is_dialog_open: observable,
             is_sell_requested: observable,
             run_id: observable,
+            run_mode: observable,
+            setRunMode: action,
             error_type: observable,
             show_bot_stop_message: observable,
             is_stop_button_visible: computed,
@@ -111,6 +114,7 @@ export default class RunPanelStore {
     is_contract_buying_in_progress = false;
 
     run_id = '';
+    run_mode: 'slow' | 'fast' = getRunMode();
     onOkButtonClick: (() => void) | null = null;
     onCancelButtonClick: (() => void) | null = null;
 
@@ -158,6 +162,13 @@ export default class RunPanelStore {
             label: localize('Reports'),
             onClick: handleNotificationClick,
         });
+    };
+
+    setRunMode = (mode: 'slow' | 'fast') => {
+        // Locked while a bot is running: the mode is captured when the run starts.
+        if (this.is_running || this.has_open_contract) return;
+        this.run_mode = mode;
+        setEngineRunMode(mode);
     };
 
     onRunButtonClick = async () => {
@@ -209,6 +220,7 @@ export default class RunPanelStore {
             ui.setPromptHandler(true);
             this.toggleDrawer(true);
             this.run_id = `run-${Date.now()}`;
+            setEngineRunMode(this.run_mode);
 
             summary_card.clear();
             this.setContractStage(contract_stages.STARTING);

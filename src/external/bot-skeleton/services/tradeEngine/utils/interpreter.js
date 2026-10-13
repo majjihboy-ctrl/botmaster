@@ -160,6 +160,19 @@ const Interpreter = () => {
     }
 
     async function stop() {
+        // Fast mode can have several contracts still open. Stop buying immediately,
+        // then give them time to settle so their results reach the run panel.
+        const engine = bot?.tradeEngine;
+        if (engine?.is_fast_mode && engine.fastContracts?.size) {
+            $scope.stopped = true;
+            const deadline = Date.now() + 60000;
+            while (engine.fastContracts.size && Date.now() < deadline) {
+                // eslint-disable-next-line no-await-in-loop
+                await new Promise(r => setTimeout(r, 250));
+            }
+            engine.contractId = '';
+        }
+
         return new Promise((resolve, reject) => {
             try {
                 const global_timeouts = globalObserver.getState('global_timeouts') ?? [];

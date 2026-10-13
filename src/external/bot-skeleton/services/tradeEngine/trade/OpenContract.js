@@ -11,6 +11,11 @@ export default Engine =>
                 if (data.msg_type === 'proposal_open_contract') {
                     const contract = data.proposal_open_contract;
 
+                    if (this.is_fast_mode && contract && this.fastContracts.has(contract.contract_id)) {
+                        this.handleFastContract(contract);
+                        return;
+                    }
+
                     if (!contract || !this.expectedContractId(contract?.contract_id)) {
                         return;
                     }
@@ -42,6 +47,22 @@ export default Engine =>
                 }
             });
             api_base.pushSubscription(subscription);
+        }
+
+        // Fast mode: several contracts can be open at once, each tracked by id.
+        handleFastContract(contract) {
+            broadcastContract({ accountID: api_base.account_info.loginid, ...contract });
+
+            if (!contract.is_sold) return;
+
+            this.fastContracts.delete(contract.contract_id);
+            this.data.contract = contract;
+            this.updateTotals(contract);
+            contractStatus({
+                id: 'contract.sold',
+                data: contract.transaction_ids?.sell,
+                contract,
+            });
         }
 
         waitForAfter() {
