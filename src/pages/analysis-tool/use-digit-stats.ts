@@ -136,9 +136,10 @@ const countDigits = (quotes: number[], pip_size: number): number[] => {
 // Fallback for when api_base.pip_sizes hasn't loaded yet for this symbol:
 // infer decimal precision directly from a real quote string rather than
 // assuming 2 (wrong for e.g. R_10/R_25, which use 3 decimals).
-// Known decimal places for Deriv synthetic indices.
-// Authoritative for display — API sometimes sends pip AMOUNT (0.01) which we must not
-// feed into toFixed() or the price collapses to 0–1 decimals.
+// Last-resort decimal places for Deriv synthetic indices, used ONLY when neither
+// Deriv's own pip_size nor the observed tick data is available. Deriv's pip_size is
+// authoritative: a hardcoded table that disagrees with it truncates the price and
+// shifts the "last digit", so never let this table override live data.
 const KNOWN_PIP_DECIMALS: Record<string, number> = {
     R_10: 3,
     R_25: 3,
@@ -201,15 +202,18 @@ const inferPipSize = (raw_prices: (string | number)[]): number | null => {
 
 /**
  * Resolve decimal places for a symbol.
- * Priority: known synthetics → api map → active_symbols → history field → infer → 2
+ * Priority: ticks_history.pip_size → api pip map → active_symbols → infer from
+ * observed prices → hardcoded fallback table → 2.
+ * Deriv's own values always win over the table.
  */
 const resolvePipSize = (
     symbol: string,
     raw_prices: (string | number)[] = [],
     history_pip?: unknown
 ): number => {
-    // 1) Hardcoded table first for volatilities — never show 1 decimal on R_100 etc.
-    if (KNOWN_PIP_DECIMALS[symbol] != null) return KNOWN_PIP_DECIMALS[symbol];
+    // 1) ticks_history.pip_size (count or pip amount — normalize)
+    const from_hist = normalizePipDecimals(history_pip);
+    if (from_hist != null) return from_hist;
 
     // 2) api_base.pip_sizes (processor already converts pip→decimals, but normalize anyway)
     const from_map = normalizePipDecimals(api_base?.pip_sizes?.[symbol]);
@@ -223,13 +227,12 @@ const resolvePipSize = (
         if (from_row != null) return from_row;
     }
 
-    // 4) ticks_history.pip_size (may be count OR pip amount)
-    const from_hist = normalizePipDecimals(history_pip);
-    if (from_hist != null) return from_hist;
-
-    // 5) Infer from samples
+    // 4) Infer from real price samples (max decimals across the whole history)
     const inferred = inferPipSize(raw_prices);
     if (inferred != null && inferred >= 1) return inferred;
+
+    // 5) Last resort: hardcoded table
+    if (KNOWN_PIP_DECIMALS[symbol] != null) return KNOWN_PIP_DECIMALS[symbol];
 
     return 2;
 };
@@ -418,8 +421,6 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                     const tick_pip = normalizePipDecimals(data.tick?.pip_size);
                     if (tick_pip != null) {
                         pipSizeRef.current = tick_pip;
-                    } else if (KNOWN_PIP_DECIMALS[symbol] != null) {
-                        pipSizeRef.current = KNOWN_PIP_DECIMALS[symbol];
                     }
                     quotesRef.current = [...quotesRef.current, Number(data.tick.quote)].slice(-tick_count);
                     setStats(prev => ({
