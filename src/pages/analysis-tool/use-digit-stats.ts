@@ -422,6 +422,11 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                     if (tick_pip != null) {
                         pipSizeRef.current = tick_pip;
                     }
+                    // Never show fewer decimals than the quote Deriv just sent.
+                    const quote_decimals = inferPipSize([data.tick.quote]);
+                    if (quote_decimals != null && quote_decimals > pipSizeRef.current) {
+                        pipSizeRef.current = quote_decimals;
+                    }
                     quotesRef.current = [...quotesRef.current, Number(data.tick.quote)].slice(-tick_count);
                     setStats(prev => ({
                         ...computeStats(quotesRef.current, pipSizeRef.current, overUnderDigitRef.current),
@@ -491,7 +496,11 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                 if (!raw_prices.length) return false;
 
                 // Resolve decimals robustly (known table / api / history pip amount|count)
-                const pip_size = resolvePipSize(symbol, raw_prices, history_res?.pip_size);
+                // Never show fewer decimals than the prices Deriv actually sent.
+                const pip_size = Math.max(
+                    resolvePipSize(symbol, raw_prices, history_res?.pip_size),
+                    inferPipSize(raw_prices) ?? 0
+                );
                 pipSizeRef.current = pip_size;
 
                 const prices: number[] = raw_prices.map(Number);
