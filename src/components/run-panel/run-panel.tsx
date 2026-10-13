@@ -129,40 +129,6 @@ const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onCle
         />
     );
 
-const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTabIndex, ...props }: TDrawerContent) => {
-    const { isDesktop } = useDevice();
-    // Use the useBlockScroll hook to prevent body scrolling when drawer is open on mobile
-
-    React.useEffect(() => {
-        if (!isDesktop && is_drawer_open) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
-
-        return () => {
-            document.body.style.overflow = '';
-        };
-    }, [is_drawer_open, isDesktop]);
-
-    return (
-        <>
-            <Tabs active_index={active_index} onTabItemClick={setActiveTabIndex} top>
-                <div id='db-run-panel-tab__summary' label={<Localize i18n_default_text='Summary' />}>
-                    <Summary is_drawer_open={is_drawer_open} />
-                </div>
-                <div id='db-run-panel-tab__transactions' label={<Localize i18n_default_text='Transactions' />}>
-                    <Transactions is_drawer_open={is_drawer_open} />
-                </div>
-                <div id='db-run-panel-tab__journal' label={<Localize i18n_default_text='Journal' />}>
-                    <Journal />
-                </div>
-            </Tabs>
-            {((is_drawer_open && active_index !== 2) || active_tour) && <StatisticsSummary {...props} />}
-        </>
-    );
-};
-
 const RunModeToggle = observer(() => {
     const { run_panel } = useStore();
     const { run_mode, setRunMode, is_running, has_open_contract } = run_panel;
@@ -203,9 +169,51 @@ const RunModeToggle = observer(() => {
     );
 });
 
+const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTabIndex, ...props }: TDrawerContent) => {
+    const { isDesktop } = useDevice();
+    // Use the useBlockScroll hook to prevent body scrolling when drawer is open on mobile
+
+    React.useEffect(() => {
+        if (!isDesktop && is_drawer_open) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [is_drawer_open, isDesktop]);
+
+    const show_stats = (is_drawer_open && active_index !== 2) || active_tour;
+    const stats = show_stats ? <StatisticsSummary {...props} /> : null;
+
+    return (
+        <>
+            {isDesktop && (
+                <div className='run-panel__top'>
+                    <RunModeToggle />
+                    {stats}
+                </div>
+            )}
+            <Tabs active_index={active_index} onTabItemClick={setActiveTabIndex} top>
+                <div id='db-run-panel-tab__summary' label={<Localize i18n_default_text='Summary' />}>
+                    <Summary is_drawer_open={is_drawer_open} />
+                </div>
+                <div id='db-run-panel-tab__transactions' label={<Localize i18n_default_text='Transactions' />}>
+                    <Transactions is_drawer_open={is_drawer_open} />
+                </div>
+                <div id='db-run-panel-tab__journal' label={<Localize i18n_default_text='Journal' />}>
+                    <Journal />
+                </div>
+            </Tabs>
+            {!isDesktop && stats}
+        </>
+    );
+};
+
 const DrawerFooter = ({ is_clear_stat_disabled, onClearStatClick }: TDrawerFooter) => (
     <div className='run-panel__footer'>
-        <RunModeToggle />
         <Button
             id='db-run-panel__clear-button'
             className='run-panel__footer-button'

@@ -128,9 +128,28 @@
         }
     }
 
+    // Desktop: Slow/Fast toggle and won/lost/total tiles sit above the tabs
+    &__top {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex-shrink: 0;
+        padding-top: 0.8rem;
+        background-color: var(--general-section-2);
+
+        .run-mode {
+            width: calc(100% - 2.4rem);
+            margin-bottom: 0.4rem;
+        }
+
+        .run-panel__stat {
+            width: 100%;
+        }
+    }
+
     &__content {
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-start;
         flex-direction: column;
         overflow: hidden !important;
 
