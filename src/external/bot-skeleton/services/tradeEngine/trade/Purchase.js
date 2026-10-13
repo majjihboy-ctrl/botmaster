@@ -3,7 +3,7 @@ import { api_base } from '../../api/api-base';
 import { contractStatus, info, log } from '../utils/broadcast';
 import { doUntilDone, getUUID, recoverFromError, tradeOptionToBuy } from '../utils/helpers';
 import { purchaseSuccessful } from './state/actions';
-import { BEFORE_PURCHASE, SELL } from './state/constants';
+import { BEFORE_PURCHASE } from './state/constants';
 
 let delayIndex = 0;
 let purchase_reference;
@@ -28,14 +28,14 @@ export default Engine =>
 
                 this.contractId = buy.contract_id;
                 if (this.is_fast_mode) {
-                    // Fast mode: track this contract in the background and release the
-                    // engine straight away (scope STOP) so the bot loop restarts and
-                    // buys again on the very next tick.
+                    // Fast mode: track this contract in the background. The scope moves to
+                    // DURING_PURCHASE so watch('before') ends, then watch('during') releases
+                    // the engine immediately (see TradeEngine.watch) so the bot buys again
+                    // on the very next tick.
                     this.fastContracts.add(buy.contract_id);
-                    this.store.dispatch({ type: SELL });
-                } else {
-                    this.store.dispatch(purchaseSuccessful());
+                    this.fastPurchased = true;
                 }
+                this.store.dispatch(purchaseSuccessful());
 
                 if (this.is_proposal_subscription_required) {
                     this.renewProposalsOnPurchase();

@@ -75,6 +75,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         };
         this.is_fast_mode = false;
         this.fastContracts = new Set();
+        this.fastPurchased = false;
         this.fastSettledCount = 0;
         this.fastEvaluatedCount = 0;
         this.subscription_id_for_accumulators = null;
@@ -153,6 +154,14 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
     watch(watchName) {
         if (watchName === 'before') {
             return watchBefore(this.store);
+        }
+        if (this.is_fast_mode && this.fastPurchased) {
+            // Fast mode: don't wait for the contract to close. Release the engine
+            // (scope STOP) so Bot.start can run again; the contract is tracked in
+            // the background by fastContracts.
+            this.fastPurchased = false;
+            this.store.dispatch({ type: constants.SELL });
+            return Promise.resolve(false);
         }
         return watchDuring(this.store);
     }
