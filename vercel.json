@@ -4,7 +4,7 @@
   "installCommand": "npm install",
   "framework": null,
   "rewrites": [
-    { "source": "/((?!sw\\.js$).*)", "destination": "/index.html" }
+    { "source": "/((?!sw\\.js$|robots\\.txt$|sitemap\\.xml$|manifest\\.json$).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
