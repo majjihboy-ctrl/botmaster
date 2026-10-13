@@ -77,7 +77,8 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.fastContracts = new Set();
         this.fastPurchased = false;
         this.fastSettledCount = 0;
-        this.fastEvaluatedCount = 0;
+        // Settled contracts waiting for the after-purchase logic, in settlement order.
+        this.fastSettledQueue = [];
         this.subscription_id_for_accumulators = null;
         this.is_proposal_requested_for_accumulators = false;
         this.store = createStore(rootReducer, applyMiddleware(thunk));

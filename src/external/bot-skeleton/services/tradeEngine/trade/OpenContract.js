@@ -57,7 +57,9 @@ export default Engine =>
 
             this.fastContracts.delete(contract.contract_id);
             this.fastSettledCount++;
-            this.data.contract = contract;
+            // Queue the result instead of overwriting this.data.contract, so strategies
+            // like Martingale see every settled contract once, in order.
+            this.fastSettledQueue.push(contract);
             this.updateTotals(contract);
             contractStatus({
                 id: 'contract.sold',

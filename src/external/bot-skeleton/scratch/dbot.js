@@ -360,10 +360,17 @@ class DBot {
                     BinaryBotPrivateRun(BinaryBotPrivateDuringPurchase);
                 }
                 BinaryBotPrivateTickAnalysis();
-                if (Bot.shouldRunAfterPurchase()) {
+                var BinaryBotPrivateKeepRunning = true;
+                var BinaryBotPrivateShouldRun = Bot.shouldRunAfterPurchase();
+                while (BinaryBotPrivateShouldRun) {
                     if (!BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase)) {
+                        BinaryBotPrivateKeepRunning = false;
                         break;
                     }
+                    BinaryBotPrivateShouldRun = Bot.hasQueuedResult();
+                }
+                if (!BinaryBotPrivateKeepRunning) {
+                    break;
                 }
             }
             

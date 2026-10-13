@@ -18,18 +18,21 @@ const getBotInterface = tradeEngine => {
         isResult: result => getDetail(10) === result,
         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
         // Slow mode: the after-purchase stack always runs (a contract just closed).
-        // Fast mode: contracts close in the background, so run it only when a new
-        // contract has settled since the last time, using the latest settled result.
-        shouldRunAfterPurchase: () => {
-            if (!tradeEngine.is_fast_mode) return true;
-            if (tradeEngine.fastSettledCount > tradeEngine.fastEvaluatedCount) {
-                tradeEngine.fastEvaluatedCount = tradeEngine.fastSettledCount;
-                return true;
-            }
-            return false;
-        },
+        // Fast mode: contracts settle in the background. Each settled contract is queued
+        // and handed to the after-purchase stack one at a time, in settlement order, so
+        // every win/loss updates the stake (e.g. Martingale) exactly once.
+        shouldRunAfterPurchase: () => (tradeEngine.is_fast_mode ? takeNextSettled(tradeEngine) : true),
+        // Fast mode only: true if another settled result is queued (and loads it).
+        hasQueuedResult: () => (tradeEngine.is_fast_mode ? takeNextSettled(tradeEngine) : false),
         readDetails: i => getDetail(i - 1),
     };
+};
+
+const takeNextSettled = tradeEngine => {
+    const next = tradeEngine.fastSettledQueue.shift();
+    if (!next) return false;
+    tradeEngine.data.contract = next;
+    return true;
 };
 
 const getProposal = (contract_type, tradeEngine) => {
