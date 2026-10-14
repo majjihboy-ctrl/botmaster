@@ -5,7 +5,7 @@ import { createError } from '../../../utils/error';
 import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
 import { checkBlocksForProposalRequest, doUntilDone } from '../utils/helpers';
-import { isFastMode } from '../utils/run-mode';
+import { isFastMode, isTurboMode } from '../utils/run-mode';
 import { expectInitArg } from '../utils/sanitize';
 import { proposalsReady, start } from './state/actions';
 import * as constants from './state/constants';
@@ -33,6 +33,28 @@ const watchDuring = store =>
         passScope: constants.DURING_PURCHASE,
         passFlag: 'openContract',
     });
+
+// Turbo mode: right after a trade closes and Bot.start has run, buy as soon as the
+// proposals are ready instead of idling until the next tick arrives. One-shot per
+// trade cycle (see turboImmediate) so a strategy that doesn't buy never busy-loops.
+const watchBeforeImmediate = store => {
+    const check = state => {
+        if (state.scope === constants.DURING_PURCHASE) return false;
+        if (state.scope === constants.BEFORE_PURCHASE && state.proposalsReady) return true;
+        return undefined;
+    };
+    const first = check(store.getState());
+    if (first !== undefined) return Promise.resolve(first);
+    return new Promise(resolve => {
+        const unsubscribe = store.subscribe(() => {
+            const result = check(store.getState());
+            if (result !== undefined) {
+                unsubscribe();
+                resolve(result);
+            }
+        });
+    });
+};
 
 /* The watchScope function is called randomly and resets the prevTick
  * which leads to the same problem we try to solve. So prevTick is isolated
@@ -74,6 +96,8 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
             proposals: [],
         };
         this.is_fast_mode = false;
+        this.is_turbo_mode = false;
+        this.turboImmediate = false;
         this.fastContracts = new Set();
         this.fastPurchased = false;
         this.fastSettledCount = 0;
@@ -91,6 +115,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.initArgs = args;
         this.options = options;
         this.is_fast_mode = isFastMode();
+        this.is_turbo_mode = isTurboMode();
         this.startPromise = this.loginAndGetBalance(token);
 
         if (!this.checkTicksPromiseExists()) this.watchTicks(symbol);
@@ -107,6 +132,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
 
         this.tradeOptions = { ...validated_trade_options, symbol: this.options.symbol };
         this.store.dispatch(start());
+        this.turboImmediate = this.is_turbo_mode;
         this.checkLimits(validated_trade_options);
 
         this.makeDirectPurchaseDecision();
@@ -154,6 +180,10 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
 
     watch(watchName) {
         if (watchName === 'before') {
+            if (this.turboImmediate) {
+                this.turboImmediate = false;
+                return watchBeforeImmediate(this.store);
+            }
             return watchBefore(this.store);
         }
         if (this.is_fast_mode && this.fastPurchased) {

@@ -114,7 +114,7 @@ export default class RunPanelStore {
     is_contract_buying_in_progress = false;
 
     run_id = '';
-    run_mode: 'slow' | 'fast' = getRunMode();
+    run_mode: 'slow' | 'fast' | 'turbo' = getRunMode();
     onOkButtonClick: (() => void) | null = null;
     onCancelButtonClick: (() => void) | null = null;
 
@@ -164,7 +164,7 @@ export default class RunPanelStore {
         });
     };
 
-    setRunMode = (mode: 'slow' | 'fast') => {
+    setRunMode = (mode: 'slow' | 'fast' | 'turbo') => {
         // Locked while a bot is running: the mode is captured when the run starts.
         if (this.is_running || this.has_open_contract) return;
         this.run_mode = mode;

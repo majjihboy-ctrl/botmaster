@@ -157,12 +157,26 @@ const RunModeToggle = observer(() => {
                 >
                     <Localize i18n_default_text='Fast' />
                 </button>
+                <button
+                    type='button'
+                    role='radio'
+                    aria-checked={run_mode === 'turbo'}
+                    className={classNames('run-mode__option', { 'run-mode__option--active': run_mode === 'turbo' })}
+                    disabled={locked}
+                    onClick={() => setRunMode('turbo')}
+                >
+                    <Localize i18n_default_text='Turbo' />
+                </button>
             </div>
             <div className='run-mode__hint'>
-                {run_mode === 'fast' ? (
+                {run_mode === 'fast' && (
                     <Localize i18n_default_text='Trades on every tick without waiting for the previous trade to close.' />
-                ) : (
-                    <Localize i18n_default_text='Waits for each trade to close before trading again.' />
+                )}
+                {run_mode === 'turbo' && (
+                    <Localize i18n_default_text='One trade at a time, but trades again the moment the last one closes.' />
+                )}
+                {run_mode === 'slow' && (
+                    <Localize i18n_default_text='Waits for each trade to close, then for the next tick.' />
                 )}
             </div>
         </div>
