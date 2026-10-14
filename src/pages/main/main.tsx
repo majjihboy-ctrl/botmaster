@@ -55,7 +55,7 @@ import FreeBotsTab from '../free-bots/free-bots-tab';
 import CopyTrading from '../copy-trading';
 import Signals from '../signals';
 import DigitPattern from '../digit-pattern';
-import CustomBots from '../custom-bots';
+import AutoTrades from '../auto-trades';
 import BestBots from '../best-bots';
 import BotIdeas from '../bot-ideas';
 import Scanner from '../scanner';
@@ -496,7 +496,7 @@ const AppWrapper = observer(() => {
                                 }
                                 id='id-autotrade'
                             >
-                                <CustomBots />
+                                <AutoTrades />
                             </div>
                             <div
                                 label={
