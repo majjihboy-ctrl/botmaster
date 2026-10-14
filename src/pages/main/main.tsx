@@ -43,6 +43,7 @@ import {
     LabelPairedTrophyCaptionRegularIcon,
     LabelPairedLightbulbCaptionRegularIcon,
     LabelPairedSearchCaptionRegularIcon,
+    LabelPairedGridCaptionRegularIcon,
 } from '@deriv/quill-icons/LabelPaired';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
@@ -59,6 +60,7 @@ import AutoTrades from '../auto-trades';
 import BestBots from '../best-bots';
 import BotIdeas from '../bot-ideas';
 import Scanner from '../scanner';
+import Combo from '../combo';
 import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
@@ -117,6 +119,7 @@ const AppWrapper = observer(() => {
         'best_bots',
         'bot_ideas',
         'scanner',
+        'combo',
     ];
     const { isDesktop } = useDevice();
     const location = useLocation();
@@ -183,7 +186,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-scanner'); // last tab in the bar
+        const el_tutorial = document.getElementById('id-combo'); // last tab in the bar
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -587,6 +590,17 @@ const AppWrapper = observer(() => {
                                 id='id-scanner'
                             >
                                 <Scanner />
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedGridCaptionRegularIcon height='24px' width='24px' fill='currentColor' />
+                                        <Localize i18n_default_text='Combo' />
+                                    </>
+                                }
+                                id='id-combo'
+                            >
+                                <Combo />
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
