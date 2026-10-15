@@ -1,6 +1,6 @@
 import { LogTypes } from '../../../constants/messages';
 import { api_base } from '../../api/api-base';
-import { contractStatus, info, log } from '../utils/broadcast';
+import { contractStatus, info, log, notify } from '../utils/broadcast';
 import { doUntilDone, getUUID, recoverFromError, tradeOptionToBuy } from '../utils/helpers';
 import { purchaseSuccessful } from './state/actions';
 import { BEFORE_PURCHASE } from './state/constants';
@@ -16,9 +16,23 @@ export default Engine =>
                 return Promise.resolve();
             }
 
+            const t_call = performance.now();
+
             const onSuccess = response => {
                 // Don't unnecessarily send a forget request for a purchased contract.
                 const { buy } = response;
+
+                // Timing diagnostics for sequential modes (Slow / Turbo).
+                if (!this.is_fast_mode) {
+                    const timing = this.timing || {};
+                    const since_sold = timing.sold_at ? Math.round(t_call - timing.sold_at) : null;
+                    const round_trip = Math.round(performance.now() - t_call);
+                    const lag = timing.settle_lag_ms != null ? ` | settle msg lag ~${timing.settle_lag_ms} ms` : '';
+                    notify(
+                        'info',
+                        `Timing (${this.is_turbo_mode ? 'Turbo' : 'Slow'}): last trade closed -> buy sent ${since_sold ?? 'n/a'} ms | buy round-trip ${round_trip} ms${lag}`
+                    );
+                }
 
                 contractStatus({
                     id: 'contract.purchase_received',

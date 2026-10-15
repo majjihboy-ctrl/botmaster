@@ -28,6 +28,13 @@ export default Engine =>
 
                     if (this.isSold) {
                         this.contractId = '';
+                        // Timing diagnostics (shown in the Journal by Purchase.js).
+                        this.timing = {
+                            sold_at: performance.now(),
+                            settle_lag_ms: contract.exit_tick_time
+                                ? Math.round(Date.now() - Number(contract.exit_tick_time) * 1000)
+                                : null,
+                        };
                         clearTimeout(this.transaction_recovery_timeout);
                         this.updateTotals(contract);
                         contractStatus({
