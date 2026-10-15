@@ -202,7 +202,7 @@ const inferPipSize = (raw_prices: (string | number)[]): number | null => {
 
 /**
  * Resolve decimal places for a symbol.
- * Priority: ticks_history.pip_size → api pip map → active_symbols → infer from
+ * Priority: api pip map (as the Scanner) → ticks_history.pip_size → active_symbols → infer from
  * observed prices → hardcoded fallback table → 2.
  * Deriv's own values always win over the table.
  */
@@ -211,13 +211,13 @@ const resolvePipSize = (
     raw_prices: (string | number)[] = [],
     history_pip?: unknown
 ): number => {
-    // 1) ticks_history.pip_size (count or pip amount — normalize)
-    const from_hist = normalizePipDecimals(history_pip);
-    if (from_hist != null) return from_hist;
-
-    // 2) api_base.pip_sizes (processor already converts pip→decimals, but normalize anyway)
+    // 1) api_base.pip_sizes — the same source the Scanner uses for its prices
     const from_map = normalizePipDecimals(api_base?.pip_sizes?.[symbol]);
     if (from_map != null) return from_map;
+
+    // 2) ticks_history.pip_size (count or pip amount — normalize)
+    const from_hist = normalizePipDecimals(history_pip);
+    if (from_hist != null) return from_hist;
 
     // 3) active_symbols list
     const list = api_base?.active_symbols;
@@ -418,9 +418,12 @@ export const useDigitStats = (symbol: string, tick_count: number, over_under_dig
                     if (data.tick.id) subscriptionIdRef.current = data.tick.id;
                     lastTickAtRef.current = Date.now();
                     // tick.pip_size is often a pip AMOUNT (0.01), not decimal count — normalize
-                    const tick_pip = normalizePipDecimals(data.tick?.pip_size);
-                    if (tick_pip != null) {
-                        pipSizeRef.current = tick_pip;
+                    // Same priority as the Scanner: the symbol's pip map first, then the tick's own value.
+                    const live_pip =
+                        normalizePipDecimals(api_base?.pip_sizes?.[symbol]) ??
+                        normalizePipDecimals(data.tick?.pip_size);
+                    if (live_pip != null) {
+                        pipSizeRef.current = live_pip;
                     }
                     // Never show fewer decimals than the quote Deriv just sent.
                     const quote_decimals = inferPipSize([data.tick.quote]);
