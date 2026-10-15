@@ -118,6 +118,21 @@
     }
 }
 
+.tab__dashboard-root {
+    height: var(--tab-content-height);
+    overflow-y: auto;
+    padding-bottom: 6rem;
+    box-sizing: border-box;
+
+    @include mobile-or-tablet-screen {
+        height: auto;
+        min-height: 0;
+        max-height: var(--tab-content-height-mobile);
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
+    }
+}
+
 .tab {
     &__dashboard {
         display: flex;
