@@ -53,14 +53,8 @@ import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
 import FreeBotsTab from '../free-bots/free-bots-tab';
-import CopyTrading from '../copy-trading';
-import Signals from '../signals';
-import DigitPattern from '../digit-pattern';
 import AutoTrades from '../auto-trades';
-import BestBots from '../best-bots';
-import BotIdeas from '../bot-ideas';
 import Scanner from '../scanner';
-import Combo from '../combo';
 import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
@@ -113,13 +107,7 @@ const AppWrapper = observer(() => {
         'free_bots',
         'analysis_tool',
         'autotrade',
-        'digit_pattern',
-        'signals',
-        'copy_trading',
-        'best_bots',
-        'bot_ideas',
         'scanner',
-        'combo',
     ];
     const { isDesktop } = useDevice();
     const location = useLocation();
@@ -186,7 +174,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-combo'); // last tab in the bar
+        const el_tutorial = document.getElementById('id-scanner'); // last tab in the bar
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -504,81 +492,6 @@ const AppWrapper = observer(() => {
                             <div
                                 label={
                                     <>
-                                        <LabelPairedArrowsRotateCaptionRegularIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='currentColor'
-                                        />
-                                        <Localize i18n_default_text='Digit Pattern' />
-                                    </>
-                                }
-                                id='id-digit-pattern'
-                            >
-                                <DigitPattern />
-                            </div>
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedSignalCaptionRegularIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='currentColor'
-                                        />
-                                        <Localize i18n_default_text='Signals' />
-                                    </>
-                                }
-                                id='id-signals'
-                            >
-                                <Signals />
-                            </div>
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedUsersCaptionRegularIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='currentColor'
-                                        />
-                                        <Localize i18n_default_text='Copy Trading' />
-                                    </>
-                                }
-                                id='id-copy-trading'
-                            >
-                                <CopyTrading />
-                            </div>
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedTrophyCaptionRegularIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='currentColor'
-                                        />
-                                        <Localize i18n_default_text='Best Bots' />
-                                    </>
-                                }
-                                id='id-best-bots'
-                            >
-                                <BestBots />
-                            </div>
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedLightbulbCaptionRegularIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='currentColor'
-                                        />
-                                        <Localize i18n_default_text='Bot Ideas' />
-                                    </>
-                                }
-                                id='id-bot-ideas'
-                            >
-                                <BotIdeas />
-                            </div>
-                            <div
-                                label={
-                                    <>
                                         <LabelPairedSearchCaptionRegularIcon
                                             height='24px'
                                             width='24px'
@@ -590,17 +503,6 @@ const AppWrapper = observer(() => {
                                 id='id-scanner'
                             >
                                 <Scanner />
-                            </div>
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedGridCaptionRegularIcon height='24px' width='24px' fill='currentColor' />
-                                        <Localize i18n_default_text='Combo' />
-                                    </>
-                                }
-                                id='id-combo'
-                            >
-                                <Combo />
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
