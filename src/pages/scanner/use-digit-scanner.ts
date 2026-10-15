@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api_base } from '@/external/bot-skeleton';
 import { getLastDigitForList } from '@/external/bot-skeleton/services/tradeEngine/utils/helpers';
-import { TSymbolOption } from '@/pages/analysis-tool/use-digit-stats';
+import { inferPipSize, normalizePipDecimals, TSymbolOption } from '@/pages/analysis-tool/use-digit-stats';
 
 export type TMarketScan = {
     symbol: string;
@@ -113,7 +113,16 @@ export const useDigitScanner = (symbols: TSymbolOption[], tick_count: number) =>
             const buf = buffers.get(match.symbol);
             if (!buf || !buf.loaded) return; // wait for history so the window starts complete
             const quote = Number(data.tick.quote);
-            const pip = api_base?.pip_sizes?.[match.symbol] ?? buf.pip_size;
+            // pip_size can arrive as a decimal count (3) or a pip amount (0.001):
+            // normalise it, and never show fewer decimals than the quote Deriv sent
+            // (toFixed(0.001) would otherwise drop every decimal).
+            const pip = Math.max(
+                normalizePipDecimals(data.tick?.pip_size) ??
+                    normalizePipDecimals(api_base?.pip_sizes?.[match.symbol]) ??
+                    buf.pip_size,
+                inferPipSize([data.tick.quote]) ?? 0,
+                buf.pip_size
+            );
             buf.pip_size = pip;
             buf.quote = quote.toFixed(pip);
             pushDigit(buf, Number(getLastDigitForList(quote, pip)));
@@ -132,7 +141,10 @@ export const useDigitScanner = (symbols: TSymbolOption[], tick_count: number) =>
                 if (cancelled) return;
                 const prices: number[] = hist?.history?.prices ?? [];
                 if (!prices.length) return;
-                const pip = hist?.pip_size ?? api_base?.pip_sizes?.[s.symbol] ?? 2;
+                const pip = Math.max(
+                    normalizePipDecimals(hist?.pip_size) ?? normalizePipDecimals(api_base?.pip_sizes?.[s.symbol]) ?? 2,
+                    inferPipSize(prices) ?? 0
+                );
                 buf.pip_size = pip;
                 buf.digits = prices.slice(-MAX_TICKS).map(p => Number(getLastDigitForList(Number(p), pip)));
                 buf.quote = Number(prices[prices.length - 1]).toFixed(pip);
