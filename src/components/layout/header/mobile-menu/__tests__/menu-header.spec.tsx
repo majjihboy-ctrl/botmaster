@@ -15,6 +15,12 @@ jest.mock('@deriv-com/translations', () => ({
     useTranslations: jest.fn(),
 }));
 
+// [AI] Mock BrandLogo component
+jest.mock('@/components/layout/app-logo/BrandLogo', () => ({
+    BrandLogo: () => <div data-testid="brand-logo">Brand Logo</div>,
+}));
+// [/AI]
+
 describe('MenuHeader component', () => {
     beforeEach(() => {
         (useTranslations as jest.Mock).mockReturnValue({
@@ -23,16 +29,16 @@ describe('MenuHeader component', () => {
         });
     });
 
-    // [AI] Header shows a plain "Settings" title instead of the logo + app name mark
-    it('renders the Settings title in mobile view', () => {
+    // [AI] Updated tests to check for brand logo instead of "Menu" text
+    it('renders brand logo in mobile view', () => {
         render(<MenuHeader hideLanguageSetting={false} openLanguageSetting={mockOpenLanguageSetting} />);
-        expect(screen.getByText('Settings')).toBeInTheDocument();
+        expect(screen.getByTestId('brand-logo')).toBeInTheDocument();
     });
 
-    it('renders the Settings title in desktop view', () => {
+    it('renders brand logo in desktop view', () => {
         (useDevice as jest.Mock).mockReturnValue({ isDesktop: true });
         render(<MenuHeader hideLanguageSetting={false} openLanguageSetting={mockOpenLanguageSetting} />);
-        expect(screen.getByText('Settings')).toBeInTheDocument();
+        expect(screen.getByTestId('brand-logo')).toBeInTheDocument();
     });
     // [/AI]
 

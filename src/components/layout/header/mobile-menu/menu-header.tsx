@@ -1,5 +1,6 @@
-// Updated to show a plain "Settings" title (matching other templates' drawer style)
+// Updated to show brand logo instead of "Menu" text
 import { ComponentProps } from 'react';
+import { BrandLogo } from '@/components/layout/app-logo/BrandLogo';
 import { LabelPairedGlobeSmRegularIcon } from '@deriv/quill-icons';
 import { useTranslations } from '@deriv-com/translations';
 import { Text, useDevice } from '@deriv-com/ui';
@@ -17,10 +18,8 @@ const MenuHeader = ({ hideLanguageSetting, openLanguageSetting }: TMenuHeader) =
 
     return (
         <div className='mobile-menu__header'>
-            {/* [AI] Show a plain "Settings" title instead of the logo + app name mark */}
-            <Text size={isDesktop ? 'sm' : 'md'} weight='bold'>
-                {localize('Settings')}
-            </Text>
+            {/* [AI] Show brand logo instead of "Menu" text */}
+            <BrandLogo width={100} height={28} fill='var(--text-general)' />
             {/* [/AI] */}
 
             {!hideLanguageSetting && (

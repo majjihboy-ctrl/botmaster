@@ -128,28 +128,9 @@
         }
     }
 
-    // Desktop: Slow/Fast toggle and won/lost/total tiles sit above the tabs
-    &__top {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        flex-shrink: 0;
-        padding-top: 0.8rem;
-        background-color: var(--general-section-2);
-
-        .run-mode {
-            width: calc(100% - 2.4rem);
-            margin-bottom: 0.4rem;
-        }
-
-        .run-panel__stat {
-            width: 100%;
-        }
-    }
-
     &__content {
         display: flex;
-        justify-content: flex-start;
+        justify-content: space-between;
         flex-direction: column;
         overflow: hidden !important;
 
@@ -468,51 +449,5 @@
             white-space: normal;
             word-break: break-word;
         }
-    }
-}
-
-
-// Run mode toggle (Slow / Fast)
-.run-mode {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    width: 100%;
-    margin-bottom: 0.8rem;
-
-    &__switch {
-        display: flex;
-        padding: 0.2rem;
-        border-radius: 8px;
-        background: var(--general-section-1);
-        border: 1px solid var(--general-hover);
-    }
-
-    &__option {
-        flex: 1;
-        padding: 0.6rem 1rem;
-        border: 0;
-        border-radius: 6px;
-        background: transparent;
-        color: var(--text-general);
-        font-size: var(--text-size-xs);
-        font-weight: 700;
-        cursor: pointer;
-
-        &--active {
-            background: var(--button-primary-default, #ff444f);
-            color: #fff;
-        }
-
-        &:disabled {
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-    }
-
-    &__hint {
-        font-size: var(--text-size-xxs);
-        color: var(--text-less-prominent);
-        line-height: 1.3;
     }
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
 // Updated to use brand configuration for mobile menu elements visibility
 // Controls language settings and theme toggle via brand.config.json
 import { useState } from 'react';
@@ -48,10 +47,6 @@ const MobileMenu = ({ onLogout }: TMobileMenuProps) => {
     const closeDrawer = () => {
         setIsDrawerOpen(false);
         setActiveSubmenu(null);
-        // Clear the language modal query param so it doesn't linger in the URL
-        // (and re-open the language view) when the drawer is closed via the
-        // close button or by clicking outside.
-        if (isLanguageSettingVisible) hideModal();
     };
 
     const openSubmenu = (submenu: string) => setActiveSubmenu(submenu);

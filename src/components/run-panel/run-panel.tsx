@@ -1,4 +1,3 @@
-// @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
 import React from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
@@ -129,60 +128,6 @@ const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onCle
         />
     );
 
-const RunModeToggle = observer(() => {
-    const { run_panel } = useStore();
-    const { run_mode, setRunMode, is_running, has_open_contract } = run_panel;
-    const locked = is_running || has_open_contract;
-
-    return (
-        <div className='run-mode' data-locked={locked}>
-            <div className='run-mode__switch' role='radiogroup' aria-label={localize('Run mode')}>
-                <button
-                    type='button'
-                    role='radio'
-                    aria-checked={run_mode === 'slow'}
-                    className={classNames('run-mode__option', { 'run-mode__option--active': run_mode === 'slow' })}
-                    disabled={locked}
-                    onClick={() => setRunMode('slow')}
-                >
-                    <Localize i18n_default_text='Slow' />
-                </button>
-                <button
-                    type='button'
-                    role='radio'
-                    aria-checked={run_mode === 'fast'}
-                    className={classNames('run-mode__option', { 'run-mode__option--active': run_mode === 'fast' })}
-                    disabled={locked}
-                    onClick={() => setRunMode('fast')}
-                >
-                    <Localize i18n_default_text='Fast' />
-                </button>
-                <button
-                    type='button'
-                    role='radio'
-                    aria-checked={run_mode === 'turbo'}
-                    className={classNames('run-mode__option', { 'run-mode__option--active': run_mode === 'turbo' })}
-                    disabled={locked}
-                    onClick={() => setRunMode('turbo')}
-                >
-                    <Localize i18n_default_text='Turbo' />
-                </button>
-            </div>
-            <div className='run-mode__hint'>
-                {run_mode === 'fast' && (
-                    <Localize i18n_default_text='Trades on every tick without waiting for the previous trade to close.' />
-                )}
-                {run_mode === 'turbo' && (
-                    <Localize i18n_default_text='One trade at a time, but trades again the moment the last one closes.' />
-                )}
-                {run_mode === 'slow' && (
-                    <Localize i18n_default_text='Waits for each trade to close, then for the next tick.' />
-                )}
-            </div>
-        </div>
-    );
-});
-
 const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTabIndex, ...props }: TDrawerContent) => {
     const { isDesktop } = useDevice();
     // Use the useBlockScroll hook to prevent body scrolling when drawer is open on mobile
@@ -199,17 +144,8 @@ const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTab
         };
     }, [is_drawer_open, isDesktop]);
 
-    const show_stats = (is_drawer_open && active_index !== 2) || active_tour;
-    const stats = show_stats ? <StatisticsSummary {...props} /> : null;
-
     return (
         <>
-            {isDesktop && (
-                <div className='run-panel__top'>
-                    <RunModeToggle />
-                    {stats}
-                </div>
-            )}
             <Tabs active_index={active_index} onTabItemClick={setActiveTabIndex} top>
                 <div id='db-run-panel-tab__summary' label={<Localize i18n_default_text='Summary' />}>
                     <Summary is_drawer_open={is_drawer_open} />
@@ -221,7 +157,7 @@ const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTab
                     <Journal />
                 </div>
             </Tabs>
-            {!isDesktop && stats}
+            {((is_drawer_open && active_index !== 2) || active_tour) && <StatisticsSummary {...props} />}
         </>
     );
 };
@@ -246,7 +182,6 @@ const DrawerFooter = ({ is_clear_stat_disabled, onClearStatClick }: TDrawerFoote
 const MobileDrawerFooter = () => {
     return (
         <div className='controls__section'>
-            <RunModeToggle />
             <div className='controls__buttons'>
                 <TradeAnimation className='controls__animation' should_show_overlay />
             </div>
@@ -332,7 +267,7 @@ const RunPanel = observer(() => {
     const { statistics } = transactions;
     const { active_tour, active_tab } = dashboard;
     const { total_payout, total_profit, total_stake, won_contracts, lost_contracts, number_of_runs } = statistics;
-    const { BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS } = DBOT_TABS;
+    const { BOT_BUILDER, CHART } = DBOT_TABS;
 
     React.useEffect(() => {
         onMount();
@@ -340,10 +275,7 @@ const RunPanel = observer(() => {
     }, [onMount, onUnmount]);
 
     React.useEffect(() => {
-        // Start collapsed on mobile — but only if nothing is running. The panel
-        // now remounts whenever you return to a bot tab, and collapsing it on a
-        // live bot hides the stats/stop state the person is watching.
-        if (!isDesktop && !run_panel.is_running) {
+        if (!isDesktop) {
             toggleDrawer(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -378,7 +310,7 @@ const RunPanel = observer(() => {
         />
     );
 
-    const show_run_panel = [BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS].includes(active_tab) || active_tour;
+    const show_run_panel = [BOT_BUILDER, CHART].includes(active_tab) || active_tour;
     if ((!show_run_panel && isDesktop) || active_tour === 'bot_builder') return null;
 
     return (

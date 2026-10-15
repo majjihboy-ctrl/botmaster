@@ -3,16 +3,15 @@ import clsx from 'clsx';
 import { observer } from 'mobx-react-lite';
 import { generateOAuthURL } from '@/components/shared';
 import Button from '@/components/shared_ui/button';
-import InstallPwaButton from '@/components/install-pwa-button';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useApiBase } from '@/hooks/useApiBase';
 import { useLogout } from '@/hooks/useLogout';
 import { useStore } from '@/hooks/useStore';
+import { navigateToTransfer } from '@/utils/transfer-utils';
 import { Localize } from '@deriv-com/translations';
 import { Header, useDevice, Wrapper } from '@deriv-com/ui';
 import { AppLogo } from '../app-logo';
 import AccountSwitcher from './account-switcher';
-import DarkModeToggle from './DarkModeToggle';
 import MenuItems from './menu-items';
 import MobileMenu from './mobile-menu';
 import './header.scss';
@@ -122,6 +121,15 @@ const AppHeader = observer(() => {
         }
     }, [setIsAuthorizing]);
 
+    const handleTransfer = useCallback(() => {
+        const transferCurrency = authData?.currency;
+        if (!transferCurrency) {
+            console.error('No currency available for transfer');
+            return;
+        }
+        navigateToTransfer(transferCurrency);
+    }, [authData?.currency]);
+
     const renderAccountSection = useCallback(
         (position: 'left' | 'right' = 'right') => {
             // Show account switcher and logout when user is fully authenticated
@@ -136,7 +144,7 @@ const AppHeader = observer(() => {
                         </div>
                     );
                 } else if (position === 'right') {
-                    // For right section - account switcher on desktop
+                    // For right section - transfer button (and account switcher on desktop)
                     return (
                         <div className='auth-actions'>
                             {isDesktop && (
@@ -144,6 +152,13 @@ const AppHeader = observer(() => {
                                     <AccountSwitcher activeAccount={activeAccount} />
                                 </div>
                             )}
+                            <Button
+                                primary
+                                disabled={client?.is_logging_out || !authData?.currency}
+                                onClick={handleTransfer}
+                            >
+                                <Localize i18n_default_text='Transfer' />
+                            </Button>
                         </div>
                     );
                 }
@@ -154,16 +169,12 @@ const AppHeader = observer(() => {
                 !isOAuthPending &&
                 ((!is_account_regenerating && !isAuthorizing && !activeLoginid) || authTimeout)
             ) {
-                // Disable auth buttons until the OAuth app id is configured, so the
-                // click handlers (which would otherwise log "Failed to generate OAuth
-                // URL") never fire. The env-not-set toast explains why.
-                const isAuthConfigured = Boolean(process.env.NEXT_PUBLIC_DERIV_APP_ID);
                 return (
                     <div className='auth-actions'>
-                        <Button tertiary disabled={!isAuthConfigured} onClick={handleLogin}>
+                        <Button tertiary onClick={handleLogin}>
                             <Localize i18n_default_text='Log in' />
                         </Button>
-                        <Button primary_light disabled={!isAuthConfigured} onClick={handleSignup}>
+                        <Button primary_light onClick={handleSignup}>
                             <Localize i18n_default_text='Sign up' />
                         </Button>
                     </div>
@@ -208,6 +219,7 @@ const AppHeader = observer(() => {
             authData,
             handleLogin,
             handleSignup,
+            handleTransfer,
         ]
     );
 
@@ -226,11 +238,7 @@ const AppHeader = observer(() => {
                     <AppLogo />
                     {isDesktop ? <MenuItems /> : renderAccountSection('left')}
                 </Wrapper>
-                <Wrapper variant='right'>
-                    {isDesktop && <DarkModeToggle />}
-                    <InstallPwaButton />
-                    {renderAccountSection('right')}
-                </Wrapper>
+                <Wrapper variant='right'>{renderAccountSection('right')}</Wrapper>
             </Header>
         </>
     );

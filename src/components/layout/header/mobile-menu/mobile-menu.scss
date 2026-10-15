@@ -4,16 +4,10 @@
     &__toggle {
         padding-inline-start: 1rem;
         padding-inline-end: 1rem;
-        border-radius: 0.8rem;
+        border-inline-end: 1px solid var(--general-section-1);
         display: flex;
-        align-items: center;
-        justify-content: center;
         height: 100%;
         cursor: pointer;
-
-        &:hover {
-            background: color-mix(in srgb, var(--general-section-1) 50%, transparent);
-        }
     }
 
     &__footer {
@@ -33,11 +27,6 @@
             display: flex;
             align-items: center;
             gap: 0.4rem;
-
-            svg > g > path,
-            svg > path {
-                fill: var(--text-prominent) !important;
-            }
         }
     }
 
@@ -82,10 +71,6 @@
                     margin-left: auto;
                     margin-right: 1.6rem;
                     min-width: 4.4rem;
-
-                    input:checked + .deriv-toggle-switch__slider:before {
-                        transform: translate(1.8rem);
-                    }
                 }
 
                 &--active {
@@ -123,18 +108,12 @@
         }
 
         .languages-modal__body-button {
-            // No flag icons are shown, so the button hugs the language title.
-            height: auto;
+            height: 88px;
             width: 133px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 8px 12px;
-
-            // Flag SVG icons are intentionally not shown - only language names are displayed
-            svg {
-                display: none;
-            }
+            flex-direction: column;
+            padding: 8px;
 
             .deriv-text {
                 color: var(--text-prominent) !important;
