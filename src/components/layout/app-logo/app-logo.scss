@@ -9,12 +9,12 @@
 
         // Only in the header bar (the mobile drawer reuses the mark on a light surface)
         .app-header__logo-text {
-            color: var(--bm-bar-fg);
+            color: var(--bm-header-fg);
         }
 
         .app-header__logo-badge {
-            background: rgb(255 255 255 / 18%);
-            color: var(--bm-bar-fg);
+            background: rgb(0 0 0 / 6%);
+            color: var(--bm-header-fg);
         }
     }
 

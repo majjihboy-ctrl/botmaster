@@ -7,6 +7,9 @@
     // to re-colour the whole top bar (e.g. #ff444f for a red bar).
     --bm-bar-bg: #08081d;
     --bm-bar-fg: #ffffff;
+    // Top header (logo / balance) follows the theme: white in light mode
+    --bm-header-bg: var(--general-main-1);
+    --bm-header-fg: var(--text-prominent);
     --bm-bar-height: 4rem;
 
     // Reference look: blue -> violet -> pink accent, teal run button
