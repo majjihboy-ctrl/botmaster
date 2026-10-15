@@ -149,13 +149,12 @@ const AppWrapper = observer(() => {
         };
     };
 
-    // App Builder embeds the bot at /bot/preview — open the bot builder there by
-    // default (instead of the dashboard) when no explicit #tab hash is present.
-    const is_preview_mode = window.location.pathname.includes('/preview');
+    // Open the Bot Builder by default (instead of the dashboard) when the URL
+    // has no explicit #tab hash. A hash such as #dashboard still wins.
     let tab_value: number | string = active_tab;
-    const GetHashedValue = (tab: number) => {
+    const GetHashedValue = (_tab: number) => {
         tab_value = location.hash?.split('#')[1];
-        if (!tab_value) return is_preview_mode ? BOT_BUILDER : tab;
+        if (!tab_value) return BOT_BUILDER;
         return Number(hash.indexOf(String(tab_value)));
     };
     const active_hash_tab = GetHashedValue(active_tab);
