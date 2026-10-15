@@ -135,10 +135,27 @@
         overflow: hidden !important;
 
         .dc-tabs {
+            &__list {
+                background: var(--bm-tab-blue);
+            }
+
+            &__active-line {
+                display: none;
+            }
+
             &__item {
                 overflow: hidden;
                 text-overflow: ellipsis;
                 padding: 0 0.8rem;
+                background: var(--bm-tab-blue);
+                color: #ffffff;
+                font-weight: 600;
+                justify-content: center;
+
+                &.dc-tabs__active {
+                    background: var(--bm-accent-gradient);
+                    color: #ffffff;
+                }
             }
         }
     }

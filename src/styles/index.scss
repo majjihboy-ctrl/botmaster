@@ -5,9 +5,15 @@
 :root {
     // Single source for the flat header + tab bar colour. Change this one value
     // to re-colour the whole top bar (e.g. #ff444f for a red bar).
-    --bm-bar-bg: #6d28d9;
+    --bm-bar-bg: #08081d;
     --bm-bar-fg: #ffffff;
     --bm-bar-height: 4rem;
+
+    // Reference look: blue -> violet -> pink accent, teal run button
+    --bm-accent-gradient: linear-gradient(135deg, #4056eb 0%, #903cde 55%, #e146a1 100%);
+    --bm-accent-glow: 0 0 1.2rem rgb(144 60 222 / 55%);
+    --bm-tab-blue: #1950de;
+    --bm-run-teal: #4bb4b3;
 }
 
 body {

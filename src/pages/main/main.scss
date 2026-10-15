@@ -252,9 +252,10 @@
                     color: #fff;
                 }
 
-                // Active tab: translucent white pill, white text (no heavy shadow)
+                // Active tab: blue-violet-pink gradient pill with soft glow
                 &.dc-tabs__active {
-                    background: rgb(255 255 255 / 18%) !important;
+                    background: var(--bm-accent-gradient) !important;
+                    box-shadow: var(--bm-accent-glow);
                     color: #ffffff !important;
                     font-weight: 600;
 
