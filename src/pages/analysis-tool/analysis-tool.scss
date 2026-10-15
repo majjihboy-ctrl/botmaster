@@ -164,10 +164,10 @@
     }
 
     &__price {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 1rem;
+        // Block layout so the highlighted last digit sits right next to the rest of the
+        // price. (A flex row with space-between pushed it to the far edge, which looked
+        // like the last decimal was missing.)
+        display: block;
         padding: 1.4rem 1.8rem;
         background: var(--general-section-1);
         border-radius: 8px;
