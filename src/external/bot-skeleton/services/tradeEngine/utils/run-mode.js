@@ -1,14 +1,16 @@
 // Run mode for the trade engine.
-//   slow (default): wait for each contract to close before trading again.
+//   slow (default): wait for each contract to close, then for the next tick.
 //   fast: buy on every tick; earlier contracts keep settling in the background.
 //   turbo: still one trade at a time (exact Martingale), but buy again the moment the
 //          previous trade closes instead of idling until the next tick.
-const KEY = 'botmaster_run_mode';
+//
+// The mode is NOT persisted: every page load starts in Slow (normal). A previously
+// saved value is cleared so nobody stays stuck in Fast/Turbo without a visible switch.
+const LEGACY_KEY = 'botmaster_run_mode';
 
 let mode = 'slow';
 try {
-    const saved = localStorage.getItem(KEY);
-    if (saved === 'fast' || saved === 'slow' || saved === 'turbo') mode = saved;
+    localStorage.removeItem(LEGACY_KEY);
 } catch {
     // storage unavailable
 }
@@ -19,9 +21,4 @@ export const isTurboMode = () => mode === 'turbo';
 export const setRunMode = next => {
     if (next !== 'fast' && next !== 'slow' && next !== 'turbo') return;
     mode = next;
-    try {
-        localStorage.setItem(KEY, next);
-    } catch {
-        // storage unavailable
-    }
 };
