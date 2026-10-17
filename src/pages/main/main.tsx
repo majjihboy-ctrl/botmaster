@@ -59,6 +59,7 @@ import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
 const TradingViewPage = lazy(() => import('../trading-view'));
+const AiBotBuilder = lazy(() => import('../ai-bot-builder'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -111,6 +112,7 @@ const AppWrapper = observer(() => {
         'autotrade',
         'scanner',
         'trading_view',
+        'ai_bot_builder',
     ];
     const { isDesktop } = useDevice();
     const location = useLocation();
@@ -176,7 +178,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-trading-view'); // last tab in the bar
+        const el_tutorial = document.getElementById('id-ai-bot-builder'); // last tab in the bar
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -525,6 +527,30 @@ const AppWrapper = observer(() => {
                                     }
                                 >
                                     <TradingViewPage />
+                                </Suspense>
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedLightbulbCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='currentColor'
+                                        />
+                                        <Localize i18n_default_text='AI Bot Builder' />
+                                    </>
+                                }
+                                id='id-ai-bot-builder'
+                            >
+                                <Suspense
+                                    fallback={
+                                        <ChunkLoader
+                                            message={localize('Please wait, loading AI Bot Builder...')}
+                                            variant='panel'
+                                        />
+                                    }
+                                >
+                                    <AiBotBuilder />
                                 </Suspense>
                             </div>
                         </Tabs>
