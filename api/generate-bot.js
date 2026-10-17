@@ -28,27 +28,49 @@ function clampPositiveNumber(value, fallback) {
     return Math.round(n * 100) / 100;
 }
 
-async function extractParams(description) {
-    const apiKey = process.env.XAI_API_KEY;
-    if (!apiKey) {
-        throw new Error('XAI_API_KEY is not set in environment variables');
+// Which AI provider to use. Gemini (free tier available) is used when GEMINI_API_KEY is set,
+// otherwise xAI Grok when XAI_API_KEY is set. Set AI_PROVIDER=xai or gemini to force one.
+function pickProvider() {
+    const forced = (process.env.AI_PROVIDER || '').toLowerCase();
+    if (forced === 'xai' || forced === 'gemini') return forced;
+    if (process.env.GEMINI_API_KEY) return 'gemini';
+    if (process.env.XAI_API_KEY) return 'xai';
+    return null;
+}
+
+async function callGemini(systemPrompt, description) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('GEMINI_API_KEY is not set in environment variables');
+    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+
+    const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+            body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: [{ role: 'user', parts: [{ text: description }] }],
+                generationConfig: { temperature: 0, responseMimeType: 'application/json' },
+            }),
+        }
+    );
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API error: ${response.status} ${errText}`);
     }
 
-    const systemPrompt = `You extract trading bot parameters from a user's plain-English description of a Martingale/Accumulator strategy for Deriv.
+    const data = await response.json();
+    const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+    return parts ? parts.map(p => p.text || '').join('') : '';
+}
 
-Respond ONLY with a raw JSON object, no markdown fences, no preamble, no explanation. The JSON must have exactly these keys:
-- "symbol": one of ${JSON.stringify(VALID_SYMBOLS)} (pick the closest match to what the user described; default to "1HZ100V" if unclear or unspecified)
-- "growth_rate": one of ${JSON.stringify(VALID_GROWTH_RATES)} as a string (default "0.01" if unspecified)
-- "take_profit": a positive number, the take-profit amount per trade in USD (default 10)
-- "initial_stake": a positive number, the starting stake in USD (default 10)
-- "martingale_size": a positive number, the stake step/increment used to grow the stake after a loss (default 10)
-- "profit_threshold": a positive number, total profit at which the bot stops trading (default 10)
-- "loss_threshold": a positive number, total loss at which the bot stops trading (default 10)
+// xAI (Grok) exposes an OpenAI-compatible chat completions endpoint.
+async function callXai(systemPrompt, description) {
+    const apiKey = process.env.XAI_API_KEY;
+    if (!apiKey) throw new Error('XAI_API_KEY is not set in environment variables');
 
-If the user's description doesn't mention a value, use the default. Never invent a symbol not in the allowed list.`;
-
-    // xAI (Grok) exposes an OpenAI-compatible chat completions endpoint.
-    // Model is overridable with XAI_MODEL (e.g. grok-4.3, grok-4.5) without a code change.
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -71,10 +93,34 @@ If the user's description doesn't mention a value, use the default. Never invent
     }
 
     const data = await response.json();
-    const messageContent = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-    if (!messageContent) {
-        throw new Error('No text response from model');
+    return data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+}
+
+async function callModel(systemPrompt, description) {
+    const provider = pickProvider();
+    if (!provider) {
+        throw new Error('No AI key set: add GEMINI_API_KEY or XAI_API_KEY in the environment variables');
     }
+    const text = provider === 'gemini' ? await callGemini(systemPrompt, description) : await callXai(systemPrompt, description);
+    if (!text) throw new Error('No text response from model');
+    return text;
+}
+
+async function extractParams(description) {
+    const systemPrompt = `You extract trading bot parameters from a user's plain-English description of a Martingale/Accumulator strategy for Deriv.
+
+Respond ONLY with a raw JSON object, no markdown fences, no preamble, no explanation. The JSON must have exactly these keys:
+- "symbol": one of ${JSON.stringify(VALID_SYMBOLS)} (pick the closest match to what the user described; default to "1HZ100V" if unclear or unspecified)
+- "growth_rate": one of ${JSON.stringify(VALID_GROWTH_RATES)} as a string (default "0.01" if unspecified)
+- "take_profit": a positive number, the take-profit amount per trade in USD (default 10)
+- "initial_stake": a positive number, the starting stake in USD (default 10)
+- "martingale_size": a positive number, the stake step/increment used to grow the stake after a loss (default 10)
+- "profit_threshold": a positive number, total profit at which the bot stops trading (default 10)
+- "loss_threshold": a positive number, total loss at which the bot stops trading (default 10)
+
+If the user's description doesn't mention a value, use the default. Never invent a symbol not in the allowed list.`;
+
+    const messageContent = await callModel(systemPrompt, description);
 
     const raw = messageContent.replace(/```json|```/g, '').trim();
     const first = raw.indexOf('{');
