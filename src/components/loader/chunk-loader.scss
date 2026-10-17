@@ -1,0 +1,106 @@
+.chunk-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #060a12;
+    font-family: 'Share Tech Mono', monospace;
+
+    // Leave the header + tab bar visible/clickable while a tab's code loads.
+    &--panel {
+        top: 10.4rem;
+        z-index: 10;
+    }
+
+    &__video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    &__shade {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.62) 100%);
+    }
+
+    &__content {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+        padding: 0 24px;
+        text-align: center;
+    }
+
+    &__brand {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 28px;
+        font-weight: 900;
+        letter-spacing: 0.18em;
+        background: linear-gradient(100deg, #1a6fff 0%, #00e5ff 30%, #ffffff 50%, #00e5ff 70%, #1a6fff 100%);
+        background-size: 220% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.85));
+        animation: chunk-loader-shine 2.8s linear infinite;
+    }
+
+    &__message {
+        font-size: 12.5px;
+        letter-spacing: 0.1em;
+        color: #cfe9ff;
+        filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85));
+    }
+
+    &__track {
+        position: relative;
+        width: 180px;
+        height: 3px;
+        border-radius: 3px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.12);
+
+        &::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 45%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, transparent, #00e5ff, #ffffff, transparent);
+            animation: chunk-loader-slide 1.5s ease-in-out infinite;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &__brand,
+        &__track::after {
+            animation-duration: 0.01ms;
+            animation-iteration-count: 1;
+        }
+    }
+}
+
+@keyframes chunk-loader-shine {
+    to {
+        background-position: -220% 0;
+    }
+}
+
+@keyframes chunk-loader-slide {
+    0% {
+        left: -45%;
+    }
+    100% {
+        left: 100%;
+    }
+}

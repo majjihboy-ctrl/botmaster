@@ -441,7 +441,7 @@ const AppWrapper = observer(() => {
                                 }
                             >
                                 <Suspense
-                                    fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}
+                                    fallback={<ChunkLoader message={localize('Please wait, loading chart...')} variant='panel' />}
                                 >
                                     <ChartWrapper show_digits_stats={false} />
                                 </Suspense>
@@ -521,7 +521,7 @@ const AppWrapper = observer(() => {
                             >
                                 <Suspense
                                     fallback={
-                                        <ChunkLoader message={localize('Please wait, loading TradingView...')} />
+                                        <ChunkLoader message={localize('Please wait, loading TradingView...')} variant='panel' />
                                     }
                                 >
                                     <TradingViewPage />
