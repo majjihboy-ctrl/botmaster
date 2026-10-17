@@ -10,6 +10,13 @@ const getTicksInterface = tradeEngine => {
         getOhlcFromEnd: (...args) => tradeEngine.getOhlcFromEnd(...args),
         getOhlc: (...args) => tradeEngine.getOhlc(...args),
         getLastDigitList: (...args) => tradeEngine.getLastDigitList(...args),
+        // Analysis Logics helpers
+        getLastDigitsCondition: (...args) => tradeEngine.getLastDigitsCondition(...args),
+        getDigitFrequency: (...args) => tradeEngine.getDigitFrequency(...args),
+        getEvenOddPercent: (...args) => tradeEngine.getEvenOddPercent(...args),
+        getOverUnderPercent: (...args) => tradeEngine.getOverUnderPercent(...args),
+        getMatchDiffPercent: (...args) => tradeEngine.getMatchDiffPercent(...args),
+        getRiseFallPercent: (...args) => tradeEngine.getRiseFallPercent(...args),
     };
 };
 

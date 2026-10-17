@@ -1,6 +1,7 @@
 import './balance';
 import './barrier_offset';
 import './block_holder';
+import './btnotify';
 import './loader';
 import './notify';
 import './notify_telegram';
