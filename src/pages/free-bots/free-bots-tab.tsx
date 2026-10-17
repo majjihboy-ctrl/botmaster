@@ -9,6 +9,16 @@ import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import './free-bots-tab.scss';
 
+const Stars = () => (
+    <div className='free-bots-tab__card-rating' aria-hidden='true'>
+        {[0, 1, 2, 3, 4].map(n => (
+            <span key={n} className='star'>
+                ★
+            </span>
+        ))}
+    </div>
+);
+
 const FreeBotsTab = observer(() => {
     const [loading_id, setLoadingId] = React.useState<string | null>(null);
     const { load_modal, dashboard, run_panel } = useStore();
@@ -77,7 +87,10 @@ const FreeBotsTab = observer(() => {
                                     {localize('FEATURED')}
                                 </div>
                             )}
-                            <div className='free-bots-tab__card-title'>{bot.title}</div>
+                            <div className='free-bots-tab__card-header'>
+                                <div className='free-bots-tab__card-title'>{bot.title}</div>
+                                <Stars />
+                            </div>
                             {bot.description ? (
                                 <div className='free-bots-tab__card-description'>{bot.description}</div>
                             ) : null}
@@ -99,7 +112,10 @@ const FreeBotsTab = observer(() => {
                     {PREMIUM_BOTS.map((bot: TPremiumBot) => (
                         <div key={bot.id} className='free-bots-tab__card'>
                             <div className='free-bots-tab__card-badge'>{localize('PREMIUM')}</div>
-                            <div className='free-bots-tab__card-title'>{bot.title}</div>
+                            <div className='free-bots-tab__card-header'>
+                                <div className='free-bots-tab__card-title'>{bot.title}</div>
+                                <Stars />
+                            </div>
                             {bot.description ? (
                                 <div className='free-bots-tab__card-description'>{bot.description}</div>
                             ) : null}

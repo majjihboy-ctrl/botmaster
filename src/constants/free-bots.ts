@@ -80,4 +80,84 @@ export const FREE_BOTS: TFreeBot[] = [
         description: '',
         auto_run: true,
     },
+    {
+        id: 'double-differs-exclude-red-green',
+        title: 'Double Differs Exclude Red and Green',
+        description: '',
+    },
+    {
+        id: '2-prediction-ou-m7-bot',
+        title: '2 Prediction O&U M7 Bot',
+        description: '',
+    },
+    {
+        id: 'ak-entry-point-software-003',
+        title: 'AK Entry Point Software 003',
+        description: '',
+    },
+    {
+        id: 'alpha-system-001',
+        title: 'Alpha System 001',
+        description: '',
+    },
+    {
+        id: 'digit-flux-by-kim',
+        title: 'Digit Flux by Kim',
+        description: '',
+    },
+    {
+        id: 'dollar-guard-s1',
+        title: 'Dollar Guard S1',
+        description: '',
+    },
+    {
+        id: 'genesis-version-1-by-kim',
+        title: 'Genesis Version 1 by Kim',
+        description: '',
+    },
+    {
+        id: 'millern-even-odd',
+        title: 'Millern Even Odd',
+        description: '',
+    },
+    {
+        id: 'millern-sv7',
+        title: 'Millern SV7',
+        description: '',
+    },
+    {
+        id: 'millern-v2',
+        title: 'Millern V2',
+        description: '',
+    },
+    {
+        id: 'money-gram-v1-auto',
+        title: 'Money Gram V1 Auto',
+        description: '',
+    },
+    {
+        id: 'over-1-bot-with-over-3-recovery',
+        title: 'Over 1 Bot with Over 3 Recovery',
+        description: '',
+    },
+    {
+        id: 'pesa-flip-g1',
+        title: 'Pesa Flip G1',
+        description: '',
+    },
+    {
+        id: 'pesa-flow-s3',
+        title: 'Pesa Flow S3',
+        description: '',
+    },
+    {
+        id: 'xenon-rv1',
+        title: 'Xenon RV1',
+        description: '',
+    },
+    {
+        id: 'pulse-even-odd',
+        title: 'Even Odd',
+        description: '',
+    },
 ];
