@@ -334,6 +334,17 @@ const AppWrapper = observer(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [active_tab]);
 
+    // With 12 tabs the bar scrolls sideways; keep the active tab visible when it changes
+    // (e.g. opening a tab from a URL hash or a link elsewhere in the app).
+    useEffect(() => {
+        const id = window.setTimeout(() => {
+            document
+                .querySelector('.dc-tabs__item.dc-tabs__active')
+                ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+        }, 0);
+        return () => window.clearTimeout(id);
+    }, [active_tab]);
+
     React.useEffect(() => {
         const trashcan_init_id = setTimeout(() => {
             if (active_tab === BOT_BUILDER && Blockly?.derivWorkspace?.trashcan) {
