@@ -60,6 +60,8 @@ import './main.scss';
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
 const TradingViewPage = lazy(() => import('../trading-view'));
 const AiBotBuilder = lazy(() => import('../ai-bot-builder'));
+const ForexTraderPage = lazy(() => import('../forex-trader'));
+const ForexLivePage = lazy(() => import('../forex-live'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -113,6 +115,8 @@ const AppWrapper = observer(() => {
         'scanner',
         'trading_view',
         'ai_bot_builder',
+        'forex_trader',
+        'forex_live',
     ];
     const { isDesktop } = useDevice();
     const location = useLocation();
@@ -178,7 +182,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-ai-bot-builder'); // last tab in the bar
+        const el_tutorial = document.getElementById('id-forex-live'); // last tab in the bar
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -551,6 +555,46 @@ const AppWrapper = observer(() => {
                                     }
                                 >
                                     <AiBotBuilder />
+                                </Suspense>
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <span style={{ fontSize: '15px', lineHeight: 1 }}>💱</span>
+                                        <Localize i18n_default_text='Forex Trader' />
+                                    </>
+                                }
+                                id='id-forex-trader'
+                            >
+                                <Suspense
+                                    fallback={
+                                        <ChunkLoader
+                                            message={localize('Please wait, loading Forex Trader...')}
+                                            variant='panel'
+                                        />
+                                    }
+                                >
+                                    <ForexTraderPage />
+                                </Suspense>
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <span style={{ fontSize: '15px', lineHeight: 1 }}>🔴</span>
+                                        <Localize i18n_default_text='Forex Live' />
+                                    </>
+                                }
+                                id='id-forex-live'
+                            >
+                                <Suspense
+                                    fallback={
+                                        <ChunkLoader
+                                            message={localize('Please wait, loading Forex Live...')}
+                                            variant='panel'
+                                        />
+                                    }
+                                >
+                                    <ForexLivePage />
                                 </Suspense>
                             </div>
                         </Tabs>

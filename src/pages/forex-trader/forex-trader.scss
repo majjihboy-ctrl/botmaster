@@ -1,0 +1,680 @@
+@use 'components/shared/styles/wallpaper' as *;
+
+.forex-trader {
+    box-sizing: border-box;
+    width: 100%; // fill the whole tab; without this a flex parent shrinks it to its content
+    min-width: 0;
+    @include page-wallpaper;
+    font-family: var(--brand-font-primary), sans-serif; // same font as the rest of the website
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: var(--tab-content-height);
+    padding: 8px 12px 10px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    color: var(--text-general);
+    font-size: 13px;
+
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+
+    @media (max-width: 900px) {
+        height: var(--tab-content-height-mobile);
+        width: 100% !important;
+    }
+
+    &__controls {
+        display: grid;
+        grid-template-columns: minmax(180px, 1.4fr) 90px minmax(180px, 1.2fr) minmax(200px, 1.6fr) auto;
+        gap: 8px;
+        align-items: end;
+
+        label,
+        .forex-trader__market {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            min-width: 0;
+
+            span {
+                font-size: 11px;
+                color: var(--text-less-prominent);
+            }
+        }
+
+        select {
+            width: 100%;
+            height: 34px;
+            padding: 0 8px;
+            border: 1px solid var(--border-normal);
+            border-radius: 6px;
+            background: var(--general-section-1);
+            color: var(--text-general);
+            font-size: 13px;
+        }
+
+        @media (max-width: 900px) {
+            grid-template-columns: 1fr 1fr;
+            .forex-trader__analyse-btn {
+                grid-column: 1 / -1;
+            }
+        }
+    }
+
+    &__market {
+        position: relative;
+    }
+
+    .market-picker {
+        &__button {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            height: 34px;
+            padding: 0 8px;
+            border: 1px solid var(--border-normal);
+            border-radius: 6px;
+            background: var(--general-section-1);
+            color: var(--text-general);
+            font-size: 13px;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        &__current {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 13px;
+            color: var(--text-general);
+        }
+
+        &__arrow {
+            display: inline-block;
+            font-size: 12px;
+            transition: transform 0.15s;
+
+            &.is-open {
+                transform: rotate(90deg);
+            }
+        }
+
+        &__button &__arrow.is-open {
+            transform: rotate(180deg);
+        }
+
+        &__menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            margin-top: 4px;
+            padding: 6px;
+            border: 1px solid var(--border-normal);
+            border-radius: 8px;
+            background: var(--general-section-1);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        &__search {
+            width: 100%;
+            height: 30px;
+            margin-bottom: 6px;
+            padding: 0 8px;
+            border: 1px solid var(--border-normal);
+            border-radius: 6px;
+            background: var(--general-section-1);
+            color: var(--text-general);
+            font-size: 13px;
+        }
+
+        &__list {
+            max-height: 320px;
+            overflow-y: auto;
+        }
+
+        &__group-head {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            padding: 8px 6px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-general);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: left;
+
+            &:hover {
+                background: rgba(128, 128, 128, 0.15);
+            }
+        }
+
+        &__group-name {
+            flex: 1;
+        }
+
+        &__count {
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--text-less-prominent);
+        }
+
+        &__sub {
+            padding: 6px 6px 2px 22px;
+            font-size: 10px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-less-prominent);
+        }
+
+        &__item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 7px 8px 7px 22px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-general);
+            font-size: 13px;
+            cursor: pointer;
+            text-align: left;
+
+            &:hover {
+                background: rgba(128, 128, 128, 0.15);
+            }
+
+            &.is-active {
+                background: rgba(255, 68, 79, 0.18);
+                font-weight: 700;
+            }
+        }
+
+        &__closed {
+            font-size: 10px;
+            color: var(--text-less-prominent);
+        }
+
+        &__empty {
+            padding: 10px;
+            font-size: 12px;
+            color: var(--text-less-prominent);
+        }
+    }
+
+    &__conflict {
+        margin: 8px 0;
+        padding: 8px 10px;
+        border: 1px solid #f59e0b;
+        border-left-width: 4px;
+        border-radius: 6px;
+        background: rgba(245, 158, 11, 0.1);
+        font-size: 12px;
+        color: var(--text-general);
+
+        b {
+            display: block;
+            margin-bottom: 4px;
+            color: #f59e0b;
+        }
+
+        p {
+            margin: 2px 0;
+        }
+
+        span {
+            color: var(--text-less-prominent);
+        }
+
+        &--careful {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+
+            b {
+                color: #ef4444;
+            }
+        }
+    }
+
+    &__conflict-verdict {
+        margin-top: 4px !important;
+        font-weight: 700;
+    }
+
+    &__analyse-btn {
+        height: 34px;
+        padding: 0 18px;
+        border: 0;
+        border-radius: 6px;
+        background: var(--button-primary-default, #ff444f);
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+
+        &:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+    }
+
+    &__chart-wrap {
+        position: relative;
+        flex: 1 1 340px;
+        min-height: 300px;
+        border: 1px solid var(--border-normal);
+        border-radius: 8px;
+        overflow: hidden;
+        touch-action: none;
+    }
+
+    &__chart-host {
+        position: absolute;
+        inset: 0;
+    }
+
+    &__chart-info {
+        position: absolute;
+        left: 10px;
+        top: 8px;
+        z-index: 3;
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.45);
+        color: #fff;
+        font-size: 12px;
+        pointer-events: none;
+
+        em {
+            opacity: 0.7;
+            font-style: normal;
+            font-size: 11px;
+        }
+    }
+
+    &__overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.35);
+        color: #fff;
+        font-weight: 600;
+
+        &--error {
+            background: rgba(120, 20, 20, 0.7);
+        }
+        &--closed {
+            z-index: 2;
+            align-items: flex-end;
+            padding-bottom: 14px;
+            background: rgba(0, 0, 0, 0.25);
+            pointer-events: none;
+            text-shadow: 0 1px 3px #000;
+        }
+    }
+
+    &__float {
+        position: absolute;
+        z-index: 5;
+        padding: 8px 14px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--button-primary-default, #2563eb);
+        color: #fff;
+        font-weight: 700;
+        font-size: 13px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+
+        &.is-disabled {
+            background: #6b7280;
+        }
+        &:active {
+            cursor: grabbing;
+        }
+    }
+
+    &__badge {
+        position: absolute;
+        left: 10px;
+        bottom: 10px;
+        z-index: 3;
+        padding: 5px 10px;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 12px;
+        color: #fff;
+        background: #4b5563;
+
+        &--buy {
+            background: #16a34a;
+        }
+        &--sell {
+            background: #dc2626;
+        }
+        &--bad {
+            background: #92400e;
+        }
+    }
+
+    &__result {
+        flex: none;
+        padding: 10px 12px;
+        border: 1px solid var(--border-normal);
+        border-radius: 8px;
+        background: var(--general-section-1);
+    }
+
+    &__hint,
+    &__code-status,
+    &__reasoning,
+    &__warn,
+    &__muted {
+        margin: 4px 0 0;
+        line-height: 1.4;
+    }
+    &__hint,
+    &__muted {
+        color: var(--text-less-prominent);
+    }
+    &__warn {
+        color: #d97706;
+    }
+
+    &__result-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        align-items: center;
+    }
+
+    &__pill {
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+        color: #fff;
+        background: #4b5563;
+
+        &--buy {
+            background: #16a34a;
+        }
+        &--sell {
+            background: #dc2626;
+        }
+        &--bad {
+            background: #92400e;
+        }
+    }
+
+    &__conf {
+        font-weight: 600;
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 6px;
+        margin-top: 8px;
+
+        > div {
+            padding: 6px 8px;
+            border: 1px solid var(--border-normal);
+            border-radius: 6px;
+            border-left-width: 3px;
+        }
+        span {
+            display: block;
+            font-size: 11px;
+            color: var(--text-less-prominent);
+        }
+        b {
+            font-size: 14px;
+        }
+        .is-entry {
+            border-left-color: #3b82f6;
+        }
+        .is-sl {
+            border-left-color: #ef4444;
+        }
+        .is-tp {
+            border-left-color: #22c55e;
+        }
+    }
+}
+
+/* Compact layout used inside the TradingView tab's right-hand panel */
+.forex-trader--panel {
+    height: 100%;
+    padding: 8px;
+    gap: 6px;
+    font-size: 12px;
+
+    @media (max-width: 900px) {
+        height: 100%;
+    }
+
+    .forex-trader__controls {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+
+        > :nth-child(1),
+        label:nth-child(4),
+        .forex-trader__analyse-btn {
+            grid-column: 1 / -1;
+        }
+    }
+
+    .forex-trader__chart-wrap {
+        flex: none;
+        height: 250px;
+        min-height: 250px;
+    }
+
+    .forex-trader__grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.forex-trader__h {
+    margin: 12px 0 4px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-less-prominent);
+}
+
+.forex-trader__facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 3px 10px;
+    margin: 0;
+
+    dt {
+        color: var(--text-less-prominent);
+    }
+    dd {
+        margin: 0;
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+}
+
+.forex-trader__scenario {
+    margin-top: 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-normal);
+    border-left-width: 4px;
+    border-radius: 6px;
+    opacity: 0.85;
+
+    &--sell {
+        border-left-color: #dc2626;
+    }
+    &--buy {
+        border-left-color: #16a34a;
+    }
+    &.is-near {
+        opacity: 1;
+        background: rgba(37, 99, 235, 0.08);
+    }
+    ol {
+        margin: 4px 0 4px 18px;
+        padding: 0;
+        line-height: 1.45;
+    }
+}
+
+.forex-trader__check {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    li {
+        display: flex;
+        gap: 8px;
+        padding: 2px 0;
+        line-height: 1.4;
+    }
+    .is-yes span {
+        color: #16a34a;
+    }
+    .is-no span {
+        color: #dc2626;
+    }
+    .is-wait span {
+        color: var(--text-less-prominent);
+    }
+}
+
+.forex-trader--panel .forex-trader__chart-wrap {
+    height: 290px;
+    min-height: 290px;
+}
+
+.forex-trader__live {
+    position: absolute;
+    right: 64px;
+    top: 8px;
+    z-index: 6;
+    padding: 3px 9px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #9ca3af;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+
+    &.is-on {
+        color: #22c55e;
+    }
+}
+
+.forex-trader__stages {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    li {
+        display: flex;
+        gap: 8px;
+        padding: 2px 0;
+        line-height: 1.4;
+    }
+    .is-done span {
+        color: #16a34a;
+    }
+    .is-now {
+        font-weight: 700;
+    }
+    .is-now span {
+        color: var(--button-primary-default, #2563eb);
+    }
+    .is-todo {
+        color: var(--text-less-prominent);
+    }
+}
+
+// Wider panel: use the extra room for the controls and the facts.
+.forex-trader--wide .forex-trader__controls {
+    grid-template-columns: minmax(0, 1.4fr) 90px minmax(0, 1.2fr) minmax(0, 1.6fr) auto;
+
+    > :nth-child(1),
+    label:nth-child(4),
+    .forex-trader__analyse-btn {
+        grid-column: auto;
+    }
+}
+
+// Full Forex Trader page on a big screen: chart on the left, the details on the right,
+// both as tall as the screen so nothing needs scrolling past the chart.
+@media (min-width: 1100px) {
+    .forex-trader:not(.forex-trader--panel) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        grid-template-rows: auto minmax(0, 1fr);
+        overflow: hidden;
+
+        .forex-trader__controls {
+            grid-column: 1 / -1;
+        }
+
+        .forex-trader__chart-wrap {
+            grid-column: 1;
+            height: 100%;
+            min-height: 0;
+        }
+
+        .forex-trader__result {
+            grid-column: 2;
+            min-height: 0;
+            overflow-y: auto;
+        }
+    }
+}
+
+// Form controls do not inherit the page font by themselves.
+.forex-trader,
+.forex-panel {
+    select,
+    input,
+    button {
+        font-family: inherit;
+    }
+}
+
+/* Forex Live shows its own SmartCharts chart, so the tool's chart is kept out of sight. It still runs (the
+   analysis and the picture sent to the AI come from it), it just is not on the screen. */
+.forex-trader--chart-hidden .forex-trader__chart-wrap {
+    position: absolute !important;
+    left: -10000px;
+    top: 0;
+    width: 640px !important;
+    height: 360px !important;
+    min-height: 360px !important;
+    opacity: 0;
+    pointer-events: none;
+}

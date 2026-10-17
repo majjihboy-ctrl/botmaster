@@ -1,0 +1,528 @@
+// Premium look for the Forex Trader (loaded after forex-trader.scss, so it wins ties).
+// Layout: on a wide screen the chart takes the full height on the left and the
+// controls + results sit together in one card on the right, controls in two sub-columns.
+
+$indigo: #6366f1;
+$violet: #8b5cf6;
+$cyan: #22d3ee;
+$pink: #ec4899;
+$green: #10b981;
+$red: #f43f5e;
+$amber: #f59e0b;
+$line: rgba(148, 163, 184, 0.22);
+
+// ---------- shared decoration (every layout) ----------------------------------------------
+.forex-trader {
+    // controls: labels, inputs, the main button
+    .forex-trader__controls {
+        label,
+        .forex-trader__market {
+            span {
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--text-less-prominent);
+            }
+        }
+
+        select {
+            min-height: 0;
+            padding: 0 22px 0 10px;
+            line-height: 34px; // = height - borders, so the text sits in the vertical middle
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239ca3af' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 10px 6px;
+        }
+
+        select,
+        .market-picker__button {
+            height: 36px;
+            border: 1px solid $line;
+            border-radius: 10px;
+            background: var(--general-main-1);
+            color: var(--text-general);
+            transition: border-color 0.15s, box-shadow 0.15s;
+
+            &:hover {
+                border-color: rgba($indigo, 0.6);
+            }
+            &:focus,
+            &:focus-visible {
+                outline: none;
+                border-color: $indigo;
+                box-shadow: 0 0 0 3px rgba($indigo, 0.25);
+            }
+        }
+    }
+
+    .forex-trader__analyse-btn {
+        height: 38px;
+        border-radius: 10px;
+        background: linear-gradient(120deg, $indigo, $violet 55%, $pink);
+        box-shadow: 0 6px 18px rgba($violet, 0.38);
+        font-size: 13px;
+        letter-spacing: 0.03em;
+        transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+
+        &:hover:not(:disabled) {
+            transform: translateY(-1px);
+            filter: brightness(1.08);
+            box-shadow: 0 10px 24px rgba($violet, 0.5);
+        }
+        &:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        &:disabled {
+            background: linear-gradient(120deg, #475569, #64748b);
+            box-shadow: none;
+        }
+    }
+
+    // the chart
+    .forex-trader__chart-wrap {
+        border: 1px solid $line;
+        border-radius: 14px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+    }
+    .forex-trader__chart-info {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        background: rgba(10, 14, 24, 0.62);
+        backdrop-filter: blur(6px);
+
+        b {
+            color: $cyan;
+        }
+    }
+    .forex-trader__badge {
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: linear-gradient(120deg, #475569, #64748b);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        letter-spacing: 0.02em;
+
+        &--buy {
+            background: linear-gradient(120deg, #059669, #34d399);
+        }
+        &--sell {
+            background: linear-gradient(120deg, #e11d48, #fb7185);
+        }
+        &--bad {
+            background: linear-gradient(120deg, #b45309, #f59e0b);
+        }
+    }
+
+    // the results card
+    .forex-trader__result {
+        padding: 14px;
+        border: 1px solid $line;
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba($indigo, 0.1), rgba($indigo, 0) 38%), var(--general-section-1);
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+    }
+
+    .forex-trader__hint {
+        padding: 12px;
+        border: 1px dashed rgba($indigo, 0.45);
+        border-radius: 10px;
+        background: rgba($indigo, 0.07);
+    }
+
+    .forex-trader__pill {
+        padding: 5px 14px;
+        font-size: 12px;
+        letter-spacing: 0.03em;
+        background: linear-gradient(120deg, #475569, #64748b);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+
+        &--buy {
+            background: linear-gradient(120deg, #059669, #34d399);
+            box-shadow: 0 4px 14px rgba($green, 0.45);
+        }
+        &--sell {
+            background: linear-gradient(120deg, #e11d48, #fb7185);
+            box-shadow: 0 4px 14px rgba($red, 0.45);
+        }
+        &--bad {
+            background: linear-gradient(120deg, #b45309, #f59e0b);
+            box-shadow: 0 4px 14px rgba($amber, 0.4);
+        }
+    }
+
+    .forex-trader__conf {
+        padding: 3px 10px;
+        border: 1px solid rgba($cyan, 0.5);
+        border-radius: 999px;
+        background: rgba($cyan, 0.1);
+        color: $cyan;
+        font-size: 12px;
+    }
+
+    // section headings: coloured bar + hairline
+    .forex-trader__h {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 16px 0 8px;
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        color: var(--text-general);
+
+        &::before {
+            content: '';
+            width: 4px;
+            height: 14px;
+            border-radius: 2px;
+            background: linear-gradient(180deg, $cyan, $indigo);
+        }
+        &::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, $line, transparent);
+        }
+    }
+
+    // setup details: label / value in two sub-columns with soft dividers
+    .forex-trader__facts {
+        gap: 0 14px;
+
+        dt,
+        dd {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+        }
+        dt {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        dd {
+            font-weight: 600;
+        }
+    }
+
+    // trade plan tiles: two sub-columns, colour-coded
+    .forex-trader__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+
+        > div {
+            padding: 9px 11px;
+            border: 1px solid $line;
+            border-left-width: 1px;
+            border-top: 3px solid $line;
+            border-radius: 10px;
+            background: rgba(148, 163, 184, 0.06);
+        }
+        span {
+            font-size: 10px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        b {
+            display: block;
+            margin-top: 2px;
+            font-size: 16px;
+            font-variant-numeric: tabular-nums;
+        }
+        .is-entry {
+            border-top-color: #3b82f6;
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.16), rgba(59, 130, 246, 0.03));
+
+            b {
+                color: #60a5fa;
+            }
+        }
+        .is-sl {
+            border-top-color: $red;
+            background: linear-gradient(180deg, rgba($red, 0.16), rgba($red, 0.03));
+
+            b {
+                color: #fb7185;
+            }
+        }
+        .is-tp {
+            border-top-color: $green;
+            background: linear-gradient(180deg, rgba($green, 0.16), rgba($green, 0.03));
+
+            b {
+                color: #34d399;
+            }
+        }
+    }
+
+    .forex-trader__scenario {
+        padding: 10px 12px;
+        border-radius: 10px;
+        border-width: 1px;
+        border-left-width: 4px;
+        background: rgba(148, 163, 184, 0.05);
+
+        &--sell {
+            background: linear-gradient(90deg, rgba($red, 0.1), rgba($red, 0.02));
+        }
+        &--buy {
+            background: linear-gradient(90deg, rgba($green, 0.1), rgba($green, 0.02));
+        }
+        &.is-near {
+            box-shadow: 0 0 0 1px rgba($indigo, 0.55), 0 6px 18px rgba($indigo, 0.2);
+        }
+    }
+
+    // setup stages: chips
+    .forex-trader__stages {
+        display: grid;
+        gap: 4px;
+
+        li {
+            align-items: center;
+            padding: 5px 10px;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            border-radius: 8px;
+            background: rgba(148, 163, 184, 0.05);
+        }
+        .is-done {
+            border-color: rgba($green, 0.4);
+            background: rgba($green, 0.08);
+        }
+        .is-now {
+            border-color: rgba($indigo, 0.6);
+            background: rgba($indigo, 0.14);
+        }
+    }
+
+    // checklist: two sub-columns where there is room
+    .forex-trader__check {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px 8px;
+
+        li {
+            align-items: flex-start;
+            padding: 5px 8px;
+            border-radius: 8px;
+            background: rgba(148, 163, 184, 0.06);
+            font-size: 12px;
+        }
+        .is-yes {
+            background: rgba($green, 0.1);
+        }
+        .is-no {
+            background: rgba($red, 0.1);
+        }
+    }
+
+    .forex-trader__conflict {
+        border-radius: 10px;
+    }
+    .forex-trader__reasoning {
+        padding: 10px 12px;
+        border-left: 3px solid $violet;
+        border-radius: 8px;
+        background: rgba($violet, 0.1);
+    }
+    .forex-trader__warn {
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: rgba($amber, 0.1);
+    }
+}
+
+// ---------- full page on a wide screen: chart full height, one card on the right ------------
+@media (min-width: 1100px) {
+    .forex-trader:not(.forex-trader--panel) {
+        grid-template-columns: minmax(0, 1fr) 380px;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 0 14px;
+        padding: 12px 14px 14px;
+        background: radial-gradient(900px 420px at 92% -8%, rgba($indigo, 0.18), transparent 65%),
+            radial-gradient(700px 380px at -5% 105%, rgba($cyan, 0.1), transparent 60%), var(--general-main-1);
+
+        // chart: the whole left side, full height
+        .forex-trader__chart-wrap {
+            grid-column: 1;
+            grid-row: 1 / span 2;
+            height: 100%;
+            min-height: 0;
+        }
+
+        // controls: top of the right card, in two sub-columns
+        .forex-trader__controls {
+            grid-column: 2;
+            grid-row: 1;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            align-items: end;
+            padding: 14px;
+            border: 1px solid $line;
+            border-bottom: 0;
+            border-radius: 14px 14px 0 0;
+            background: linear-gradient(135deg, rgba($indigo, 0.2), rgba($pink, 0.08) 60%, rgba($cyan, 0.08)), var(--general-section-1);
+
+            &::before {
+                content: 'TRADE SETUP';
+                grid-column: 1 / -1;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.18em;
+                background: linear-gradient(90deg, $cyan, $violet, $pink);
+                -webkit-background-clip: text;
+                background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+
+            // Market takes the full width; the rest are two cards per row:
+            // Timeframe | Category, then Strategy | Re-analyse
+            > :nth-child(1) {
+                grid-column: 1 / -1;
+            }
+            > :nth-child(2),
+            > :nth-child(3),
+            > :nth-child(4),
+            .forex-trader__analyse-btn {
+                grid-column: auto;
+            }
+        }
+
+        // results: the bottom of the same card, scrolls on its own
+        .forex-trader__result {
+            grid-column: 2;
+            grid-row: 2;
+            min-height: 0;
+            overflow-y: auto;
+            border-top: 1px solid $line;
+            border-radius: 0 0 14px 14px;
+            scrollbar-width: thin;
+        }
+    }
+}
+
+// ---------- compact size for the right-hand card (full page, wide screen) ----------------------
+// Every size below is the old size multiplied by --fx. 0.75 = three quarters. To make the text a bit
+// bigger or smaller, change that one number.
+@media (min-width: 1100px) {
+    .forex-trader:not(.forex-trader--panel) {
+        --fx: 0.75;
+
+        .forex-trader__controls,
+        .forex-trader__result {
+            font-size: calc(13px * var(--fx));
+        }
+
+        .forex-trader__controls {
+            gap: calc(10px * var(--fx));
+            padding: calc(14px * var(--fx));
+            border-radius: calc(14px * var(--fx)) calc(14px * var(--fx)) 0 0;
+
+            &::before {
+                font-size: calc(11px * var(--fx));
+            }
+            label span,
+            .forex-trader__market span {
+                font-size: calc(10px * var(--fx));
+            }
+            label,
+            .forex-trader__market {
+                gap: calc(3px * var(--fx));
+            }
+            select,
+            .market-picker__button {
+                height: calc(36px * var(--fx));
+                padding-left: calc(10px * var(--fx));
+                border-radius: calc(10px * var(--fx));
+                font-size: calc(13px * var(--fx));
+            }
+            select {
+                line-height: calc(36px * var(--fx) - 2px);
+                padding-right: calc(22px * var(--fx));
+                background-position: right calc(8px * var(--fx)) center;
+                background-size: calc(10px * var(--fx)) calc(6px * var(--fx));
+            }
+            .market-picker__current {
+                font-size: calc(13px * var(--fx));
+            }
+            .forex-trader__analyse-btn {
+                height: calc(38px * var(--fx));
+                border-radius: calc(10px * var(--fx));
+                font-size: calc(13px * var(--fx));
+            }
+        }
+
+        .forex-trader__result {
+            padding: calc(14px * var(--fx));
+            border-radius: 0 0 calc(14px * var(--fx)) calc(14px * var(--fx));
+
+            .forex-trader__hint {
+                padding: calc(12px * var(--fx));
+            }
+            .forex-trader__pill {
+                padding: calc(5px * var(--fx)) calc(14px * var(--fx));
+                font-size: calc(12px * var(--fx));
+            }
+            .forex-trader__conf {
+                padding: calc(3px * var(--fx)) calc(10px * var(--fx));
+                font-size: calc(12px * var(--fx));
+            }
+            .forex-trader__conflict {
+                font-size: calc(12px * var(--fx));
+            }
+            .forex-trader__h {
+                margin: calc(16px * var(--fx)) 0 calc(8px * var(--fx));
+                font-size: calc(11px * var(--fx));
+
+                &::before {
+                    width: calc(4px * var(--fx));
+                    height: calc(14px * var(--fx));
+                }
+            }
+            .forex-trader__facts {
+                gap: 0 calc(14px * var(--fx));
+
+                dt,
+                dd {
+                    padding: calc(6px * var(--fx)) 0;
+                }
+                dt {
+                    font-size: calc(11px * var(--fx));
+                }
+            }
+            .forex-trader__grid {
+                gap: calc(8px * var(--fx));
+
+                > div {
+                    padding: calc(9px * var(--fx)) calc(11px * var(--fx));
+                    border-radius: calc(10px * var(--fx));
+                }
+                span {
+                    font-size: calc(10px * var(--fx));
+                }
+                b {
+                    font-size: calc(16px * var(--fx));
+                }
+            }
+            .forex-trader__scenario {
+                padding: calc(10px * var(--fx)) calc(12px * var(--fx));
+            }
+            .forex-trader__stages li {
+                padding: calc(5px * var(--fx)) calc(10px * var(--fx));
+            }
+            .forex-trader__check {
+                gap: calc(4px * var(--fx)) calc(8px * var(--fx));
+
+                li {
+                    padding: calc(5px * var(--fx)) calc(8px * var(--fx));
+                    font-size: calc(12px * var(--fx));
+                }
+            }
+            .forex-trader__reasoning,
+            .forex-trader__warn {
+                padding: calc(6px * var(--fx)) calc(10px * var(--fx));
+            }
+        }
+    }
+}

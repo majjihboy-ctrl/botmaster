@@ -1,0 +1,22 @@
+/* Shared page wallpaper: a pre-blurred picture (public/wallpapers) with a
+   theme-aware tint on top, so text stays readable in dark and light mode.
+   Portrait picture on phones, landscape picture on desktop.
+   The picture paths live in index.html (--wall-desktop / --wall-mobile): a
+   url() written here would be resolved by the bundler and break the build. */
+@mixin page-wallpaper {
+    --wall-tint: rgba(8, 8, 10, 0.72);
+    background: linear-gradient(var(--wall-tint), var(--wall-tint)),
+        var(--wall-desktop) center / cover no-repeat;
+    background-color: #08080a;
+
+    @media (max-width: 900px) {
+        background: linear-gradient(var(--wall-tint), var(--wall-tint)),
+            var(--wall-mobile) center / cover no-repeat;
+        background-color: #08080a;
+    }
+
+    .theme--light & {
+        --wall-tint: rgba(255, 255, 255, 0.8);
+        background-color: #ffffff;
+    }
+}
