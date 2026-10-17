@@ -28,14 +28,12 @@ function clampPositiveNumber(value, fallback) {
     return Math.round(n * 100) / 100;
 }
 
-// Which AI provider to use. Gemini (free tier available) is used when GEMINI_API_KEY is set,
-// otherwise xAI Grok when XAI_API_KEY is set. Set AI_PROVIDER=xai or gemini to force one.
-function pickProvider() {
-    const forced = (process.env.AI_PROVIDER || '').toLowerCase();
-    if (forced === 'xai' || forced === 'gemini') return forced;
-    if (process.env.GEMINI_API_KEY) return 'gemini';
-    if (process.env.XAI_API_KEY) return 'xai';
-    return null;
+// Providers are tried in order, automatically: Gemini first (free tier available), then xAI Grok.
+// A provider with no key is skipped; if one fails (quota, no credits, outage) the next is tried.
+// Set AI_PROVIDER=xai to try xAI first instead.
+function providerOrder() {
+    const order = (process.env.AI_PROVIDER || '').toLowerCase() === 'xai' ? ['xai', 'gemini'] : ['gemini', 'xai'];
+    return order.filter(name => (name === 'gemini' ? process.env.GEMINI_API_KEY : process.env.XAI_API_KEY));
 }
 
 async function callGemini(systemPrompt, description) {
@@ -97,13 +95,27 @@ async function callXai(systemPrompt, description) {
 }
 
 async function callModel(systemPrompt, description) {
-    const provider = pickProvider();
-    if (!provider) {
-        throw new Error('No AI key set: add GEMINI_API_KEY or XAI_API_KEY in the environment variables');
+    const providers = providerOrder();
+    if (providers.length === 0) {
+        throw new Error('No AI key set: add GEMINI_API_KEY (free) or XAI_API_KEY in the environment variables');
     }
-    const text = provider === 'gemini' ? await callGemini(systemPrompt, description) : await callXai(systemPrompt, description);
-    if (!text) throw new Error('No text response from model');
-    return text;
+
+    const errors = [];
+    for (const name of providers) {
+        try {
+            const text = name === 'gemini' ? await callGemini(systemPrompt, description) : await callXai(systemPrompt, description);
+            if (text) return text;
+            errors.push(`${name}: empty response`);
+        } catch (err) {
+            console.error(`generate-bot: ${name} failed:`, err && err.message);
+            errors.push((err && err.message) || `${name} failed`);
+        }
+    }
+
+    const skipped = [];
+    if (!process.env.GEMINI_API_KEY) skipped.push('GEMINI_API_KEY is not set, so Gemini was not tried');
+    if (!process.env.XAI_API_KEY) skipped.push('XAI_API_KEY is not set, so xAI was not tried');
+    throw new Error(`${errors.join(' | ')}${skipped.length ? ` (${skipped.join('; ')})` : ''}`);
 }
 
 async function extractParams(description) {
