@@ -29,9 +29,9 @@ function clampPositiveNumber(value, fallback) {
 }
 
 async function extractParams(description) {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.XAI_API_KEY;
     if (!apiKey) {
-        throw new Error('OPENAI_API_KEY is not set in environment variables');
+        throw new Error('XAI_API_KEY is not set in environment variables');
     }
 
     const systemPrompt = `You extract trading bot parameters from a user's plain-English description of a Martingale/Accumulator strategy for Deriv.
@@ -47,16 +47,17 @@ Respond ONLY with a raw JSON object, no markdown fences, no preamble, no explana
 
 If the user's description doesn't mention a value, use the default. Never invent a symbol not in the allowed list.`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // xAI (Grok) exposes an OpenAI-compatible chat completions endpoint.
+    // Model is overridable with XAI_MODEL (e.g. grok-4.3, grok-4.5) without a code change.
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            max_tokens: 500,
-            response_format: { type: 'json_object' },
+            model: process.env.XAI_MODEL || 'grok-latest',
+            temperature: 0,
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: description },
@@ -66,7 +67,7 @@ If the user's description doesn't mention a value, use the default. Never invent
 
     if (!response.ok) {
         const errText = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} ${errText}`);
+        throw new Error(`xAI API error: ${response.status} ${errText}`);
     }
 
     const data = await response.json();
@@ -75,7 +76,10 @@ If the user's description doesn't mention a value, use the default. Never invent
         throw new Error('No text response from model');
     }
 
-    const cleaned = messageContent.replace(/```json|```/g, '').trim();
+    const raw = messageContent.replace(/```json|```/g, '').trim();
+    const first = raw.indexOf('{');
+    const last = raw.lastIndexOf('}');
+    const cleaned = first !== -1 && last > first ? raw.slice(first, last + 1) : raw;
     let parsed;
     try {
         parsed = JSON.parse(cleaned);
