@@ -12,6 +12,10 @@ const getBotInterface = tradeEngine => {
         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
+        // Market switching. Blocks run inside the bot sandbox, where `window` is the sandbox's own global and
+        // is invisible to the engine, so they must talk to the engine through these Bot.* calls.
+        setForcedSymbol: symbol => tradeEngine.setForcedSymbol(symbol),
+        setAlternateMarkets: (enabled, every) => tradeEngine.setAlternateMarkets(enabled, every),
         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
         sellAtMarket: () => tradeEngine.sellAtMarket(),
         getSellPrice: () => getSellPrice(tradeEngine),

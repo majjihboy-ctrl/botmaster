@@ -53,6 +53,14 @@ const Xml = ({ ...props }) => {
 export const ToolboxItems = () =>
     ReactDomServer.renderToStaticMarkup(
         <Xml xmlns='http://www.w3.org/1999/xhtml' id='toolbox'>
+            <Category id='analysis_logics' name={localize('Analysis Logics 🔥')}>
+                <Block type='last_digits_condition' />
+                <Block type='digit_frequency' />
+                <Block type='even_odd_percent' />
+                <Block type='over_under_percent' />
+                <Block type='match_diff_percent' />
+                <Block type='rise_fall_percent' />
+            </Category>
             <Category id='trade_parameters' name={localize('Trade parameters')}>
                 <Block type='trade_definition'>
                     <Statement name='TRADE_OPTIONS'>
@@ -88,6 +96,18 @@ export const ToolboxItems = () =>
                                                                     movable='false'
                                                                 >
                                                                     <Field name='RESTARTONERROR'>TRUE</Field>
+                                                                    <Next>
+                                                                        <Block
+                                                                            type='trade_definition_alternate_markets'
+                                                                            deletable='false'
+                                                                            movable='false'
+                                                                        >
+                                                                            <Field name='ALT_MARKETS_ENABLED'>
+                                                                                FALSE
+                                                                            </Field>
+                                                                            <Field name='ALT_MARKETS_EVERY'>1</Field>
+                                                                        </Block>
+                                                                    </Next>
                                                                 </Block>
                                                             </Next>
                                                         </Block>
@@ -458,6 +478,14 @@ export const ToolboxItems = () =>
                             </Shadow>
                         </Value>
                     </Block>
+                    <Block type='btnotify'>
+                        <Field name='NOTIFICATION_TYPE'>success</Field>
+                        <Value name='MESSAGE'>
+                            <Shadow type='text'>
+                                <Field name='TEXT'>abc</Field>
+                            </Shadow>
+                        </Value>
+                    </Block>
                     <Block type='notify_telegram'>
                         <Value name='TELEGRAM_ACCESS_TOKEN'>
                             <Shadow type='text'>
@@ -509,6 +537,19 @@ export const ToolboxItems = () =>
                         <Value name='B'>
                             <Shadow type='math_number'>
                                 <Field name='NUM'>1</Field>
+                            </Shadow>
+                        </Value>
+                    </Block>
+                    <Block type='math_minmax'>
+                        <Field name='OP'>MIN</Field>
+                        <Value name='A'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>0</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='B'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>0</Field>
                             </Shadow>
                         </Value>
                     </Block>
@@ -782,6 +823,44 @@ export const ToolboxItems = () =>
                         </Value>
                     </Block>
                 </Category>
+            </Category>
+
+            <Category id='virtual_hook' name={localize('Virtual Hook Switcher')}>
+                <Block type='vh_settings' />
+                <Block type='vh_toggle' />
+            </Category>
+
+            <Category id='binarytools' name={localize('Binarytools')}>
+                <Block type='tool_binarytools'>
+                    <Field name='COLOR'>green</Field>
+                    <Field name='SOUND'>silent</Field>
+                    <Field name='NAME'>Binarytool</Field>
+                </Block>
+            </Category>
+
+            <Category name={localize('Contract modifiers')} id='contract_modifiers'>
+                <Block type='contract_type_switcher'>
+                    <Field name='STATUS'>DISABLE</Field>
+                </Block>
+                <Block type='custom_prediction_setter'>
+                    <Field name='PRED'>1</Field>
+                </Block>
+                <Block type='market_symbol_changer'>
+                    <Field name='STATUS'>DISABLE</Field>
+                </Block>
+                <Block type='active_symbol_changer'>
+                    <Field name='SYMBOL_ACTIVE_TYPE'>disable</Field>
+                </Block>
+            </Category>
+
+            <Category name={localize('Barrier Settings')} id='barrier_settings_category'>
+                <Block type='barrier_settings' />
+                <Block type='touchnotouch_offset_enabler'>
+                    <Field name='STATUS'>disable</Field>
+                </Block>
+                <Block type='touchnotouch_barrier_changer'>
+                    <Field name='VALUE'>abc</Field>
+                </Block>
             </Category>
 
             <Examples id='examples'>
