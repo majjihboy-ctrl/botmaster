@@ -16,6 +16,7 @@ const EXAMPLE_PROMPTS = [
     'Even digits on Volatility 10 (1s), $1 stake, x2 martingale',
     'Digit over 3 on Volatility 100, $0.50 stake, stop at $5 profit',
     'Differs 7 on Volatility 50, no martingale',
+    'Trade under 7 and over 2 on Volatility 100 (1s); after a loss trade over 3 and under 6; $1 stake, x2 martingale',
 ];
 
 const AiBotBuilder = () => {

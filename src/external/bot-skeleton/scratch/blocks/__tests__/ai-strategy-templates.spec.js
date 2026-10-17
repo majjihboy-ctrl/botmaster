@@ -207,7 +207,7 @@ describe('generated bots behave correctly when run', () => {
 
 describe('parameter validation', () => {
     it('lists the strategies the AI may choose from', () => {
-        expect(STRATEGY_IDS.sort()).toEqual(['even_odd', 'matches_differs', 'over_under', 'rise_fall']);
+        expect(STRATEGY_IDS.sort()).toEqual(['even_odd', 'matches_differs', 'over_under', 'over_under_switch', 'rise_fall']);
     });
 
     it('clamps everything the model returned to values Deriv accepts', () => {
@@ -256,6 +256,152 @@ describe('parameter validation', () => {
                 ['Strategy', 'Over/Under'],
                 ['Trade', 'Under'],
                 ['Digit', '4'],
+            ])
+        );
+    });
+});
+
+
+describe('over_under_switch: alternates contracts and switches pair after a loss', () => {
+    // "Trade under 7 and over 2; after a loss trade over 3 and under 6"
+    const scenario = {
+        symbol: '1HZ100V',
+        initial_stake: 1,
+        martingale_multiplier: 2,
+        take_profit: 1000,
+        stop_loss: 1000,
+        base_legs: [
+            { direction: 'under', digit: 7 },
+            { direction: 'over', digit: 2 },
+        ],
+        recovery_legs: [
+            { direction: 'over', digit: 3 },
+            { direction: 'under', digit: 6 },
+        ],
+    };
+
+    function loadSwitch(params) {
+        const workspace = new Blockly.Workspace();
+        const varDB = new Blockly.Names('window');
+        varDB.variableMap = workspace.getVariableMap();
+        Blockly.JavaScript.variableDB_ = varDB;
+        Blockly.Xml.domToWorkspace(
+            Blockly.utils.xml.textToDom(buildStrategyXml('over_under_switch', params)),
+            workspace
+        );
+        return workspace;
+    }
+
+    // Each run is a `start` (carries the digit) followed by a `purchase` (carries the contract type).
+    const runs = events => {
+        const out = [];
+        let digit;
+        events.forEach(e => {
+            if (e.type === 'start') digit = e.prediction;
+            if (e.type === 'purchase') out.push(`${e.contract}:${digit}`);
+        });
+        return out;
+    };
+
+    it('loads into the real workspace and trades both Over and Under from one trade definition', () => {
+        warnings.length = 0;
+        const workspace = loadSwitch(scenario);
+        expect(
+            workspace
+                .getTopBlocks()
+                .map(b => b.type)
+                .sort()
+        ).toEqual(['after_purchase', 'before_purchase', 'trade_definition']);
+        const code = Blockly.JavaScript.javascriptGenerator.workspaceToCode(workspace);
+        expect(code).toContain('contractTypes       : ["DIGITOVER","DIGITUNDER"]');
+        expect(code).toContain("Bot.purchase('DIGITOVER')");
+        expect(code).toContain("Bot.purchase('DIGITUNDER')");
+        expect(warnings.filter(w => /unknown|missing|invalid/i.test(w))).toEqual([]);
+        workspace.dispose();
+    });
+
+    it('alternates under 7 / over 2 while winning, switches to over 3 / under 6 after a loss, and returns after a win', () => {
+        const workspace = loadSwitch(scenario);
+        // win, win, LOSS, LOSS, win, win
+        const { events, stakes } = simulate(workspace, [1, 1, -1, -2, 4, 1, 1]);
+        expect(runs(events).slice(0, 7)).toEqual([
+            'DIGITUNDER:7', // base leg 1
+            'DIGITOVER:2', //  base leg 2
+            'DIGITUNDER:7', // base leg 1 -> loses
+            'DIGITOVER:3', //  recovery leg 1 -> loses
+            'DIGITUNDER:6', // recovery leg 2 -> wins, back to base
+            'DIGITUNDER:7', // base leg 1
+            'DIGITOVER:2', //  base leg 2
+        ]);
+        // martingale: 1, 1, 1 (loss -> 2), 2 (loss -> 4), 4 (win -> 1), 1, 1
+        expect(stakes.slice(0, 7)).toEqual([1, 1, 1, 2, 4, 1, 1]);
+        workspace.dispose();
+    });
+
+    it('stays on the recovery pair, in turns, for as long as it keeps losing', () => {
+        const workspace = loadSwitch(scenario);
+        const { events } = simulate(workspace, [-1, -1, -1, -1, -1]);
+        expect(runs(events).slice(0, 5)).toEqual([
+            'DIGITUNDER:7',
+            'DIGITOVER:3',
+            'DIGITUNDER:6',
+            'DIGITOVER:3',
+            'DIGITUNDER:6',
+        ]);
+        workspace.dispose();
+    });
+
+    it('with no recovery legs it keeps the same contracts after a loss', () => {
+        const workspace = loadSwitch({ ...scenario, recovery_legs: undefined });
+        const { events } = simulate(workspace, [-1, -1, 1, 1]);
+        expect(runs(events).slice(0, 4)).toEqual(['DIGITUNDER:7', 'DIGITOVER:2', 'DIGITUNDER:7', 'DIGITOVER:2']);
+        workspace.dispose();
+    });
+
+    it('a single leg is traded every run', () => {
+        const workspace = loadSwitch({ ...scenario, base_legs: [{ direction: 'over', digit: 4 }], recovery_legs: undefined });
+        const { events } = simulate(workspace, [1, -1, 1]);
+        expect(runs(events).slice(0, 3)).toEqual(['DIGITOVER:4', 'DIGITOVER:4', 'DIGITOVER:4']);
+        workspace.dispose();
+    });
+
+    it('still stops at take profit / stop loss', () => {
+        const workspace = loadSwitch({ ...scenario, take_profit: 2, stop_loss: 1000 });
+        const { notes, ranOut } = simulate(workspace, [1, 1, 1, 1]);
+        expect(ranOut).toBe(false);
+        expect(notes).toEqual(['Take profit reached - bot stopped.']);
+        workspace.dispose();
+    });
+
+    it('clamps legs to what Deriv accepts and pads a single leg', () => {
+        const p = normalizeStrategyParams('over_under_switch', {
+            base_legs: [
+                { direction: 'over', digit: 9 }, // over max is 8
+                { direction: 'under', digit: 0 }, // under min is 1
+                { direction: 'under', digit: 5 }, // third leg ignored
+            ],
+            recovery_legs: [{ direction: 'sideways', digit: 'x' }],
+        });
+        expect(p.base_legs).toEqual([
+            { direction: 'over', digit: 8 },
+            { direction: 'under', digit: 1 },
+        ]);
+        expect(p.recovery_legs).toEqual([
+            { direction: 'over', digit: 2 },
+            { direction: 'over', digit: 2 },
+        ]);
+        expect(normalizeStrategyParams('over_under_switch', {}).base_legs).toEqual([
+            { direction: 'over', digit: 2 },
+            { direction: 'over', digit: 2 },
+        ]);
+    });
+
+    it('describes the bot for the UI', () => {
+        const rows = describeParams(normalizeStrategyParams('over_under_switch', scenario));
+        expect(rows).toEqual(
+            expect.arrayContaining([
+                ['Trades (in turns)', 'Under 7 / Over 2'],
+                ['After a loss', 'Over 3 / Under 6'],
             ])
         );
     });

@@ -161,6 +161,7 @@ Respond ONLY with a raw JSON object, no markdown fences, no preamble, no explana
 - "even_odd": digit even/odd contracts.
 - "over_under": digit over/under contracts (needs a "prediction" digit).
 - "matches_differs": digit matches/differs contracts (needs a "prediction" digit).
+- "over_under_switch": digit over/under bot that trades TWO different over/under contracts in turns (one per trade), and can switch to a different pair of contracts after a loss until the next win. Use it whenever the user names more than one over/under contract, wants them alternated, or wants different contracts after a loss. Use plain "over_under" when there is only one contract.
 
 Always include:
 - "strategy"
@@ -183,6 +184,11 @@ For every other strategy, also include:
 - "take_profit": total profit in USD at which the bot stops (default 10)
 - "stop_loss": total loss in USD at which the bot stops (default 10)
 
+For \"over_under_switch\", do NOT use \"direction\" or \"prediction\". Instead include:
+- \"base_legs\": 1 or 2 objects {\"direction\":\"over\"|\"under\",\"digit\":n} traded in turns while the bot is winning (over accepts digits 0-8, under accepts 1-9)
+- \"recovery_legs\": 1 or 2 objects in the same shape, traded in turns after a loss until the next win. Omit it if the user does not ask for different contracts after a loss.
+plus the same duration_ticks, martingale_multiplier, take_profit and stop_loss fields as the other strategies.
+
 If the user does not mention a value, use the default. Never invent a symbol or strategy outside the allowed lists.
 
 Examples:
@@ -195,7 +201,9 @@ Examples:
 "Digit over 3 on Volatility 100, stake 0.5, stop at 5 profit" ->
 {"strategy":"over_under","symbol":"R_100","direction":"over","prediction":3,"duration_ticks":1,"initial_stake":0.5,"martingale_multiplier":2,"take_profit":5,"stop_loss":10}
 "Differs 7 on Volatility 50, no martingale" ->
-{"strategy":"matches_differs","symbol":"R_50","direction":"differs","prediction":7,"duration_ticks":1,"initial_stake":1,"martingale_multiplier":1,"take_profit":10,"stop_loss":10}`;
+{"strategy":"matches_differs","symbol":"R_50","direction":"differs","prediction":7,"duration_ticks":1,"initial_stake":1,"martingale_multiplier":1,"take_profit":10,"stop_loss":10}
+"Trade under 7 and over 2 on Volatility 100 (1s), if I lose switch to over 3 and under 6, stake 1, double after a loss" ->
+{"strategy":"over_under_switch","symbol":"1HZ100V","base_legs":[{"direction":"under","digit":7},{"direction":"over","digit":2}],"recovery_legs":[{"direction":"over","digit":3},{"direction":"under","digit":6}],"duration_ticks":1,"initial_stake":1,"martingale_multiplier":2,"take_profit":10,"stop_loss":10}`;
 }
 
 function parseModelJson(text) {
