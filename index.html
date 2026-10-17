@@ -92,6 +92,21 @@
                 background-image: linear-gradient(rgba(0, 229, 255, 0.04) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(0, 229, 255, 0.04) 1px, transparent 1px);
                 background-size: 40px 40px;
+                -webkit-mask-image: radial-gradient(ellipse at center, #000 0%, transparent 75%);
+                mask-image: radial-gradient(ellipse at center, #000 0%, transparent 75%);
+                animation: boot-gridDrift 14s linear infinite;
+            }
+            @keyframes boot-gridDrift {
+                to {
+                    background-position: 40px 40px;
+                }
+            }
+
+            #boot-splash {
+                background: radial-gradient(ellipse at 50% 40%, rgba(0, 229, 255, 0.14) 0%, rgba(0, 229, 255, 0) 55%),
+                    radial-gradient(ellipse at 50% 120%, rgba(139, 92, 246, 0.16) 0%, rgba(139, 92, 246, 0) 60%),
+                    linear-gradient(180deg, #080d18 0%, #060a12 100%);
+                transition: opacity 0.5s ease;
             }
 
             #boot-splash .stage {
@@ -262,8 +277,79 @@
                 color: #fff;
                 text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
             }
+            #boot-splash .brand {
+                background: linear-gradient(100deg, #1a6fff 0%, #00e5ff 30%, #ffffff 50%, #00e5ff 70%, #1a6fff 100%);
+                background-size: 220% 100%;
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: rgba(0, 0, 0, 0);
+                -webkit-text-fill-color: rgba(0, 0, 0, 0);
+                text-shadow: none;
+                filter: drop-shadow(0 0 16px rgba(0, 229, 255, 0.35));
+                animation: boot-in 0.7s 0.1s ease-out both, boot-shine 2.8s linear infinite;
+            }
             #boot-splash .brand span {
-                color: #00e5ff;
+                color: inherit;
+                -webkit-text-fill-color: inherit;
+            }
+            @keyframes boot-shine {
+                to {
+                    background-position: -220% 0;
+                }
+            }
+            @keyframes boot-in {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: none;
+                }
+            }
+            #boot-splash .spinner-wrap {
+                animation: boot-in 0.6s ease-out both;
+            }
+            #boot-splash .tagline {
+                animation: boot-in 0.7s 0.2s ease-out both;
+            }
+            #boot-splash .status-row {
+                animation: boot-in 0.7s 0.3s ease-out both;
+            }
+            #boot-splash .track {
+                position: relative;
+                width: 180px;
+                height: 3px;
+                margin-top: -14px;
+                border-radius: 3px;
+                overflow: hidden;
+                background: rgba(255, 255, 255, 0.08);
+                animation: boot-in 0.7s 0.4s ease-out both;
+            }
+            #boot-splash .track::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 45%;
+                border-radius: 3px;
+                background: linear-gradient(90deg, transparent, #00e5ff, #ffffff, transparent);
+                animation: boot-slide 1.5s ease-in-out infinite;
+            }
+            @keyframes boot-slide {
+                0% {
+                    left: -45%;
+                }
+                100% {
+                    left: 100%;
+                }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #boot-splash *,
+                #boot-splash .grid-bg {
+                    animation-duration: 0.01ms !important;
+                    animation-iteration-count: 1 !important;
+                }
             }
             #boot-splash .tagline {
                 font-size: 10px;
@@ -353,6 +439,28 @@
                     opacity: 0;
                 }
             }
+        
+            /* Ring splash sits on top of the video layer */
+            #bm-bg #boot-splash {
+                position: absolute;
+                inset: 0;
+                z-index: 1;
+                background: transparent;
+                transition: none;
+            }
+            #bm-bg #boot-splash .grid-bg {
+                display: none;
+            }
+            #bm-bg #boot-splash .brand,
+            #bm-bg #boot-splash .tagline,
+            #bm-bg #boot-splash .status-row {
+                filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.85));
+            }
+            #root__boot {
+                position: fixed;
+                inset: 0;
+                background: #060a12;
+            }
         </style>
     </head>
 
@@ -372,44 +480,7 @@
         <div id="modal_root" class="modal-root"></div>
         <div id="popup_root" class="popup-root"></div>
         <div id="root">
-            <div id="boot-splash">
-                <div class="grid-bg"></div>
-                <div id="boot-particles"></div>
-
-                <div class="stage">
-                    <div class="spinner-wrap">
-                        <div class="arc-1 arc-seg"></div>
-                        <div class="arc-2 arc-seg"></div>
-
-                        <canvas class="ticks" id="boot-tickCanvas" width="260" height="260"></canvas>
-
-                        <div class="ring ring-1"></div>
-                        <div class="ring ring-2"></div>
-                        <div class="ring ring-3"></div>
-                        <div class="ring ring-4"></div>
-
-                        <div class="glow-core"></div>
-                        <img
-                            class="logo-center"
-                            id="boot-logo"
-                            alt="botmaster"
-                            src="<%= assetPrefix %>/boot-splash-logo.png"
-                        />
-                    </div>
-
-                    <div class="label-wrap">
-                        <div class="brand">BOT<span>MASTER</span></div>
-                        <div class="tagline">Smart Automated Trading</div>
-                    </div>
-
-                    <div class="status-row">
-                        <div class="dot"></div>
-                        <div class="dot"></div>
-                        <div class="dot"></div>
-                        <span id="boot-statusText">CONNECTING TO MARKETS</span>
-                    </div>
-                </div>
-            </div>
+            <div id="root__boot"><div class="bm-splash" role="status"><div class="bm-splash__msg">Loading…</div></div></div>
             <main id="seo-content" style="position: relative; z-index: 1; padding: 24px; color: #e6f7ff; background: #060a12">
                 <h1>Botmaster: Automated Deriv Trading Bots</h1>
                 <p>
@@ -426,71 +497,147 @@
         </div>
         <script>
             (function () {
-                var splash = document.getElementById('boot-splash');
-                if (!splash) return;
+                try {
+                    var set = window.matchMedia('(min-width: 901px)').matches ? 'desktop' : 'mobile';
+                    var key = 'bm_splash_last_' + set;
+                    var last = 0;
+                    try { last = parseInt(localStorage.getItem(key), 10) || 0; } catch (e) {}
+                    var n;
+                    do { n = 1 + Math.floor(Math.random() * 4); } while (n === last);
+                    try { localStorage.setItem(key, String(n)); } catch (e) {}
 
-                // Tick marks on the outer ring
-                var canvas = document.getElementById('boot-tickCanvas');
-                var ctx = canvas && canvas.getContext('2d');
-                if (ctx) {
-                    var cx = 130,
-                        cy = 130,
-                        r = 126;
-                    for (var i = 0; i < 60; i++) {
-                        var angle = (i / 60) * Math.PI * 2 - Math.PI / 2;
-                        var isMajor = i % 5 === 0;
-                        var len = isMajor ? 12 : 6;
-                        var x1 = cx + r * Math.cos(angle);
-                        var y1 = cy + r * Math.sin(angle);
-                        var x2 = cx + (r - len) * Math.cos(angle);
-                        var y2 = cy + (r - len) * Math.sin(angle);
-                        ctx.beginPath();
-                        ctx.moveTo(x1, y1);
-                        ctx.lineTo(x2, y2);
-                        ctx.strokeStyle = isMajor ? 'rgba(0,229,255,0.55)' : 'rgba(0,229,255,0.18)';
-                        ctx.lineWidth = isMajor ? 2 : 1;
-                        ctx.stroke();
-                    }
-                }
+                    var st = document.createElement('style');
+                    st.id = 'bm-bg-style';
+                    st.textContent = ""+
+                        '#bm-bg{position:fixed;inset:0;z-index:99990;pointer-events:none;background:#08080a center/cover no-repeat;transition:opacity .45s ease}' +
+                        '#bm-bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .6s ease}' +
+                        '#bm-bg video.on{opacity:1}' +
+                        '#bm-bg i{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.3) 0%,rgba(0,0,0,.62) 100%)}' +
+                        'body.bm-has-video .branded-chunk-loader{display:none!important}';
+                    document.head.appendChild(st);
 
-                // Ambient particles
-                var pEl = document.getElementById('boot-particles');
-                if (pEl) {
-                    for (var p = 0; p < 20; p++) {
-                        var d = document.createElement('div');
-                        d.className = 'particle';
-                        d.style.left = Math.random() * 100 + 'vw';
-                        d.style.animationDuration = 7 + Math.random() * 9 + 's';
-                        d.style.animationDelay = Math.random() * 9 + 's';
-                        pEl.appendChild(d);
-                    }
-                }
+                    var bg = document.createElement('div');
+                    bg.id = 'bm-bg';
+                    bg.setAttribute('aria-hidden', 'true');
+                    bg.style.backgroundImage = 'url(/splash/' + set + '-' + n + '.jpg)';
+                    var v = document.createElement('video');
+                    v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true; v.preload = 'auto';
+                    v.setAttribute('muted', ''); v.setAttribute('playsinline', '');
+                    v.preload = 'none';
+                    var tries = 0, started2 = false;
+                    var tryPlay = function () {
+                        var pr2 = v.play();
+                        if (pr2 && pr2.catch) pr2.catch(function () {
+                            // Autoplay blocked or not ready yet: retry shortly, then on first touch/click.
+                            if (tries++ < 3) setTimeout(tryPlay, 800);
+                        });
+                    };
+                    var startVideo = function () {
+                        if (started2) return; started2 = true;
+                        v.preload = 'auto';
+                        v.src = '<%= assetPrefix %>/splash/' + set + '-' + n + '.mp4';
+                        tryPlay();
+                    };
+                    // Poster shows instantly; the video starts shortly after the page
+                    // begins loading (no longer waits for every resource to finish),
+                    // so it still never competes with the app's first scripts.
+                    var kick = function () { startVideo(); };
+                    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', kick);
+                    else kick();
+                    window.addEventListener('load', startVideo); // safety net
+                    // If the download errors or stalls, reload the clip once or twice.
+                    var reloads = 0;
+                    var reloadVideo = function () {
+                        if (reloads++ >= 2 || v.className === 'on') return;
+                        v.src = '<%= assetPrefix %>/splash/' + set + '-' + n + '.mp4';
+                        v.load(); tryPlay();
+                    };
+                    v.addEventListener('error', function () { setTimeout(reloadVideo, 1000); });
+                    v.addEventListener('stalled', function () { setTimeout(reloadVideo, 4000); });
+                    // Some phones (Low Power Mode) only allow playback after a touch.
+                    ['touchstart', 'click'].forEach(function (ev) {
+                        document.addEventListener(ev, function () { if (v.paused && v.src) tryPlay(); }, { once: true, passive: true });
+                    });
+                    v.addEventListener('playing', function () { v.className = 'on'; });
+                    bg.appendChild(v);
+                    bg.appendChild(document.createElement('i'));
+                    bg.insertAdjacentHTML('beforeend', "<div id=\"boot-splash\"><div id=\"boot-particles\"></div><div class=\"stage\"><div class=\"spinner-wrap\"><div class=\"arc-1 arc-seg\"></div><div class=\"arc-2 arc-seg\"></div><canvas class=\"ticks\" id=\"boot-tickCanvas\" width=\"260\" height=\"260\"></canvas><div class=\"ring ring-1\"></div><div class=\"ring ring-2\"></div><div class=\"ring ring-3\"></div><div class=\"ring ring-4\"></div><div class=\"glow-core\"></div><img\n                            class=\"logo-center\"\n                            id=\"boot-logo\"\n                            alt=\"botmaster\"\n                            src=\"<%= assetPrefix %>/boot-splash-logo.png\"\n                        /></div><div class=\"label-wrap\"><div class=\"brand\">BOT<span>MASTER</span></div><div class=\"tagline\">Smart Automated Trading</div></div><div class=\"status-row\"><div class=\"dot\"></div><div class=\"dot\"></div><div class=\"dot\"></div><span class=\"bm-splash__msg\">CONNECTING TO MARKETS</span></div><div class=\"track\" aria-hidden=\"true\"></div></div></div>");
+                    var msgEl = bg.querySelector('.bm-splash__msg');
 
-                // Status text cycle — self-clears once the real app has mounted
-                // and replaced #root's contents (#boot-splash will no longer exist).
-                var statuses = [
-                    'CONNECTING TO MARKETS',
-                    'LOADING STRATEGY MODULES',
-                    'SYNCING PRICE FEEDS',
-                    'CALIBRATING RISK ENGINE',
-                    'SYSTEM READY',
-                ];
-                var si = 0;
-                var stEl = document.getElementById('boot-statusText');
-                var statusInterval = setInterval(function () {
-                    if (!document.getElementById('boot-splash')) {
-                        clearInterval(statusInterval);
-                        return;
+                    // Ring splash: tick marks, particles, status text cycle
+                    (function () {
+                        var cv = document.getElementById('boot-tickCanvas'), cx2 = cv && cv.getContext('2d');
+                        if (cx2) {
+                            for (var i = 0; i < 60; i++) {
+                                var an = (i / 60) * Math.PI * 2 - Math.PI / 2, mj = i % 5 === 0, ln = mj ? 12 : 6;
+                                cx2.beginPath();
+                                cx2.moveTo(130 + 126 * Math.cos(an), 130 + 126 * Math.sin(an));
+                                cx2.lineTo(130 + (126 - ln) * Math.cos(an), 130 + (126 - ln) * Math.sin(an));
+                                cx2.strokeStyle = mj ? 'rgba(0,229,255,0.55)' : 'rgba(0,229,255,0.18)';
+                                cx2.lineWidth = mj ? 2 : 1; cx2.stroke();
+                            }
+                        }
+                        var pe = document.getElementById('boot-particles');
+                        if (pe) for (var p = 0; p < 20; p++) {
+                            var d = document.createElement('div'); d.className = 'particle';
+                            d.style.left = Math.random() * 100 + 'vw';
+                            d.style.animationDuration = 7 + Math.random() * 9 + 's';
+                            d.style.animationDelay = Math.random() * 9 + 's';
+                            pe.appendChild(d);
+                        }
+                        var sts = ['CONNECTING TO MARKETS', 'LOADING STRATEGY MODULES', 'SYNCING PRICE FEEDS', 'CALIBRATING RISK ENGINE', 'SYSTEM READY'], si = 0;
+                        var iv = setInterval(function () {
+                            if (!document.getElementById('bm-bg')) { clearInterval(iv); return; }
+                            si = (si + 1) % sts.length; msgEl.style.opacity = 0;
+                            setTimeout(function () { msgEl.textContent = sts[si]; msgEl.style.transition = 'opacity .4s'; msgEl.style.opacity = 1; }, 300);
+                        }, 1800);
+                    })();
+                    document.body.insertBefore(bg, document.body.firstChild);
+                    document.body.classList.add('bm-has-video');
+
+                    // Remove the layer once no loading screen is on the page any more.
+                    var gone = null, gone2 = null, started = false, done = false;
+                    var t0 = Date.now(), MIN_SHOW = 4000; // always show the splash at least this long
+                    function finish() {
+                        if (done) return;
+                        var left = MIN_SHOW - (Date.now() - t0);
+                        if (left > 0) { if (!gone2) gone2 = setTimeout(function () { gone2 = null; finish(); }, left); return; }
+                        done = true;
+                        mo.disconnect();
+                        bg.style.opacity = '0';
+                        setTimeout(function () {
+                            bg.remove(); st.remove();
+                            document.body.classList.remove('bm-has-video');
+                        }, 500);
                     }
-                    si = (si + 1) % statuses.length;
-                    stEl.style.opacity = 0;
-                    setTimeout(function () {
-                        if (!stEl.isConnected) return;
-                        stEl.textContent = statuses[si];
-                        stEl.style.transition = 'opacity .4s';
-                        stEl.style.opacity = 1;
-                    }, 300);
-                }, 1800);
+                    function check() {
+                        if (done) return;
+                        var live = document.querySelector('#root .bm-splash');
+                        var present = !!live;
+                        
+                        if (present) { started = true; if (gone) { clearTimeout(gone); gone = null; } if (bg.style.opacity === '0') bg.style.opacity = '1'; }
+                        else if (started && !gone) {
+                            // Only treat loading as finished when real page content is on screen.
+                            // Short gaps between loading screens (slow connections, code still
+                            // downloading) used to remove the video for good; if no content shows
+                            // up at all, give up after 8s so the layer can never stay forever.
+                            var content = function () { return !!document.querySelector('.main, .main-body'); };
+                            var waited = 0;
+                            var poll = function () {
+                                gone = null;
+                                if (done) return;
+                                if (document.querySelector('#root .bm-splash')) return; // a loader is back: keep the video
+                                waited += 300;
+                                if (content() ? waited >= 300 : waited >= 8000) finish();
+                                else gone = setTimeout(poll, 300);
+                            };
+                            gone = setTimeout(poll, 300);
+                        }
+                    }
+                    var mo = new MutationObserver(check);
+                    mo.observe(document.documentElement, { childList: true, subtree: true });
+                    setTimeout(finish, 45000); // safety: never leave the layer up forever
+                } catch (e) {}
             })();
         </script>
         <!-- LiveChat script -->
