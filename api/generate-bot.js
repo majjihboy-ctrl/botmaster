@@ -1,13 +1,11 @@
 const { fillBotTemplate } = require('./_lib/bot-template');
-
-// Valid Deriv synthetic index symbols this template supports (all live under
-// MARKET_LIST=synthetic_index, SUBMARKET_LIST=random_index, same as the
-// reference bot). Keeping this whitelist strict means the AI can never
-// slot in a symbol string that doesn't actually exist on Deriv.
-const VALID_SYMBOLS = [
-    '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V',
-    'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
-];
+const {
+    STRATEGY_IDS,
+    VALID_SYMBOLS,
+    normalizeStrategyParams,
+    buildStrategyXml,
+    describeParams,
+} = require('./_lib/strategy-templates');
 
 // Accumulator growth rate only accepts these five values on Deriv.
 const VALID_GROWTH_RATES = ['0.01', '0.02', '0.03', '0.04', '0.05'];
@@ -150,33 +148,69 @@ async function callModel(systemPrompt, description) {
     throw new Error(`${errors.join(' | ')}${skipped.length ? ` (${skipped.join('; ')})` : ''}`);
 }
 
-async function extractParams(description) {
-    const systemPrompt = `You extract trading bot parameters from a user's plain-English description of a Martingale/Accumulator strategy for Deriv.
+const ALL_STRATEGIES = ['accumulator', ...STRATEGY_IDS];
 
-Respond ONLY with a raw JSON object, no markdown fences, no preamble, no explanation. The JSON must have exactly these keys:
-- "symbol": one of ${JSON.stringify(VALID_SYMBOLS)} (pick the closest match to what the user described; default to "1HZ100V" if unclear or unspecified)
-- "growth_rate": one of ${JSON.stringify(VALID_GROWTH_RATES)} as a string (default "0.01" if unspecified)
-- "take_profit": a positive number, the take-profit amount per trade in USD (default 10)
-- "initial_stake": a positive number, the starting stake in USD (default 10)
-- "martingale_size": a positive number, the stake step/increment used to grow the stake after a loss (default 10)
-- "profit_threshold": a positive number, total profit at which the bot stops trading (default 10)
-- "loss_threshold": a positive number, total loss at which the bot stops trading (default 10)
+function buildSystemPrompt() {
+    return `You turn a user's plain-English description of a Deriv trading bot into JSON settings. You do not write bot code.
 
-If the user's description doesn't mention a value, use the default. Never invent a symbol not in the allowed list.`;
+Respond ONLY with a raw JSON object, no markdown fences, no preamble, no explanation.
 
-    const messageContent = await callModel(systemPrompt, description);
+"strategy" must be one of ${JSON.stringify(ALL_STRATEGIES)}:
+- "accumulator": accumulator contracts with a growth rate. Use it when the user mentions accumulator or growth rate, or names no strategy at all.
+- "rise_fall": rise/fall (call/put, higher/lower) contracts.
+- "even_odd": digit even/odd contracts.
+- "over_under": digit over/under contracts (needs a "prediction" digit).
+- "matches_differs": digit matches/differs contracts (needs a "prediction" digit).
 
-    const raw = messageContent.replace(/```json|```/g, '').trim();
+Always include:
+- "strategy"
+- "symbol": one of ${JSON.stringify(VALID_SYMBOLS)} (closest match to what the user described; default "1HZ100V")
+- "initial_stake": starting stake in USD (default 1 for non-accumulator, 10 for accumulator)
+- "take_profit": positive number in USD
+
+If strategy is "accumulator", also include:
+- "growth_rate": one of ${JSON.stringify(VALID_GROWTH_RATES)} as a string (default "0.01")
+- "martingale_size": the stake step added after a loss (default 10)
+- "profit_threshold": total profit at which the bot stops (default 10)
+- "loss_threshold": total loss at which the bot stops (default 10)
+For accumulator, "take_profit" is the take-profit per trade (default 10).
+
+For every other strategy, also include:
+- "direction": for rise_fall "rise" or "fall"; even_odd "even" or "odd"; over_under "over" or "under"; matches_differs "differs" or "matches"
+- "prediction": the digit 0-9 (only for over_under and matches_differs; over accepts 0-8, under accepts 1-9)
+- "duration_ticks": whole number of ticks per trade (rise_fall 5-10, others 1-10)
+- "martingale_multiplier": how much the stake is multiplied after a loss (2 = double, 1 = no martingale; default 2)
+- "take_profit": total profit in USD at which the bot stops (default 10)
+- "stop_loss": total loss in USD at which the bot stops (default 10)
+
+If the user does not mention a value, use the default. Never invent a symbol or strategy outside the allowed lists.
+
+Examples:
+"Volatility 100 index, 2% growth rate, stop at $20 profit or $15 loss" ->
+{"strategy":"accumulator","symbol":"R_100","growth_rate":"0.02","take_profit":10,"initial_stake":10,"martingale_size":10,"profit_threshold":20,"loss_threshold":15}
+"Rise on Volatility 75, 5 ticks, stake $2, double after a loss, stop at $30 profit or $20 loss" ->
+{"strategy":"rise_fall","symbol":"R_75","direction":"rise","duration_ticks":5,"initial_stake":2,"martingale_multiplier":2,"take_profit":30,"stop_loss":20}
+"Even digits on the 1 second Volatility 10 index, $1 stake, x2 martingale" ->
+{"strategy":"even_odd","symbol":"1HZ10V","direction":"even","duration_ticks":1,"initial_stake":1,"martingale_multiplier":2,"take_profit":10,"stop_loss":10}
+"Digit over 3 on Volatility 100, stake 0.5, stop at 5 profit" ->
+{"strategy":"over_under","symbol":"R_100","direction":"over","prediction":3,"duration_ticks":1,"initial_stake":0.5,"martingale_multiplier":2,"take_profit":5,"stop_loss":10}
+"Differs 7 on Volatility 50, no martingale" ->
+{"strategy":"matches_differs","symbol":"R_50","direction":"differs","prediction":7,"duration_ticks":1,"initial_stake":1,"martingale_multiplier":1,"take_profit":10,"stop_loss":10}`;
+}
+
+function parseModelJson(text) {
+    const raw = String(text || '').replace(/```json|```/g, '').trim();
     const first = raw.indexOf('{');
     const last = raw.lastIndexOf('}');
     const cleaned = first !== -1 && last > first ? raw.slice(first, last + 1) : raw;
-    let parsed;
     try {
-        parsed = JSON.parse(cleaned);
+        return JSON.parse(cleaned);
     } catch (e) {
         throw new Error('Could not parse model response as JSON');
     }
+}
 
+function accumulatorParams(parsed) {
     // Validate + sanitize every field against strict whitelists/ranges.
     const symbol = VALID_SYMBOLS.includes(parsed.symbol) ? parsed.symbol : DEFAULTS.symbol;
     const growth_rate = VALID_GROWTH_RATES.includes(String(parsed.growth_rate))
@@ -192,6 +226,35 @@ If the user's description doesn't mention a value, use the default. Never invent
         profit_threshold: clampPositiveNumber(parsed.profit_threshold, DEFAULTS.profit_threshold),
         loss_threshold: clampPositiveNumber(parsed.loss_threshold, DEFAULTS.loss_threshold),
     };
+}
+
+function accumulatorSummary(p) {
+    return [
+        ['Strategy', 'Accumulator'],
+        ['Symbol', p.symbol],
+        ['Growth rate', `${Math.round(Number(p.growth_rate) * 100)}%`],
+        ['Initial stake', `$${p.initial_stake}`],
+        ['Stake step', `$${p.martingale_size}`],
+        ['Take profit', `$${p.take_profit}`],
+        ['Stop at profit', `$${p.profit_threshold}`],
+        ['Stop at loss', `$${p.loss_threshold}`],
+    ];
+}
+
+// Returns { strategy, params, xml, summary } for whatever the user described.
+async function generateBot(description) {
+    const parsed = parseModelJson(await callModel(buildSystemPrompt(), description));
+
+    // An unknown or missing strategy falls back to Accumulator, the original behaviour.
+    const strategy = ALL_STRATEGIES.includes(parsed.strategy) ? parsed.strategy : 'accumulator';
+
+    if (strategy === 'accumulator') {
+        const params = accumulatorParams(parsed);
+        return { strategy, params, xml: fillBotTemplate(params), summary: accumulatorSummary(params) };
+    }
+
+    const params = normalizeStrategyParams(strategy, parsed);
+    return { strategy, params, xml: buildStrategyXml(strategy, params), summary: describeParams(params) };
 }
 
 // Plain Vercel serverless function handler (CommonJS — this project is a
@@ -217,10 +280,9 @@ module.exports = async function handler(req, res) {
             return;
         }
 
-        const params = await extractParams(description);
-        const xml = fillBotTemplate(params);
+        const { strategy, params, xml, summary } = await generateBot(description);
 
-        res.status(200).json({ xml, params });
+        res.status(200).json({ xml, params, strategy, summary });
     } catch (err) {
         console.error('generate-bot error:', err);
         res.status(500).json({ error: (err && err.message) || 'Failed to generate bot' });

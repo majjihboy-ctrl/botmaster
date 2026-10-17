@@ -4,21 +4,18 @@ import './ai-bot-builder.scss';
 
 interface GeneratedBot {
     xml: string;
-    params: {
-        symbol: string;
-        growth_rate: string;
-        take_profit: number;
-        initial_stake: number;
-        martingale_size: number;
-        profit_threshold: number;
-        loss_threshold: number;
-    };
+    strategy?: string;
+    params: { symbol: string };
+    // Label/value rows to show for the generated bot (built by the server for every strategy).
+    summary?: [string, string][];
 }
 
 const EXAMPLE_PROMPTS = [
     'Volatility 100 index, 2% growth rate, stop at $20 profit or $15 loss',
-    'Conservative bot on Volatility 25, small $5 stake, take profit at $8',
-    'Aggressive Volatility 75 bot, 3% growth, $15 starting stake',
+    'Rise on Volatility 75, 5 ticks, $2 stake, double after a loss, stop at $30 profit or $20 loss',
+    'Even digits on Volatility 10 (1s), $1 stake, x2 martingale',
+    'Digit over 3 on Volatility 100, $0.50 stake, stop at $5 profit',
+    'Differs 7 on Volatility 50, no martingale',
 ];
 
 const AiBotBuilder = () => {
@@ -73,7 +70,7 @@ const AiBotBuilder = () => {
                     <Localize i18n_default_text='AI Bot Builder' />
                 </h1>
                 <p className='ai-bot-builder__subtitle'>
-                    <Localize i18n_default_text='Describe the bot you want in plain English. This generates an Accumulator Martingale strategy — download the file and import it into Bot Builder like any other bot.' />
+                    <Localize i18n_default_text='Describe the bot you want in plain English. Pick Accumulator, Rise/Fall, Even/Odd, Over/Under or Matches/Differs, with stake, martingale, take profit and stop loss — then download the file and import it into Bot Builder like any other bot.' />
                 </p>
             </div>
 
@@ -82,7 +79,7 @@ const AiBotBuilder = () => {
                     className='ai-bot-builder__textarea'
                     value={description}
                     onChange={e => setDescription(e.target.value)}
-                    placeholder={localize('e.g. Volatility 100 index, 2% growth rate, stop at $20 profit or $15 loss')}
+                    placeholder={localize('e.g. Even digits on Volatility 10, $1 stake, double after a loss, stop at $20 profit or $10 loss')}
                     rows={4}
                     maxLength={2000}
                 />
@@ -122,20 +119,12 @@ const AiBotBuilder = () => {
                         <Localize i18n_default_text='Bot ready' />
                     </h2>
                     <dl className='ai-bot-builder__params'>
-                        <dt><Localize i18n_default_text='Symbol' /></dt>
-                        <dd>{result.params.symbol}</dd>
-                        <dt><Localize i18n_default_text='Growth rate' /></dt>
-                        <dd>{Number(result.params.growth_rate) * 100}%</dd>
-                        <dt><Localize i18n_default_text='Initial stake' /></dt>
-                        <dd>${result.params.initial_stake}</dd>
-                        <dt><Localize i18n_default_text='Stake step' /></dt>
-                        <dd>${result.params.martingale_size}</dd>
-                        <dt><Localize i18n_default_text='Take profit' /></dt>
-                        <dd>${result.params.take_profit}</dd>
-                        <dt><Localize i18n_default_text='Stop at profit' /></dt>
-                        <dd>${result.params.profit_threshold}</dd>
-                        <dt><Localize i18n_default_text='Stop at loss' /></dt>
-                        <dd>${result.params.loss_threshold}</dd>
+                        {(result.summary || []).map(([label, value]) => (
+                            <React.Fragment key={label}>
+                                <dt>{label}</dt>
+                                <dd>{value}</dd>
+                            </React.Fragment>
+                        ))}
                     </dl>
 
                     <button type='button' className='ai-bot-builder__download-btn' onClick={handleDownload}>
