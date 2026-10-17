@@ -170,7 +170,7 @@
                     // Poster shows instantly; the video starts shortly after the page
                     // begins loading (no longer waits for every resource to finish),
                     // so it still never competes with the app's first scripts.
-                    var kick = function () { setTimeout(startVideo, 400); };
+                    var kick = function () { startVideo(); };
                     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', kick);
                     else kick();
                     window.addEventListener('load', startVideo); // safety net
@@ -196,9 +196,13 @@
                     document.body.classList.add('bm-has-video');
 
                     // Remove the layer once no loading screen is on the page any more.
-                    var gone = null, started = false, done = false;
+                    var gone = null, gone2 = null, started = false, done = false;
+                    var t0 = Date.now(), MIN_SHOW = 4000; // always show the splash at least this long
                     function finish() {
-                        if (done) return; done = true;
+                        if (done) return;
+                        var left = MIN_SHOW - (Date.now() - t0);
+                        if (left > 0) { if (!gone2) gone2 = setTimeout(function () { gone2 = null; finish(); }, left); return; }
+                        done = true;
                         mo.disconnect();
                         bg.style.opacity = '0';
                         setTimeout(function () {
