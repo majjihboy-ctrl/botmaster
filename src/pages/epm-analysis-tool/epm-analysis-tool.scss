@@ -1,0 +1,730 @@
+@use 'components/shared/styles/wallpaper' as *;
+
+.epm-analysis-tool {
+    @include page-wallpaper;
+    box-sizing: border-box;
+    position: relative;
+    max-width: 100%;
+    /* Fixed to the visible area, scrolls INSIDE itself when the content is
+       taller than the screen -- so the bottom (bots section) is never cut off
+       and can always be reached. 100dvh follows the real visible height on
+       phones (the plain 100vh includes the area hidden behind the browser's
+       address bar, which is what made the end of the page unreachable). */
+    height: var(--tab-content-height);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 16px 12px;
+    color: var(--text-general);
+    font-size: 13px;
+
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+
+    @media (max-width: 900px) {
+        height: var(--tab-content-height-mobile);
+        width: 100% !important;
+        /* room for the fixed "Run / Bot is not running" bar at the bottom */
+        padding-bottom: 150px;
+    }
+
+    @supports (height: 100dvh) {
+        @media (max-width: 900px) {
+            height: calc(100dvh - 5rem);
+        }
+    }
+
+    @media (max-width: 700px) {
+        /* generous end-of-page slack so the last control can always be
+           scrolled clear of the phone's browser/nav bars */
+        padding: 8px 10px 150px;
+    }
+
+    &__title {
+        position: relative;
+        z-index: 1;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        margin: 0 0 8px;
+        color: var(--text-prominent);
+
+        &::after {
+            content: '';
+            display: block;
+            width: 44px;
+            height: 3px;
+            margin-top: 5px;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #2563eb, #0891b2);
+        }
+    }
+
+    &__mode-row {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+
+        @media (max-width: 900px) {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+
+    &__mode-toggle {
+        display: inline-flex;
+        padding: 4px;
+        gap: 4px;
+        border-radius: 12px;
+        background: var(--general-section-1);
+        border: 1px solid var(--border-normal);
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+
+        @media (max-width: 900px) {
+            display: flex;
+            width: 100%;
+        }
+    }
+
+    &__mode-btn {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-width: 130px;
+        padding: 7px 18px;
+        border: none;
+        border-radius: 9px;
+        background: transparent;
+        color: var(--text-less-prominent);
+        font-family: inherit;
+        font-size: 13.5px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+
+        &:hover:not(&--active) {
+            color: var(--text-prominent);
+            background: var(--general-hover);
+        }
+
+        &:active {
+            transform: scale(0.97);
+        }
+
+        &--active {
+            color: #fff;
+            background: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        }
+    }
+
+    &__mode-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12.5px;
+        color: var(--text-general);
+    }
+
+    &__columns {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        /* two boxes side by side when there is room, one column on narrow screens */
+        /* results box only as wide as its content, bots box takes the rest */
+        grid-template-columns: fit-content(420px) minmax(0, 1fr);
+        gap: 10px;
+        align-items: stretch;
+        margin-bottom: 0;
+
+        @media (max-width: 700px) {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        > .epm-analysis-tool__panel {
+            margin-bottom: 0;
+            min-width: 0;
+        }
+
+        > .epm-analysis-tool__panel:not(.epm-analysis-tool__panel--results) {
+            container-type: inline-size;
+
+            /* Phone: the "Your bots" box (where the bot is chosen and
+               loaded) comes BEFORE the results table, so it is no longer the
+               last thing on a long page. */
+            @media (max-width: 700px) {
+                order: -1;
+            }
+        }
+    }
+
+    &__panel {
+        position: relative;
+        z-index: 1;
+        max-width: 100%;
+        background: color-mix(in srgb, var(--general-section-1) 88%, transparent);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--border-normal);
+        border-radius: 14px;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+        padding: 10px 14px;
+        margin-bottom: 10px;
+
+        @media (max-width: 700px) {
+            padding: 8px 10px;
+            margin-bottom: 8px;
+        }
+    }
+
+    &__picker-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: flex-end;
+        margin-bottom: 8px;
+
+        /* compact fields: all on one row on wide screens, wraps only if there is truly no room */
+        > div {
+            flex: 1 1 0;
+            min-width: 100px;
+            max-width: 170px;
+        }
+
+        /* Volatility Index / Market Contract carry longer values
+           ("Volatility 100 (1s)", "Digit Differs"...) -- give them more room */
+        > div:nth-child(-n + 2) {
+            flex: 1.8 1 0;
+            min-width: 140px;
+            max-width: 260px;
+        }
+
+        /* Under / Over / Look back N ticks / Flag at % fail only ever hold a
+           couple of characters or a 1-2 digit number -- half the old width */
+        > div:nth-child(n + 3) {
+            flex: 0.5 1 0;
+            /* 85px (was 70px): at 70px a value like "Under 2" plus the dropdown
+               arrow was cut to "Und..." whenever the Run panel narrowed the row */
+            min-width: 85px;
+            max-width: 85px;
+        }
+
+        .epm-analysis-tool__select,
+        .epm-analysis-tool__input {
+            width: 100%;
+            height: 32px;
+            padding: 0 8px;
+            /* content height (32px box minus the 1px border each side) --
+               the standard way to vertically centre a single line of text
+               in a fixed-height box; without this the text sat high,
+               pushed up by the page's own line-height */
+            line-height: 30px;
+        }
+
+        .epm-analysis-tool__select {
+            /* a touch smaller so values like "Volatility 75 (1s)" fit on
+               one line at this box width without eliding */
+            padding-right: 26px;
+            font-size: 12px;
+        }
+
+        .epm-analysis-tool__label {
+            line-height: 1.2;
+        }
+
+        @media (max-width: 900px) {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+
+            /* :nth-child above has higher specificity than a plain "> div",
+               so it would otherwise keep winning here even though this
+               media query comes later in the file */
+            > div {
+                min-width: 0 !important;
+                max-width: none !important;
+                width: 100%;
+            }
+        }
+
+        /* Phone: two fields per row (Index | Contract, Under | Over,
+           Look back | Flag) instead of one tall column of six. */
+        @media (max-width: 700px) {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px 8px;
+            margin-bottom: 6px;
+
+            > div {
+                width: auto;
+            }
+
+            .epm-analysis-tool__label {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                margin-bottom: 2px;
+            }
+        }
+    }
+
+    &__label {
+        display: block;
+        font-size: 11px;
+        color: var(--text-less-prominent);
+        margin: 0 0 4px;
+    }
+
+    &__select,
+    &__input {
+        width: 100%;
+        background: var(--general-section-2, var(--general-hover));
+        border: 1px solid var(--border-normal);
+        color: var(--text-general);
+        padding: 7px 9px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-family: inherit;
+
+        &:focus {
+            outline: 1px solid var(--button-primary-default);
+        }
+    }
+
+    &__select {
+        /* Without this, some browsers draw <select> with their own native
+           dark-mode chrome (a faint/invisible border of their own choosing)
+           instead of the border set above -- which is why these four boxes
+           looked borderless next to the two <input> boxes. */
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        color-scheme: light dark;
+        padding-right: 26px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238b8f98' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 9px center;
+        background-size: 10px 7px;
+        /* never wrap to a second line (which threw off vertical centering
+           in a fixed-height box) -- trail off with an ellipsis instead */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__input {
+        width: 80px;
+
+        @media (max-width: 900px) {
+            width: 100%;
+        }
+    }
+
+    &__select,
+    &__input {
+        min-width: 0;
+    }
+
+    &__btn-primary {
+        background: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+        border: none;
+        color: #fff;
+        padding: 10px 22px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 13px;
+        letter-spacing: 0.3px;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+        cursor: pointer;
+        transition: filter 0.2s ease, box-shadow 0.2s ease;
+
+        &:hover:not(:disabled) {
+            filter: brightness(1.1);
+        }
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    }
+
+    &__btn-inline {
+        padding: 7px 12px;
+        white-space: nowrap;
+        width: 100%;
+    }
+
+    &__panel-bottom {
+        /* Fixed two-column grid instead of flex-wrap: the right column's
+           position no longer depends on how wide the left side's text is
+           (e.g. "5 ticks buffered" growing to "1000 ticks buffered"), so it
+           can't drift or trigger a wrap as that text changes every tick. */
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 313px);
+        align-items: flex-start;
+        gap: 8px 24px;
+
+        @media (max-width: 700px) {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 6px;
+        }
+    }
+
+    &__panel-bottom-left {
+        /* Two FIXED columns: scan controls on the left, the price/probability
+           section on the right. Neither column depends on the other's content,
+           so the probability section never moves, wraps or resizes while the
+           scan progress / "N ticks buffered" text changes or the Run panel
+           opens and closes. */
+        display: grid;
+        grid-template-columns: 160px minmax(0, 280px);
+        align-items: start;
+        gap: 14px;
+        min-width: 0;
+        container-type: inline-size;
+
+        @media (max-width: 700px) {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    &__scan-status {
+        min-width: 0;
+        width: 100%;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+
+        /* Phone: scan button and "ticks buffered" status share one row */
+        @media (max-width: 700px) {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            .epm-analysis-tool__status {
+                margin-top: 0;
+            }
+        }
+    }
+
+    &__scan-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    &__scan-progress {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    &__scan-ring {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.1s linear;
+        flex: none;
+    }
+
+    &__scan-ring-inner {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--general-section-1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 8.5px;
+        font-weight: 700;
+        color: var(--text-prominent);
+    }
+
+    &__scan-label {
+        font-size: 11px;
+        color: var(--text-less-prominent);
+        font-family: 'SFMono-Regular', Consolas, Menlo, monospace;
+    }
+
+    &__panel--scanning {
+        border-color: var(--button-primary-default);
+        animation: epm-scan-pulse 1s ease-in-out infinite;
+    }
+
+    &__status {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        color: var(--text-less-prominent);
+        margin-top: 6px;
+    }
+
+    &__dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--text-less-prominent);
+        flex: none;
+
+        &--live {
+            background: var(--text-profit-success, var(--status-success));
+            box-shadow: 0 0 6px var(--text-profit-success, var(--status-success));
+        }
+
+        &--off {
+            background: var(--text-loss-danger, var(--status-danger));
+        }
+
+        &--idle {
+            background: var(--text-less-prominent);
+        }
+    }
+
+    &__note {
+        font-size: 12px;
+        color: var(--text-less-prominent);
+        margin-bottom: 6px;
+    }
+
+    &__table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+
+        th,
+        td {
+            text-align: left;
+            padding: 5px 6px;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--border-normal);
+        }
+
+        td:nth-child(2) {
+            word-break: break-word;
+        }
+
+        th {
+            color: var(--text-less-prominent);
+            font-weight: 600;
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+    }
+
+    &__num {
+        font-family: 'SFMono-Regular', Consolas, Menlo, monospace;
+    }
+
+    &__badge {
+        display: inline-block;
+        padding: 2px 9px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        background: linear-gradient(135deg, #2563eb, #0891b2);
+        color: #fff;
+        white-space: nowrap;
+    }
+
+    /* Under / Over side by side; each one is label -> dropdown -> Load bot */
+    &__bot-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        align-items: start;
+
+        @container (max-width: 300px) {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    &__bot-row {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    &__bot-side {
+        min-height: 22px; /* same height with or without the 'Rule met' badge, so dropdowns line up */
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-prominent);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    &__bg {
+        position: sticky;
+        top: 0;
+        height: 0;
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    &__bg-digit {
+        position: absolute;
+        top: 0;
+        font-family: 'SFMono-Regular', Consolas, Menlo, monospace;
+        font-weight: 700;
+        color: #3b82f6;
+        opacity: 0;
+        user-select: none;
+        animation-name: epm-digit-rise;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
+            opacity: 0.06;
+            top: 40%;
+        }
+    }
+}
+
+@keyframes epm-digit-rise {
+    0% {
+        transform: translateY(var(--tab-content-height, 100vh));
+        opacity: 0;
+    }
+    15%,
+    85% {
+        opacity: 0.16;
+    }
+    100% {
+        transform: translateY(-80px);
+        opacity: 0;
+    }
+}
+
+@keyframes epm-scan-pulse {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(63, 184, 175, 0.25);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(63, 184, 175, 0.08);
+    }
+}
+
+.epm-analysis-tool__notice-overlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(10, 14, 20, 0.55);
+    backdrop-filter: blur(2px);
+
+    @media (max-width: 900px) {
+        left: 0;
+        width: 100% !important;
+    }
+}
+
+.epm-analysis-tool__notice-card {
+    width: 100%;
+    max-width: 320px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--general-section-1);
+    border: 1px solid var(--border-normal);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    animation: epm-notice-pop 0.18s ease-out;
+}
+
+.epm-analysis-tool__notice-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 18px;
+    font-weight: 700;
+    font-size: 13.5px;
+    letter-spacing: 0.3px;
+    color: #fff;
+    background: linear-gradient(135deg, #6d28d9 0%, #2563eb 55%, #0891b2 100%);
+}
+
+.epm-analysis-tool__notice-icon {
+    font-size: 14px;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
+}
+
+.epm-analysis-tool__notice-body {
+    padding: 18px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text-prominent);
+    font-weight: 600;
+    text-align: center;
+}
+
+.epm-analysis-tool__notice-actions {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px 16px;
+}
+
+.epm-analysis-tool__notice-ok,
+.epm-analysis-tool__notice-cancel {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+}
+
+.epm-analysis-tool__notice-ok {
+    background: linear-gradient(135deg, #2563eb, #0891b2);
+    color: #fff;
+
+    &:hover {
+        filter: brightness(1.08);
+    }
+}
+
+.epm-analysis-tool__notice-cancel {
+    background: transparent;
+    color: var(--text-loss-danger, #ef4444);
+    border: 1px solid var(--text-loss-danger, #ef4444);
+
+    &:hover {
+        background: rgba(239, 68, 68, 0.08);
+    }
+}
+
+@keyframes epm-notice-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.94);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

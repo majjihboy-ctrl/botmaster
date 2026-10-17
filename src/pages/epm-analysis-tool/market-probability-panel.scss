@@ -1,0 +1,206 @@
+.market-probability {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    flex: none;
+    width: 280px;
+    max-width: 100%;
+    min-height: 112px;
+    padding: 2px 0;
+
+    @media (max-width: 700px) {
+        width: 100%;
+        min-height: 0;
+    }
+
+    &__price {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+    }
+
+    &__price-label {
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: var(--text-less-prominent);
+    }
+
+    &__price-value {
+        font-size: 15px;
+        font-weight: 800;
+        color: var(--button-primary-default);
+        font-variant-numeric: tabular-nums;
+    }
+
+    &__counts {
+        display: flex;
+        gap: 14px;
+        font-size: 11.5px;
+    }
+
+    &__count {
+        color: var(--text-less-prominent);
+
+        b {
+            font-size: 13px;
+            margin-left: 3px;
+        }
+
+        &--rise {
+            color: var(--brand-success, #10b981);
+        }
+
+        &--fall {
+            color: var(--brand-danger, #ef4444);
+        }
+    }
+
+    &__pattern {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        max-width: 230px;
+    }
+
+    &__dot {
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 7px;
+        font-weight: 700;
+        color: #fff;
+        line-height: 1;
+
+        &--rise {
+            background: var(--brand-success, #10b981);
+        }
+
+        &--fall {
+            background: var(--brand-danger, #ef4444);
+        }
+    }
+
+    &__bars {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        max-width: 230px;
+    }
+
+    &__bar-row {
+        display: grid;
+        grid-template-columns: 28px 1fr;
+        align-items: center;
+        gap: 6px;
+        font-size: 10px;
+        color: var(--text-less-prominent);
+    }
+
+    &__bar-track {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--border-normal);
+        overflow: hidden;
+    }
+
+    &__bar-fill {
+        height: 100%;
+        border-radius: 3px;
+
+        &--rise {
+            background: var(--brand-success, #10b981);
+        }
+
+        &--fall {
+            background: var(--brand-danger, #ef4444);
+        }
+    }
+
+    &__table {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        max-width: 280px;
+    }
+
+    &__table-row {
+        display: grid;
+        grid-template-columns: 34px repeat(8, 1fr);
+        align-items: center;
+        gap: 2px;
+        font-size: 10px;
+        text-align: center;
+
+        &--head {
+            color: var(--text-less-prominent);
+            font-weight: 600;
+        }
+
+        span {
+            color: var(--text-general);
+        }
+    }
+
+    &__row-label {
+        text-align: left !important;
+        font-weight: 600;
+        color: var(--text-less-prominent) !important;
+    }
+
+    &__barrier--active {
+        color: var(--button-primary-default) !important;
+        font-weight: 800;
+    }
+
+    &__legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        font-size: 9px;
+    }
+
+    &__legend-item {
+        position: relative;
+        padding-left: 10px;
+        color: var(--text-less-prominent);
+
+        &::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        &--strong::before {
+            background: var(--brand-success, #10b981);
+        }
+
+        &--moderate::before {
+            background: #f59e0b;
+        }
+
+        &--weak::before {
+            background: var(--brand-danger, #ef4444);
+        }
+    }
+
+    /* Used to hide the whole section below 480px of available width, which is
+       exactly what happened on a normal laptop screen whenever the Run panel
+       was open (the scan area shrinks to ~470px) -- the price and Over/Under
+       table vanished until the panel was closed. It now stays visible at those
+       widths (the parent wraps it under the scan button if it's really tight)
+       and is only dropped on a truly tiny container, i.e. a phone. */
+    @container (max-width: 300px) {
+        display: none;
+    }
+}

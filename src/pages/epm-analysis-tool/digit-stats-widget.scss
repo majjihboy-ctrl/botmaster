@@ -1,0 +1,205 @@
+/*
+ * Live digit statistics (0-9). Sizes are in `cqw` (1% of the widget's width) so
+ * the whole thing scales down as one piece instead of overflowing on phones.
+ * Proportions are taken from the reference design at 313px wide.
+ */
+.digit-stats {
+    container-type: inline-size;
+    box-sizing: border-box;
+    width: min(100%, 313px);
+    flex: 0 1 313px;
+    /* real, fixed clearance from the panel's border -- not in cqw, so it
+       doesn't shrink away on narrower screens */
+    margin-right: 20px;
+    /* no fill of its own -- sits on whatever surface it's placed in, light or dark */
+    background: transparent;
+    user-select: none;
+
+    @media (max-width: 400px) {
+        margin-right: 8px;
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        justify-items: center;
+        align-items: center;
+        row-gap: 2.2cqw;
+        /* column-gap + extra side padding give the enlarged "current" circle
+           (below) guaranteed room so it can never crowd its neighbours or
+           the widget's own edge as it moves from tick to tick */
+        column-gap: 2.5cqw;
+        padding: 1.6cqw 6cqw 4cqw;
+    }
+
+    &__cell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
+
+    &__circle {
+        position: relative;
+        /* box is ~14% larger than the visible ring (ring radius is 44 of 50) */
+        width: 14.6cqw;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        transition: transform 0.15s ease-out;
+
+        &--current {
+            /* smaller bump than before -- enough to read as "live", small
+               enough to always stay clear of its neighbours and the edge */
+            transform: scale(1.15);
+            z-index: 1;
+        }
+
+        &--selected::before {
+            content: '';
+            position: absolute;
+            inset: 6%;
+            border-radius: 50%;
+            background: color-mix(in srgb, var(--button-primary-default) 28%, transparent);
+            box-shadow: 0 0 2.2cqw color-mix(in srgb, var(--button-primary-default) 35%, transparent);
+        }
+    }
+
+    &__svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+    }
+
+    &__ring {
+        fill: none;
+        stroke: var(--border-normal);
+        stroke-width: 3;
+    }
+
+    &__arc {
+        fill: none;
+        stroke: var(--text-less-prominent);
+        stroke-width: 8;
+        stroke-linecap: butt;
+        transform-box: fill-box;
+        transform-origin: center;
+        transition: stroke-dasharray 0.15s ease-out, transform 0.15s ease-out, stroke 0.15s ease-out;
+
+        &--high {
+            stroke: var(--brand-success, #1aa08c);
+        }
+
+        &--low {
+            stroke: var(--brand-danger, #d03146);
+        }
+    }
+
+    &__label {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3cqw;
+        line-height: 1;
+    }
+
+    &__digit {
+        font-size: 4.7cqw;
+        font-weight: 800;
+        /* Same token the rest of the page's text uses (#333 in light mode,
+           white in dark) -- already "the same as the whole site". Crisper
+           rendering here so it actually reads that way at this small size,
+           surrounded by the grey rings/arcs. */
+        color: var(--text-prominent);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    &__pct {
+        font-size: 3.1cqw;
+        font-weight: 600;
+        color: var(--text-general);
+        white-space: nowrap;
+    }
+
+    &__pointer {
+        position: absolute;
+        left: 50%;
+        top: 100%;
+        margin-top: 0.3cqw;
+        width: 0;
+        height: 0;
+        transform: translateX(-50%);
+        border-left: 1.4cqw solid transparent;
+        border-right: 1.4cqw solid transparent;
+        border-bottom: 1.9cqw solid var(--brand-danger, #f56052);
+    }
+
+    /*
+     * Tappable circles (used by Dtrader, where tapping a digit picks it as the
+     * trade barrier). The Analysis Tool's own widget never sets this.
+     */
+    &__cell--tap {
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+
+        &:focus-visible {
+            outline: 2px solid var(--button-primary-default);
+            outline-offset: 2px;
+            border-radius: 50%;
+        }
+    }
+
+    /*
+     * ONE row of ten (Dtrader chart) instead of two rows of five. Same look,
+     * same colours, same arcs and pointer -- only the layout and the cqw sizes
+     * change so ten circles fit across the width. 10 circles + 9 gaps + side
+     * padding = 100cqw, so the enlarged "current" circle still has room.
+     */
+    &--row {
+        width: 100%;
+        max-width: 520px;
+        flex: 1 1 auto;
+        margin-right: 0;
+        margin-inline: auto;
+
+        .digit-stats__grid {
+            grid-template-columns: repeat(10, minmax(0, 1fr));
+            row-gap: 0;
+            column-gap: 1cqw;
+            padding: 1cqw 2cqw 3.8cqw;
+        }
+
+        .digit-stats__circle {
+            width: 8.4cqw;
+        }
+
+        /* Digits/percentages scaled up relative to the smaller circle so they
+           stay readable on a phone. */
+        .digit-stats__digit {
+            font-size: 3.5cqw;
+        }
+
+        .digit-stats__pct {
+            font-size: 1.9cqw;
+        }
+
+        .digit-stats__pointer {
+            margin-top: 0.5cqw;
+            border-left-width: 1.2cqw;
+            border-right-width: 1.2cqw;
+            border-bottom-width: 1.7cqw;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &__circle,
+        &__arc {
+            transition: none;
+        }
+    }
+}

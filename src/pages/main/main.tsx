@@ -62,6 +62,7 @@ const TradingViewPage = lazy(() => import('../trading-view'));
 const AiBotBuilder = lazy(() => import('../ai-bot-builder'));
 const ForexTraderPage = lazy(() => import('../forex-trader'));
 const ForexLivePage = lazy(() => import('../forex-live'));
+const EpmAnalysisTool = lazy(() => import('../epm-analysis-tool'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -99,11 +100,12 @@ const AppWrapper = observer(() => {
         ANALYSIS_TOOL,
         FREE_BOTS,
         TRADING_VIEW,
+        EPM_ANALYSIS_TOOL,
     } = DBOT_TABS;
     // Single source of truth for "can a bot actually run on this tab?" — used by
     // both the desktop floating wrapper and the mobile drawer below.
     const show_run_controls =
-        [BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS, TRADING_VIEW].includes(active_tab) || !!active_tour;
+        [BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS, TRADING_VIEW, EPM_ANALYSIS_TOOL].includes(active_tab) || !!active_tour;
     const init_render = React.useRef(true);
     const hash = [
         'dashboard',
@@ -117,6 +119,7 @@ const AppWrapper = observer(() => {
         'ai_bot_builder',
         'forex_trader',
         'forex_live',
+        'epm_analysis_tool',
     ];
     const { isDesktop } = useDevice();
     const location = useLocation();
@@ -182,7 +185,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-forex-live'); // last tab in the bar
+        const el_tutorial = document.getElementById('id-epm-analysis-tool'); // last tab in the bar
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -595,6 +598,26 @@ const AppWrapper = observer(() => {
                                     }
                                 >
                                     <ForexLivePage />
+                                </Suspense>
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <span style={{ fontSize: '15px', lineHeight: 1 }}>📊</span>
+                                        <Localize i18n_default_text='EPM Analysis Tool' />
+                                    </>
+                                }
+                                id='id-epm-analysis-tool'
+                            >
+                                <Suspense
+                                    fallback={
+                                        <ChunkLoader
+                                            message={localize('Please wait, loading EPM Analysis Tool...')}
+                                            variant='panel'
+                                        />
+                                    }
+                                >
+                                    <EpmAnalysisTool />
                                 </Suspense>
                             </div>
                         </Tabs>

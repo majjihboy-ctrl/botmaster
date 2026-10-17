@@ -23,6 +23,7 @@ export const DBOT_TABS: TDashboardTabIndex = Object.freeze({
     AI_BOT_BUILDER: 8,
     FOREX_TRADER: 9,
     FOREX_LIVE: 10,
+    EPM_ANALYSIS_TOOL: 11,
 });
 
 export const MAX_STRATEGIES = 10;
@@ -39,6 +40,7 @@ export const TAB_IDS = [
     'id-ai-bot-builder',
     'id-forex-trader',
     'id-forex-live',
+    'id-epm-analysis-tool',
 ];
 
 export const DEBOUNCE_INTERVAL_TIME = 500;
