@@ -164,7 +164,7 @@ const KNOWN_PIP_DECIMALS: Record<string, number> = {
  *  - pip amount (0.01, 0.001, 0.1)
  * into a decimal-place count suitable for Number.toFixed().
  */
-const normalizePipDecimals = (value: unknown): number | null => {
+export const normalizePipDecimals = (value: unknown): number | null => {
     const n = Number(value);
     if (!Number.isFinite(n) || n < 0) return null;
     // Integer 1–8 → already a decimal-place count
@@ -186,7 +186,7 @@ const normalizePipDecimals = (value: unknown): number | null => {
  * Infer decimal places from price samples.
  * Take the MAX across samples — JSON numbers drop trailing zeros.
  */
-const inferPipSize = (raw_prices: (string | number)[]): number | null => {
+export const inferPipSize = (raw_prices: (string | number)[]): number | null => {
     let max_decimals = 0;
     let found = false;
     for (const p of raw_prices) {
