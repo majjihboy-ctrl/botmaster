@@ -92,6 +92,21 @@
                 background-image: linear-gradient(rgba(0, 229, 255, 0.04) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(0, 229, 255, 0.04) 1px, transparent 1px);
                 background-size: 40px 40px;
+                -webkit-mask-image: radial-gradient(ellipse at center, #000 0%, transparent 75%);
+                mask-image: radial-gradient(ellipse at center, #000 0%, transparent 75%);
+                animation: boot-gridDrift 14s linear infinite;
+            }
+            @keyframes boot-gridDrift {
+                to {
+                    background-position: 40px 40px;
+                }
+            }
+
+            #boot-splash {
+                background: radial-gradient(ellipse at 50% 40%, rgba(0, 229, 255, 0.14) 0%, rgba(0, 229, 255, 0) 55%),
+                    radial-gradient(ellipse at 50% 120%, rgba(139, 92, 246, 0.16) 0%, rgba(139, 92, 246, 0) 60%),
+                    linear-gradient(180deg, #080d18 0%, #060a12 100%);
+                transition: opacity 0.5s ease;
             }
 
             #boot-splash .stage {
@@ -262,8 +277,79 @@
                 color: #fff;
                 text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
             }
+            #boot-splash .brand {
+                background: linear-gradient(100deg, #1a6fff 0%, #00e5ff 30%, #ffffff 50%, #00e5ff 70%, #1a6fff 100%);
+                background-size: 220% 100%;
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: rgba(0, 0, 0, 0);
+                -webkit-text-fill-color: rgba(0, 0, 0, 0);
+                text-shadow: none;
+                filter: drop-shadow(0 0 16px rgba(0, 229, 255, 0.35));
+                animation: boot-in 0.7s 0.1s ease-out both, boot-shine 2.8s linear infinite;
+            }
             #boot-splash .brand span {
-                color: #00e5ff;
+                color: inherit;
+                -webkit-text-fill-color: inherit;
+            }
+            @keyframes boot-shine {
+                to {
+                    background-position: -220% 0;
+                }
+            }
+            @keyframes boot-in {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: none;
+                }
+            }
+            #boot-splash .spinner-wrap {
+                animation: boot-in 0.6s ease-out both;
+            }
+            #boot-splash .tagline {
+                animation: boot-in 0.7s 0.2s ease-out both;
+            }
+            #boot-splash .status-row {
+                animation: boot-in 0.7s 0.3s ease-out both;
+            }
+            #boot-splash .track {
+                position: relative;
+                width: 180px;
+                height: 3px;
+                margin-top: -14px;
+                border-radius: 3px;
+                overflow: hidden;
+                background: rgba(255, 255, 255, 0.08);
+                animation: boot-in 0.7s 0.4s ease-out both;
+            }
+            #boot-splash .track::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 45%;
+                border-radius: 3px;
+                background: linear-gradient(90deg, transparent, #00e5ff, #ffffff, transparent);
+                animation: boot-slide 1.5s ease-in-out infinite;
+            }
+            @keyframes boot-slide {
+                0% {
+                    left: -45%;
+                }
+                100% {
+                    left: 100%;
+                }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #boot-splash *,
+                #boot-splash .grid-bg {
+                    animation-duration: 0.01ms !important;
+                    animation-iteration-count: 1 !important;
+                }
             }
             #boot-splash .tagline {
                 font-size: 10px;
@@ -408,6 +494,7 @@
                         <div class="dot"></div>
                         <span id="boot-statusText">CONNECTING TO MARKETS</span>
                     </div>
+                    <div class="track" aria-hidden="true"></div>
                 </div>
             </div>
             <main id="seo-content" style="position: relative; z-index: 1; padding: 24px; color: #e6f7ff; background: #060a12">
@@ -464,6 +551,33 @@
                         d.style.animationDelay = Math.random() * 9 + 's';
                         pEl.appendChild(d);
                     }
+                }
+
+                // Fade-out: React replaces #root's contents on mount, which would
+                // remove the splash instantly. Catch the removed node, park it on
+                // <body> and fade it out instead.
+                var root = document.getElementById('root');
+                if (root && window.MutationObserver) {
+                    var mo = new MutationObserver(function (records) {
+                        for (var r = 0; r < records.length; r++) {
+                            var removed = records[r].removedNodes;
+                            for (var k = 0; k < removed.length; k++) {
+                                if (removed[k] === splash) {
+                                    mo.disconnect();
+                                    document.body.appendChild(splash);
+                                    splash.style.pointerEvents = 'none';
+                                    requestAnimationFrame(function () {
+                                        splash.style.opacity = '0';
+                                    });
+                                    setTimeout(function () {
+                                        splash.remove();
+                                    }, 600);
+                                    return;
+                                }
+                            }
+                        }
+                    });
+                    mo.observe(root, { childList: true });
                 }
 
                 // Status text cycle — self-clears once the real app has mounted
