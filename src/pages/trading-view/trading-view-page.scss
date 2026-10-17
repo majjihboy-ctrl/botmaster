@@ -1,0 +1,15 @@
+// Height is set inline from index.tsx (measured from the viewport), not
+// inherited through CSS — see the comment there. Percentage/absolute
+// approaches both collapsed to zero because the parent grid cell
+// (.dc-tabs__content) has no resolved height for an iframe-only page.
+// Width is also set inline now, reserving space for the Run Panel drawer
+// when it's open (desktop only).
+.trading-view-page {
+    min-height: 300px;
+    overflow: hidden;
+
+    iframe {
+        display: block;
+        border: 0;
+    }
+}

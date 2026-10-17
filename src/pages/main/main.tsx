@@ -58,6 +58,7 @@ import Scanner from '../scanner';
 import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
+const TradingViewPage = lazy(() => import('../trading-view'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -94,11 +95,12 @@ const AppWrapper = observer(() => {
         CHART,
         ANALYSIS_TOOL,
         FREE_BOTS,
+        TRADING_VIEW,
     } = DBOT_TABS;
     // Single source of truth for "can a bot actually run on this tab?" — used by
     // both the desktop floating wrapper and the mobile drawer below.
     const show_run_controls =
-        [BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS].includes(active_tab) || !!active_tour;
+        [BOT_BUILDER, CHART, ANALYSIS_TOOL, FREE_BOTS, TRADING_VIEW].includes(active_tab) || !!active_tour;
     const init_render = React.useRef(true);
     const hash = [
         'dashboard',
@@ -108,6 +110,7 @@ const AppWrapper = observer(() => {
         'analysis_tool',
         'autotrade',
         'scanner',
+        'trading_view',
     ];
     const { isDesktop } = useDevice();
     const location = useLocation();
@@ -173,7 +176,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-scanner'); // last tab in the bar
+        const el_tutorial = document.getElementById('id-trading-view'); // last tab in the bar
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -502,6 +505,27 @@ const AppWrapper = observer(() => {
                                 id='id-scanner'
                             >
                                 <Scanner />
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedChartLineCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='currentColor'
+                                        />
+                                        <Localize i18n_default_text='TradingView' />
+                                    </>
+                                }
+                                id='id-trading-view'
+                            >
+                                <Suspense
+                                    fallback={
+                                        <ChunkLoader message={localize('Please wait, loading TradingView...')} />
+                                    }
+                                >
+                                    <TradingViewPage />
+                                </Suspense>
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
