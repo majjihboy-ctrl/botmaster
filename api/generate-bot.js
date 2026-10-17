@@ -36,11 +36,20 @@ function providerOrder() {
     return order.filter(name => (name === 'gemini' ? process.env.GEMINI_API_KEY : process.env.XAI_API_KEY));
 }
 
-async function callGemini(systemPrompt, description) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('GEMINI_API_KEY is not set in environment variables');
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+// Gemini models to try, in order. GEMINI_MODEL (if set) is tried first. A model that is gone for this
+// key (404) or temporarily limited/unavailable (429, 5xx) falls through to the next one; auth or
+// bad-request errors (400/401/403) stop immediately because another model will not fix them.
+const GEMINI_DEFAULT_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
 
+function geminiModelOrder() {
+    const configured = (process.env.GEMINI_MODEL || '')
+        .split(',')
+        .map(m => m.trim())
+        .filter(Boolean);
+    return [...new Set([...configured, ...GEMINI_DEFAULT_MODELS])];
+}
+
+async function callGeminiModel(model, apiKey, systemPrompt, description) {
     const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
@@ -56,12 +65,35 @@ async function callGemini(systemPrompt, description) {
 
     if (!response.ok) {
         const errText = await response.text();
-        throw new Error(`Gemini API error: ${response.status} ${errText}`);
+        const err = new Error(`Gemini API error (${model}): ${response.status} ${errText}`);
+        err.status = response.status;
+        throw err;
     }
 
     const data = await response.json();
     const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
     return parts ? parts.map(p => p.text || '').join('') : '';
+}
+
+async function callGemini(systemPrompt, description) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('GEMINI_API_KEY is not set in environment variables');
+
+    const failures = [];
+    for (const model of geminiModelOrder()) {
+        try {
+            const text = await callGeminiModel(model, apiKey, systemPrompt, description);
+            if (text) return text;
+            failures.push(`${model}: empty response`);
+        } catch (err) {
+            const status = err && err.status;
+            const retryable = status === 404 || status === 429 || (status >= 500 && status < 600);
+            console.error(`generate-bot: gemini model ${model} failed:`, err && err.message);
+            failures.push((err && err.message) || `${model} failed`);
+            if (!retryable) break;
+        }
+    }
+    throw new Error(failures.join(' | '));
 }
 
 // xAI (Grok) exposes an OpenAI-compatible chat completions endpoint.
