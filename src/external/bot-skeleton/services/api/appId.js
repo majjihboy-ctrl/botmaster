@@ -35,7 +35,6 @@ export const clearDerivApiInstance = () => {
 export const generateDerivApiInstance = async (forceNew = false) => {
     // If forcing new instance, clear existing one
     if (forceNew) {
-        console.log('[DerivAPI] Forcing new instance creation');
         clearDerivApiInstance();
     }
 
@@ -44,18 +43,15 @@ export const generateDerivApiInstance = async (forceNew = false) => {
         const readyState = derivApiInstance.connection?.readyState;
         // Return existing instance if it's connecting or open
         if (readyState === WebSocket.CONNECTING || readyState === WebSocket.OPEN) {
-            console.log('[DerivAPI] Reusing existing instance (state:', readyState, ')');
             return derivApiInstance;
         } else {
             // Connection is closed or closing, clear it
-            console.log('[DerivAPI] Existing instance not usable (state:', readyState, '), creating new');
             clearDerivApiInstance();
         }
     }
 
     // If there's already a creation in progress, return that promise
     if (derivApiPromise) {
-        console.log('[DerivAPI] Reusing existing creation promise');
         return derivApiPromise;
     }
 
@@ -67,13 +63,11 @@ export const generateDerivApiInstance = async (forceNew = false) => {
 
             // Check if URL changed (account switch scenario)
             if (currentWebSocketURL && currentWebSocketURL !== wsURL) {
-                console.log('[DerivAPI] WebSocket URL changed, clearing old instance');
                 clearDerivApiInstance();
             }
 
             currentWebSocketURL = wsURL;
 
-            console.log('[DerivAPI] Creating new WebSocket connection to:', wsURL);
             const deriv_socket = new WebSocket(wsURL);
             const deriv_api = new DerivAPIBasic({
                 connection: deriv_socket,
@@ -85,16 +79,10 @@ export const generateDerivApiInstance = async (forceNew = false) => {
 
             // Set up close handler to clear instance
             deriv_socket.addEventListener('close', () => {
-                console.log('[DerivAPI] WebSocket connection closed');
                 if (derivApiInstance === deriv_api) {
                     derivApiInstance = null;
                     currentWebSocketURL = null;
                 }
-            });
-
-            // Log when connection opens
-            deriv_socket.addEventListener('open', () => {
-                console.log('[DerivAPI] WebSocket connection established');
             });
 
             deriv_socket.addEventListener('error', error => {

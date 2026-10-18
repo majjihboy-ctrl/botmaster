@@ -19,8 +19,9 @@ import { useDevice } from '@deriv-com/ui';
 import ThemedScrollbars from '../shared_ui/themed-scrollbars';
 
 type TStatisticsTile = {
-    content: React.ElementType | string;
-    contentClassName: string;
+    content: React.ReactNode;
+    contentClassName?: string;
+    alignment?: 'top' | 'bottom';
     title: string;
 };
 
@@ -42,11 +43,11 @@ type TDrawerHeader = {
     onClearStatClick: () => void;
 };
 
-type TDrawerContent = {
+type TDrawerContent = TStatisticsSummary & {
     active_index: number;
     is_drawer_open: boolean;
     active_tour: string;
-    setActiveTabIndex: () => void;
+    setActiveTabIndex: (index: number) => void;
 };
 
 type TDrawerFooter = {

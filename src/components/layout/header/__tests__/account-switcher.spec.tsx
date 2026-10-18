@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import AccountSwitcher from '../account-switcher';
+import type { TAccountSwitcher } from '../common/types';
 
 const mockCheckAndRegenerateWebSocket = jest.fn();
 
@@ -64,7 +65,7 @@ const mockActiveAccount = {
     isActive: true,
     currencyLabel: 'USD',
     icon: null,
-};
+} as unknown as TAccountSwitcher['activeAccount'];
 
 describe('AccountSwitcher', () => {
     beforeEach(() => {

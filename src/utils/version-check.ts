@@ -91,20 +91,12 @@ const isVersionValid = (): boolean => {
  * before any other localStorage or cookie operations
  */
 export const performVersionCheck = (): void => {
-    console.log('Performing bot version check...');
-
     if (!isVersionValid()) {
-        console.log('Bot version mismatch or not set. Clearing localStorage and cookies...');
-
         // Clear all storage
         clearLocalStorage();
         clearCookies();
 
         // Set the correct version to prevent infinite clearing
         setBotVersion();
-
-        console.log('Storage cleared and bot version set to:', BOT_VERSION_CONFIG.REQUIRED_VERSION);
-    } else {
-        console.log('Bot version is valid:', BOT_VERSION_CONFIG.REQUIRED_VERSION);
     }
 };

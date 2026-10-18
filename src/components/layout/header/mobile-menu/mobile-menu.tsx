@@ -14,6 +14,9 @@ import NetworkStatus from './../../footer/NetworkStatus';
 import ServerTime from './../../footer/ServerTime';
 import BackButton from './back-button';
 import MenuContent from './menu-content';
+
+// MobileLanguagesDrawer requires an icon slot; flags are intentionally not shown.
+const MOBILE_LANGUAGES = FILTERED_LANGUAGES.map(language => ({ ...language, icon: null }));
 import MenuHeader from './menu-header';
 import ReportsSubmenu from './reports-submenu';
 import ToggleButton from './toggle-button';
@@ -84,7 +87,7 @@ const MobileMenu = ({ onLogout }: TMobileMenuProps) => {
 
                             <MobileLanguagesDrawer
                                 isOpen
-                                languages={FILTERED_LANGUAGES}
+                                languages={MOBILE_LANGUAGES}
                                 onClose={hideModal}
                                 onLanguageSwitch={code => {
                                     try {

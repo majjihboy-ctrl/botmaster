@@ -270,9 +270,39 @@ async function generateBot(description) {
 // version with ESM `import` syntax crashed at runtime because Node tried to
 // load the compiled output as CommonJS. Plain require/module.exports avoids
 // that ambiguity entirely).
+// Best-effort per-IP rate limit (in-memory, per serverless instance). It will not stop a distributed
+// flood, but it stops a single client from burning the Gemini / xAI quota with a loop.
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 8;
+const rateBuckets = new Map();
+
+function clientIp(req) {
+    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    return forwarded || (req.socket && req.socket.remoteAddress) || 'unknown';
+}
+
+function isRateLimited(ip) {
+    const now = Date.now();
+    const recent = (rateBuckets.get(ip) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+    recent.push(now);
+    rateBuckets.set(ip, recent);
+    if (rateBuckets.size > 5000) {
+        for (const [key, times] of rateBuckets) {
+            if (!times.some(t => now - t < RATE_LIMIT_WINDOW_MS)) rateBuckets.delete(key);
+        }
+    }
+    return recent.length > RATE_LIMIT_MAX;
+}
+
 module.exports = async function handler(req, res) {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+
+    if (isRateLimited(clientIp(req))) {
+        res.setHeader('Retry-After', '60');
+        res.status(429).json({ error: 'Too many requests. Please wait a minute and try again.' });
         return;
     }
 
