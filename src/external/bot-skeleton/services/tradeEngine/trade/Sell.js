@@ -25,6 +25,9 @@ export default Engine =>
                 return Promise.resolve();
             }
 
+            // A manual sell is in flight: the normal (proposal_open_contract) settle path must handle it.
+            this.sell_in_progress = true;
+
             let delay_index = 1;
 
             return new Promise(resolve => {

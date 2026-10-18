@@ -162,8 +162,50 @@ const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTab
     );
 };
 
+const ExecutionModeToggle = observer(() => {
+    const { run_panel } = useStore();
+    const { execution_mode, setExecutionMode } = run_panel;
+
+    return (
+        <div className='run-mode'>
+            <div className='run-mode__switch' role='radiogroup' aria-label={localize('Execution')}>
+                <button
+                    type='button'
+                    role='radio'
+                    aria-checked={execution_mode === 'normal'}
+                    className={classNames('run-mode__option', {
+                        'run-mode__option--active': execution_mode === 'normal',
+                    })}
+                    onClick={() => setExecutionMode('normal')}
+                >
+                    <Localize i18n_default_text='Normal' />
+                </button>
+                <button
+                    type='button'
+                    role='radio'
+                    aria-checked={execution_mode === 'fast'}
+                    className={classNames('run-mode__option', {
+                        'run-mode__option--active': execution_mode === 'fast',
+                    })}
+                    onClick={() => setExecutionMode('fast')}
+                >
+                    <Localize i18n_default_text='Fast execution' />
+                </button>
+            </div>
+            <div className='run-mode__hint'>
+                {execution_mode === 'fast' ? (
+                    <Localize i18n_default_text='Settles each trade the moment it closes and buys again without waiting for the next tick.' />
+                ) : (
+                    <Localize i18n_default_text='Settles each trade on the standard contract update.' />
+                )}
+            </div>
+        </div>
+    );
+});
+
 const DrawerFooter = ({ is_clear_stat_disabled, onClearStatClick }: TDrawerFooter) => (
     <div className='run-panel__footer'>
+        <ExecutionModeToggle />
         <Button
             id='db-run-panel__clear-button'
             className='run-panel__footer-button'
@@ -182,6 +224,7 @@ const DrawerFooter = ({ is_clear_stat_disabled, onClearStatClick }: TDrawerFoote
 const MobileDrawerFooter = () => {
     return (
         <div className='controls__section'>
+            <ExecutionModeToggle />
             <div className='controls__buttons'>
                 <TradeAnimation className='controls__animation' should_show_overlay />
             </div>

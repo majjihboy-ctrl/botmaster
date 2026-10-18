@@ -2,6 +2,7 @@ import { LogTypes } from '../../../constants/messages';
 import { api_base } from '../../api/api-base';
 import { contractStatus, info, log, notify } from '../utils/broadcast';
 import { doUntilDone, getUUID, recoverFromError, tradeOptionToBuy } from '../utils/helpers';
+import { isFastExecution } from '../utils/run-mode';
 import { purchaseSuccessful } from './state/actions';
 import { BEFORE_PURCHASE } from './state/constants';
 
@@ -30,7 +31,7 @@ export default Engine =>
                     const lag = timing.settle_lag_ms != null ? ` | settle msg lag ~${timing.settle_lag_ms} ms` : '';
                     notify(
                         'info',
-                        `Timing (${this.is_turbo_mode ? 'Turbo' : 'Slow'}): last trade closed -> buy sent ${since_sold ?? 'n/a'} ms | buy round-trip ${round_trip} ms${lag}`
+                        `Timing (${this.is_turbo_mode ? 'Turbo' : isFastExecution() ? 'Fast execution' : 'Slow'}): last trade closed -> buy sent ${since_sold ?? 'n/a'} ms | buy round-trip ${round_trip} ms${lag}`
                     );
                 }
 
@@ -41,6 +42,7 @@ export default Engine =>
                 });
 
                 this.contractId = buy.contract_id;
+                this.sell_in_progress = false;
                 if (this.is_fast_mode) {
                     // Fast mode: track this contract in the background. The scope moves to
                     // DURING_PURCHASE so watch('before') ends, then watch('during') releases

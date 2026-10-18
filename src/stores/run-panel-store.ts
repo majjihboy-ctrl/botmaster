@@ -7,7 +7,12 @@ import { contract_stages, TContractStage } from '@/constants/contract-stage';
 import { run_panel } from '@/constants/run-panel';
 import { ErrorTypes, MessageTypes, observer, unrecoverable_errors } from '@/external/bot-skeleton';
 import { getSelectedTradeType } from '@/external/bot-skeleton/scratch/utils';
-import { getRunMode, setRunMode as setEngineRunMode } from '@/external/bot-skeleton/services/tradeEngine/utils/run-mode';
+import {
+    getExecutionMode,
+    getRunMode,
+    setExecutionMode as setEngineExecutionMode,
+    setRunMode as setEngineRunMode,
+} from '@/external/bot-skeleton/services/tradeEngine/utils/run-mode';
 import { handleBackendError, isBackendError } from '@/utils/error-handler';
 // import { journalError, switch_account_notification } from '@/utils/bot-notifications';
 import GTM from '@/utils/gtm';
@@ -47,6 +52,8 @@ export default class RunPanelStore {
             run_id: observable,
             run_mode: observable,
             setRunMode: action,
+            execution_mode: observable,
+            setExecutionMode: action,
             error_type: observable,
             show_bot_stop_message: observable,
             is_stop_button_visible: computed,
@@ -115,6 +122,7 @@ export default class RunPanelStore {
 
     run_id = '';
     run_mode: 'slow' | 'fast' | 'turbo' = getRunMode();
+    execution_mode: 'normal' | 'fast' = getExecutionMode();
     onOkButtonClick: (() => void) | null = null;
     onCancelButtonClick: (() => void) | null = null;
 
@@ -169,6 +177,12 @@ export default class RunPanelStore {
         if (this.is_running || this.has_open_contract) return;
         this.run_mode = mode;
         setEngineRunMode(mode);
+    };
+
+    // Normal / Fast execution. Read live by the engine, so it can be switched at any time.
+    setExecutionMode = (mode: 'normal' | 'fast') => {
+        this.execution_mode = mode;
+        setEngineExecutionMode(mode);
     };
 
     onRunButtonClick = async () => {

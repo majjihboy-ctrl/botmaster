@@ -5,7 +5,7 @@ import { createError } from '../../../utils/error';
 import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
 import { checkBlocksForProposalRequest, doUntilDone } from '../utils/helpers';
-import { isFastMode, isTurboMode } from '../utils/run-mode';
+import { isFastExecution, isFastMode, isTurboMode } from '../utils/run-mode';
 import { expectInitArg } from '../utils/sanitize';
 import { proposalsReady, start } from './state/actions';
 import * as constants from './state/constants';
@@ -26,12 +26,13 @@ const watchBefore = store =>
         passFlag: 'proposalsReady',
     });
 
-const watchDuring = store =>
+const watchDuring = (store, ignoreTick = false) =>
     watchScope({
         store,
         stopScope: constants.STOP,
         passScope: constants.DURING_PURCHASE,
         passFlag: 'openContract',
+        ignoreTick,
     });
 
 // Turbo mode: right after a trade closes and Bot.start has run, buy as soon as the
@@ -60,7 +61,7 @@ const watchBeforeImmediate = store => {
  * which leads to the same problem we try to solve. So prevTick is isolated
  */
 let prevTick;
-const watchScope = ({ store, stopScope, passScope, passFlag }) => {
+const watchScope = ({ store, stopScope, passScope, passFlag, ignoreTick = false }) => {
     // in case watch is called after stop is fired
     if (store.getState().scope === stopScope) {
         return Promise.resolve(false);
@@ -69,8 +70,11 @@ const watchScope = ({ store, stopScope, passScope, passFlag }) => {
         const unsubscribe = store.subscribe(() => {
             const newState = store.getState();
 
-            if (newState.newTick === prevTick) return;
-            prevTick = newState.newTick;
+            // Fast execution: react to every state change so a settled trade releases the engine at once.
+            if (!ignoreTick) {
+                if (newState.newTick === prevTick) return;
+                prevTick = newState.newTick;
+            }
 
             if (newState.scope === passScope && newState[passFlag]) {
                 unsubscribe();
@@ -99,6 +103,9 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.is_turbo_mode = false;
         this.turboImmediate = false;
         this.fastContracts = new Set();
+        // Contracts settled early from the transaction message (Fast execution), newest last.
+        this.fastSettledIds = new Set();
+        this.sell_in_progress = false;
         this.fastPurchased = false;
         this.fastSettledCount = 0;
         // Settled contracts waiting for the after-purchase logic, in settlement order.
@@ -145,7 +152,8 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
 
         this.tradeOptions = { ...validated_trade_options, symbol: this.getActiveSymbol() };
         this.store.dispatch(start());
-        this.turboImmediate = this.is_turbo_mode;
+        // Turbo, and Fast execution (sequential only), buy as soon as the previous trade has closed.
+        this.turboImmediate = this.is_turbo_mode || (isFastExecution() && !this.is_fast_mode);
         this.checkLimits(validated_trade_options);
 
         this.makeDirectPurchaseDecision();
@@ -168,6 +176,19 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
             // solve the issue. This is a backup!
             const subscription = api_base.api.onMessage().subscribe(({ data }) => {
                 if (data.msg_type === 'transaction' && data.transaction.action === 'sell') {
+                    if (isFastExecution() && this.shouldFastSettleTransaction(data.transaction)) {
+                        clearTimeout(this.transaction_recovery_timeout);
+                        this.handleFastSellTransaction(data.transaction);
+                        // Pull the full contract details (exit tick, times) for the UI.
+                        doUntilDone(() => {
+                            api_base.api.send({
+                                proposal_open_contract: 1,
+                                contract_id: data.transaction.contract_id,
+                            });
+                        }, ['PriceMoved']);
+                        resolve();
+                        return;
+                    }
                     this.transaction_recovery_timeout = setTimeout(() => {
                         const { contract } = this.data;
                         const is_same_contract = contract.contract_id === data.transaction.contract_id;
@@ -207,7 +228,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
             this.store.dispatch({ type: constants.SELL });
             return Promise.resolve(false);
         }
-        return watchDuring(this.store);
+        return watchDuring(this.store, isFastExecution());
     }
 
     makeDirectPurchaseDecision() {

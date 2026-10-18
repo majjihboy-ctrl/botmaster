@@ -22,3 +22,32 @@ export const setRunMode = next => {
     if (next !== 'fast' && next !== 'slow' && next !== 'turbo') return;
     mode = next;
 };
+
+// Execution mode (Normal / Fast execution), switched from the run panel.
+//   normal: settle a trade when its proposal_open_contract update says it is sold.
+//   fast:   settle the moment the account `transaction` (sell) message arrives and buy
+//           again right away instead of waiting for the next tick. The full contract
+//           details are filled in afterwards when proposal_open_contract catches up.
+// Persisted, because the run panel shows which one is active. Read live (no per-run
+// capture), so switching applies to the next trade.
+const EXECUTION_KEY = 'dbot_trade_execution_mode';
+
+let execution_mode = (() => {
+    try {
+        return localStorage.getItem(EXECUTION_KEY) === 'fast' ? 'fast' : 'normal';
+    } catch {
+        return 'normal';
+    }
+})();
+
+export const getExecutionMode = () => execution_mode;
+export const isFastExecution = () => execution_mode === 'fast';
+export const setExecutionMode = next => {
+    if (next !== 'fast' && next !== 'normal') return;
+    execution_mode = next;
+    try {
+        localStorage.setItem(EXECUTION_KEY, next);
+    } catch {
+        // storage unavailable
+    }
+};
