@@ -65,6 +65,8 @@ export default defineConfig({
     },
   },
   output: {
+    // Never ship source maps: they would hand over the original source to anyone with DevTools.
+    sourceMap: { js: false, css: false },
     assetPrefix: isStaticBuild ? '/bot/preview/' : '/',
     distPath: {
       root: isStaticBuild ? 'out/preview' : 'dist',

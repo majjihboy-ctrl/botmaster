@@ -9,11 +9,14 @@ import {
     applyFaviconFromLogo,
     applyPrimaryColorFromConfig,
 } from './utils/document-branding';
+import { enableAntiInspect } from './utils/anti-inspect';
 import { performVersionCheck } from './utils/version-check';
 import './styles/index.scss';
 
 // Configure MobX to handle multiple instances in production builds
 configure({ isolateGlobalState: true });
+
+enableAntiInspect();
 
 // Perform version check FIRST - before any other operations
 performVersionCheck();
