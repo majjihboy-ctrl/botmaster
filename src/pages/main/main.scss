@@ -270,7 +270,11 @@
     &__run-strategy-wrapper {
         inset-inline-end: 1.6rem;
         top: 1.6rem;
-        z-index: 2;
+        // Above the tab bar, with its own opaque background, so the tabs never show through or overlap it.
+        z-index: 20;
+        background: var(--general-main-1);
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 
         @include desktop-screen {
             position: absolute;
@@ -456,7 +460,11 @@
     &__run-strategy-wrapper {
         inset-inline-end: 1.6rem;
         top: 1.6rem;
-        z-index: 2;
+        // Above the tab bar, with its own opaque background, so the tabs never show through or overlap it.
+        z-index: 20;
+        background: var(--general-main-1);
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 
         @include desktop-screen {
             position: absolute;

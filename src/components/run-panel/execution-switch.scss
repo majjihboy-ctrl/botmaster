@@ -7,7 +7,9 @@
     min-width: 14rem;
     padding: 0 1.2rem;
     border: 0;
-    background: rgba(124, 77, 255, 0.2);
+    // Solid (tint painted over the page background) so nothing behind the bar shows through.
+    background: linear-gradient(rgba(124, 77, 255, 0.2), rgba(124, 77, 255, 0.2)), var(--general-main-1);
+    flex: none;
     color: var(--text-general);
     text-align: start;
     cursor: pointer;
