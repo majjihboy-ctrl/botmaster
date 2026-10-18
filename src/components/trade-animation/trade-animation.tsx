@@ -10,6 +10,7 @@ import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
 /* [/AI] */
+import ExecutionSwitch from '../run-panel/execution-switch';
 import Button from '../shared_ui/button';
 import Tooltip from '../shared_ui/tooltip/tooltip';
 import CircularWrapper from './circular-wrapper';
@@ -216,6 +217,7 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
                     {button_props.text}
                 </Button>
             )}
+            <ExecutionSwitch />
             <div
                 className={classNames('animation__container', className, {
                     'animation--running': contract_stage > 0,
