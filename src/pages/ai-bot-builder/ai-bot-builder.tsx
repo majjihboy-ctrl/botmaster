@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { NOTIFICATION_TYPE } from '@/components/bot-notification/bot-notification-utils';
 import { DBOT_TABS } from '@/constants/bot-contents';
+import { getAuthInfo } from '@/external/deriv-core';
 import { useStore } from '@/hooks/useStore';
 import { localize, Localize } from '@deriv-com/translations';
 import './ai-bot-builder.scss';
@@ -86,12 +87,18 @@ const AiBotBuilder = observer(() => {
 
     const request = async (text: string, previous?: GeneratedBot) => {
         if (!text.trim() || loading) return;
+        // The server only answers verified, allowed Deriv accounts, so the login token goes with the request.
+        const access_token = getAuthInfo()?.access_token;
+        if (!access_token) {
+            setError(localize('Log in to use the AI Bot Builder.'));
+            return;
+        }
         setLoading(true);
         setError(null);
         try {
             const res = await fetch('/api/generate-bot', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` },
                 body: JSON.stringify({
                     description: text,
                     previous: previous && { strategy: previous.strategy, params: previous.params },

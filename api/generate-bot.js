@@ -1,3 +1,4 @@
+const { checkAccess } = require('./_lib/access');
 const { generateBot } = require('./_lib/pipeline');
 const { RESPONSE_SCHEMA } = require('./_lib/prompt');
 
@@ -175,6 +176,13 @@ module.exports = async function handler(req, res) {
     }
 
     try {
+        // Private: only accounts listed in AI_ALLOWED_ACCOUNTS (verified through Deriv) may generate bots.
+        const access = await checkAccess(req);
+        if (!access.ok) {
+            res.status(access.status).json({ error: access.error });
+            return;
+        }
+
         const description = ((req.body && req.body.description) || '').trim();
 
         if (!description) {
