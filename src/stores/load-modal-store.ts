@@ -247,9 +247,7 @@ export default class LoadModalStore {
 
     loadFreeBotPreview = async (free_bot: import('../constants/free-bots').TFreeBot): Promise<void> => {
         this.setSelectedFreeBot(free_bot);
-        const xml_module = await import(
-            /* webpackChunkName: `[request]` */ `../xml/free-bots/${free_bot.id}.xml`
-        );
+        const xml_module = await import(/* webpackChunkName: `[request]` */ `../xml/free-bots/${free_bot.id}.xml`);
         if (this.local_workspace) {
             this.local_workspace.dispose();
             this.local_workspace = null;
@@ -269,9 +267,7 @@ export default class LoadModalStore {
     // Skips the preview workspace entirely — used by the "Load" button on the
     // top-level Free Bots tab cards, which load straight into Bot Builder.
     loadFreeBotDirect = async (free_bot: import('../constants/free-bots').TFreeBot): Promise<void> => {
-        const xml_module = await import(
-            /* webpackChunkName: `[request]` */ `../xml/free-bots/${free_bot.id}.xml`
-        );
+        const xml_module = await import(/* webpackChunkName: `[request]` */ `../xml/free-bots/${free_bot.id}.xml`);
         const convertedDom = window.Blockly.utils.xml.textToDom(xml_module.default);
         updateXmlValues({
             strategy_id: window.Blockly.utils.idGenerator.genUid(),
@@ -282,6 +278,20 @@ export default class LoadModalStore {
         await this.loadStrategyOnBotBuilder();
         await this.saveStrategyToLocalStorage();
         this.setIsCurrentBotRestricted(true);
+    };
+
+    // Loads a bot the AI Bot Builder just generated (plain XML text) straight into Bot Builder.
+    // Unlike free bots it stays fully editable.
+    loadGeneratedBot = async (xml: string, title: string): Promise<void> => {
+        const convertedDom = window.Blockly.utils.xml.textToDom(xml);
+        updateXmlValues({
+            strategy_id: window.Blockly.utils.idGenerator.genUid(),
+            convertedDom,
+            file_name: title,
+            from: save_types.LOCAL,
+        });
+        await this.loadStrategyOnBotBuilder();
+        await this.saveStrategyToLocalStorage();
     };
 
     // Same as loadFreeBotDirect, but patches specific block values in the
@@ -312,9 +322,7 @@ export default class LoadModalStore {
             prediction?: number; // over/under barrier digit
         }
     ): Promise<void> => {
-        const xml_module = await import(
-            /* webpackChunkName: `[request]` */ `../xml/free-bots/${free_bot.id}.xml`
-        );
+        const xml_module = await import(/* webpackChunkName: `[request]` */ `../xml/free-bots/${free_bot.id}.xml`);
         const convertedDom = window.Blockly.utils.xml.textToDom(xml_module.default);
 
         // Patches the INITIALIZATION statement's `variables_set <var_name>
@@ -417,7 +425,6 @@ export default class LoadModalStore {
         await this.saveStrategyToLocalStorage();
         this.setIsCurrentBotRestricted(true);
     };
-
 
     setRecentStrategies = (recent_strategies: TStrategy[]): void => {
         this.recent_strategies = recent_strategies;

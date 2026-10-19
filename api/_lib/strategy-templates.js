@@ -16,7 +16,7 @@ const STRATEGIES = {
     rise_fall: {
         label: 'Rise/Fall',
         category: 'callput',
-        trade_type: 'risefall',
+        trade_type: 'callput',
         directions: { rise: 'CALL', fall: 'PUT' },
         default_direction: 'rise',
         min_ticks: 5,
@@ -106,7 +106,10 @@ function normalizeLegs(rawLegs) {
         const direction = Object.prototype.hasOwnProperty.call(LEG_RANGE, input.direction) ? input.direction : 'over';
         const [min, max] = LEG_RANGE[direction];
         const fallback = direction === 'over' ? 2 : 7;
-        return { direction, digit: integerInRange(input.digit !== undefined ? input.digit : input.prediction, min, max, fallback) };
+        return {
+            direction,
+            digit: integerInRange(input.digit !== undefined ? input.digit : input.prediction, min, max, fallback),
+        };
     });
 }
 

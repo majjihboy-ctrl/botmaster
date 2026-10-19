@@ -1,30 +1,5 @@
-const { fillBotTemplate } = require('./_lib/bot-template');
-const {
-    STRATEGY_IDS,
-    VALID_SYMBOLS,
-    normalizeStrategyParams,
-    buildStrategyXml,
-    describeParams,
-} = require('./_lib/strategy-templates');
-
-// Accumulator growth rate only accepts these five values on Deriv.
-const VALID_GROWTH_RATES = ['0.01', '0.02', '0.03', '0.04', '0.05'];
-
-const DEFAULTS = {
-    symbol: '1HZ100V',
-    growth_rate: '0.01',
-    take_profit: 10,
-    initial_stake: 10,
-    martingale_size: 10,
-    profit_threshold: 10,
-    loss_threshold: 10,
-};
-
-function clampPositiveNumber(value, fallback) {
-    const n = Number(value);
-    if (!Number.isFinite(n) || n <= 0) return fallback;
-    return Math.round(n * 100) / 100;
-}
+const { generateBot } = require('./_lib/pipeline');
+const { RESPONSE_SCHEMA } = require('./_lib/prompt');
 
 // Providers are tried in order, automatically: Gemini first (free tier available), then xAI Grok.
 // A provider with no key is skipped; if one fails (quota, no credits, outage) the next is tried.
@@ -47,7 +22,7 @@ function geminiModelOrder() {
     return [...new Set([...configured, ...GEMINI_DEFAULT_MODELS])];
 }
 
-async function callGeminiModel(model, apiKey, systemPrompt, description) {
+async function callGeminiModel(model, apiKey, systemPrompt, description, useSchema = true) {
     const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
@@ -56,20 +31,29 @@ async function callGeminiModel(model, apiKey, systemPrompt, description) {
             body: JSON.stringify({
                 systemInstruction: { parts: [{ text: systemPrompt }] },
                 contents: [{ role: 'user', parts: [{ text: description }] }],
-                generationConfig: { temperature: 0, responseMimeType: 'application/json' },
+                generationConfig: {
+                    temperature: 0,
+                    responseMimeType: 'application/json',
+                    ...(useSchema ? { responseSchema: RESPONSE_SCHEMA } : {}),
+                },
             }),
         }
     );
 
     if (!response.ok) {
         const errText = await response.text();
+        // A schema the model rejects (400) must not cost the whole request: retry the same model without it.
+        if (response.status === 400 && useSchema) {
+            return callGeminiModel(model, apiKey, systemPrompt, description, false);
+        }
         const err = new Error(`Gemini API error (${model}): ${response.status} ${errText}`);
         err.status = response.status;
         throw err;
     }
 
     const data = await response.json();
-    const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+    const parts =
+        data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
     return parts ? parts.map(p => p.text || '').join('') : '';
 }
 
@@ -108,6 +92,7 @@ async function callXai(systemPrompt, description) {
         body: JSON.stringify({
             model: process.env.XAI_MODEL || 'grok-latest',
             temperature: 0,
+            response_format: { type: 'json_object' },
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: description },
@@ -133,7 +118,10 @@ async function callModel(systemPrompt, description) {
     const errors = [];
     for (const name of providers) {
         try {
-            const text = name === 'gemini' ? await callGemini(systemPrompt, description) : await callXai(systemPrompt, description);
+            const text =
+                name === 'gemini'
+                    ? await callGemini(systemPrompt, description)
+                    : await callXai(systemPrompt, description);
             if (text) return text;
             errors.push(`${name}: empty response`);
         } catch (err) {
@@ -148,128 +136,6 @@ async function callModel(systemPrompt, description) {
     throw new Error(`${errors.join(' | ')}${skipped.length ? ` (${skipped.join('; ')})` : ''}`);
 }
 
-const ALL_STRATEGIES = ['accumulator', ...STRATEGY_IDS];
-
-function buildSystemPrompt() {
-    return `You turn a user's plain-English description of a Deriv trading bot into JSON settings. You do not write bot code.
-
-Respond ONLY with a raw JSON object, no markdown fences, no preamble, no explanation.
-
-"strategy" must be one of ${JSON.stringify(ALL_STRATEGIES)}:
-- "accumulator": accumulator contracts with a growth rate. Use it when the user mentions accumulator or growth rate, or names no strategy at all.
-- "rise_fall": rise/fall (call/put, higher/lower) contracts.
-- "even_odd": digit even/odd contracts.
-- "over_under": digit over/under contracts (needs a "prediction" digit).
-- "matches_differs": digit matches/differs contracts (needs a "prediction" digit).
-- "over_under_switch": digit over/under bot that trades TWO different over/under contracts in turns (one per trade), and can switch to a different pair of contracts after a loss until the next win. Use it whenever the user names more than one over/under contract, wants them alternated, or wants different contracts after a loss. Use plain "over_under" when there is only one contract.
-
-Always include:
-- "strategy"
-- "symbol": one of ${JSON.stringify(VALID_SYMBOLS)} (closest match to what the user described; default "1HZ100V")
-- "initial_stake": starting stake in USD (default 1 for non-accumulator, 10 for accumulator)
-- "take_profit": positive number in USD
-
-If strategy is "accumulator", also include:
-- "growth_rate": one of ${JSON.stringify(VALID_GROWTH_RATES)} as a string (default "0.01")
-- "martingale_size": the stake step added after a loss (default 10)
-- "profit_threshold": total profit at which the bot stops (default 10)
-- "loss_threshold": total loss at which the bot stops (default 10)
-For accumulator, "take_profit" is the take-profit per trade (default 10).
-
-For every other strategy, also include:
-- "direction": for rise_fall "rise" or "fall"; even_odd "even" or "odd"; over_under "over" or "under"; matches_differs "differs" or "matches"
-- "prediction": the digit 0-9 (only for over_under and matches_differs; over accepts 0-8, under accepts 1-9)
-- "duration_ticks": whole number of ticks per trade (rise_fall 5-10, others 1-10)
-- "martingale_multiplier": how much the stake is multiplied after a loss (2 = double, 1 = no martingale; default 2)
-- "take_profit": total profit in USD at which the bot stops (default 10)
-- "stop_loss": total loss in USD at which the bot stops (default 10)
-
-For \"over_under_switch\", do NOT use \"direction\" or \"prediction\". Instead include:
-- \"base_legs\": 1 or 2 objects {\"direction\":\"over\"|\"under\",\"digit\":n} traded in turns while the bot is winning (over accepts digits 0-8, under accepts 1-9)
-- \"recovery_legs\": 1 or 2 objects in the same shape, traded in turns after a loss until the next win. Omit it if the user does not ask for different contracts after a loss.
-plus the same duration_ticks, martingale_multiplier, take_profit and stop_loss fields as the other strategies.
-
-If the user does not mention a value, use the default. Never invent a symbol or strategy outside the allowed lists.
-
-Examples:
-"Volatility 100 index, 2% growth rate, stop at $20 profit or $15 loss" ->
-{"strategy":"accumulator","symbol":"R_100","growth_rate":"0.02","take_profit":10,"initial_stake":10,"martingale_size":10,"profit_threshold":20,"loss_threshold":15}
-"Rise on Volatility 75, 5 ticks, stake $2, double after a loss, stop at $30 profit or $20 loss" ->
-{"strategy":"rise_fall","symbol":"R_75","direction":"rise","duration_ticks":5,"initial_stake":2,"martingale_multiplier":2,"take_profit":30,"stop_loss":20}
-"Even digits on the 1 second Volatility 10 index, $1 stake, x2 martingale" ->
-{"strategy":"even_odd","symbol":"1HZ10V","direction":"even","duration_ticks":1,"initial_stake":1,"martingale_multiplier":2,"take_profit":10,"stop_loss":10}
-"Digit over 3 on Volatility 100, stake 0.5, stop at 5 profit" ->
-{"strategy":"over_under","symbol":"R_100","direction":"over","prediction":3,"duration_ticks":1,"initial_stake":0.5,"martingale_multiplier":2,"take_profit":5,"stop_loss":10}
-"Differs 7 on Volatility 50, no martingale" ->
-{"strategy":"matches_differs","symbol":"R_50","direction":"differs","prediction":7,"duration_ticks":1,"initial_stake":1,"martingale_multiplier":1,"take_profit":10,"stop_loss":10}
-"Trade under 7 and over 2 on Volatility 100 (1s), if I lose switch to over 3 and under 6, stake 1, double after a loss" ->
-{"strategy":"over_under_switch","symbol":"1HZ100V","base_legs":[{"direction":"under","digit":7},{"direction":"over","digit":2}],"recovery_legs":[{"direction":"over","digit":3},{"direction":"under","digit":6}],"duration_ticks":1,"initial_stake":1,"martingale_multiplier":2,"take_profit":10,"stop_loss":10}`;
-}
-
-function parseModelJson(text) {
-    const raw = String(text || '').replace(/```json|```/g, '').trim();
-    const first = raw.indexOf('{');
-    const last = raw.lastIndexOf('}');
-    const cleaned = first !== -1 && last > first ? raw.slice(first, last + 1) : raw;
-    try {
-        return JSON.parse(cleaned);
-    } catch (e) {
-        throw new Error('Could not parse model response as JSON');
-    }
-}
-
-function accumulatorParams(parsed) {
-    // Validate + sanitize every field against strict whitelists/ranges.
-    const symbol = VALID_SYMBOLS.includes(parsed.symbol) ? parsed.symbol : DEFAULTS.symbol;
-    const growth_rate = VALID_GROWTH_RATES.includes(String(parsed.growth_rate))
-        ? String(parsed.growth_rate)
-        : DEFAULTS.growth_rate;
-
-    return {
-        symbol,
-        growth_rate,
-        take_profit: clampPositiveNumber(parsed.take_profit, DEFAULTS.take_profit),
-        initial_stake: clampPositiveNumber(parsed.initial_stake, DEFAULTS.initial_stake),
-        martingale_size: clampPositiveNumber(parsed.martingale_size, DEFAULTS.martingale_size),
-        profit_threshold: clampPositiveNumber(parsed.profit_threshold, DEFAULTS.profit_threshold),
-        loss_threshold: clampPositiveNumber(parsed.loss_threshold, DEFAULTS.loss_threshold),
-    };
-}
-
-function accumulatorSummary(p) {
-    return [
-        ['Strategy', 'Accumulator'],
-        ['Symbol', p.symbol],
-        ['Growth rate', `${Math.round(Number(p.growth_rate) * 100)}%`],
-        ['Initial stake', `$${p.initial_stake}`],
-        ['Stake step', `$${p.martingale_size}`],
-        ['Take profit', `$${p.take_profit}`],
-        ['Stop at profit', `$${p.profit_threshold}`],
-        ['Stop at loss', `$${p.loss_threshold}`],
-    ];
-}
-
-// Returns { strategy, params, xml, summary } for whatever the user described.
-async function generateBot(description) {
-    const parsed = parseModelJson(await callModel(buildSystemPrompt(), description));
-
-    // An unknown or missing strategy falls back to Accumulator, the original behaviour.
-    const strategy = ALL_STRATEGIES.includes(parsed.strategy) ? parsed.strategy : 'accumulator';
-
-    if (strategy === 'accumulator') {
-        const params = accumulatorParams(parsed);
-        return { strategy, params, xml: fillBotTemplate(params), summary: accumulatorSummary(params) };
-    }
-
-    const params = normalizeStrategyParams(strategy, parsed);
-    return { strategy, params, xml: buildStrategyXml(strategy, params), summary: describeParams(params) };
-}
-
-// Plain Vercel serverless function handler (CommonJS — this project is a
-// static Rsbuild/React Router SPA, not Next.js, and the earlier TypeScript
-// version with ESM `import` syntax crashed at runtime because Node tried to
-// load the compiled output as CommonJS. Plain require/module.exports avoids
-// that ambiguity entirely).
 // Best-effort per-IP rate limit (in-memory, per serverless instance). It will not stop a distributed
 // flood, but it stops a single client from burning the Gemini / xAI quota with a loop.
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -277,7 +143,9 @@ const RATE_LIMIT_MAX = 8;
 const rateBuckets = new Map();
 
 function clientIp(req) {
-    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    const forwarded = String(req.headers['x-forwarded-for'] || '')
+        .split(',')[0]
+        .trim();
     return forwarded || (req.socket && req.socket.remoteAddress) || 'unknown';
 }
 
@@ -318,9 +186,21 @@ module.exports = async function handler(req, res) {
             return;
         }
 
-        const { strategy, params, xml, summary } = await generateBot(description);
+        // Optional: the bot being refined ("make the stake smaller"). Only plain, small JSON is accepted.
+        let previous;
+        const incoming = req.body && req.body.previous;
+        if (incoming && typeof incoming === 'object' && incoming.params && typeof incoming.params === 'object') {
+            if (JSON.stringify(incoming).length <= 6000)
+                previous = { strategy: incoming.strategy, params: incoming.params };
+        }
 
-        res.status(200).json({ xml, params, strategy, summary });
+        const { strategy, params, xml, summary, notes } = await generateBot({
+            description,
+            previous: previous && { ...previous.params, strategy: previous.strategy },
+            ask: callModel,
+        });
+
+        res.status(200).json({ xml, params, strategy, summary, notes: notes || [] });
     } catch (err) {
         console.error('generate-bot error:', err);
         res.status(500).json({ error: (err && err.message) || 'Failed to generate bot' });
