@@ -105,6 +105,14 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.fastSettledQueue = [];
         this.subscription_id_for_accumulators = null;
         this.is_proposal_requested_for_accumulators = false;
+        // Market switching state (set by the Alternate markets / Set active symbol blocks via Bot.* calls).
+        this.market_switch = {
+            forced_symbol: null,
+            alternate: { enabled: false, every: 1 },
+            current_symbol: null,
+            last_rotation_runs: -1,
+            warned_not_continuous: false,
+        };
         this.store = createStore(rootReducer, applyMiddleware(thunk));
     }
 
@@ -118,7 +126,9 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.is_turbo_mode = isTurboMode();
         this.startPromise = this.loginAndGetBalance(token);
 
-        if (!this.checkTicksPromiseExists()) this.watchTicks(symbol);
+        // After a restart-on-error the bot is re-initialised with the original market; keep following the market
+        // it had switched to so the tick stream and the trades stay on the same symbol.
+        if (!this.checkTicksPromiseExists()) this.watchTicks(this.market_switch.current_symbol || symbol);
     }
 
     start(tradeOptions) {
@@ -130,7 +140,10 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
 
         const validated_trade_options = this.validateTradeOptions(tradeOptions);
 
-        this.tradeOptions = { ...validated_trade_options, symbol: this.options.symbol };
+        // Decide which market this trade is on (Alternate markets / forced symbol) before building the options.
+        this.applyMarketSwitch();
+
+        this.tradeOptions = { ...validated_trade_options, symbol: this.getActiveSymbol() };
         this.store.dispatch(start());
         this.turboImmediate = this.is_turbo_mode;
         this.checkLimits(validated_trade_options);

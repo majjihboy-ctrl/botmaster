@@ -22,7 +22,7 @@ window.Blockly.Blocks.trade_definition_restartonerror = {
             nextStatement: null,
         });
 
-        this.setNextStatement(false);
+        this.setNextStatement(true);
         this.setMovable(false);
         this.setDeletable(false);
     },

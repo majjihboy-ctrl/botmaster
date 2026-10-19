@@ -159,6 +159,34 @@ export default class TicksService {
         }
     }
 
+    /**
+     * Fully release a symbol: drop its listeners and cached data and forget its tick/candle streams.
+     * Used when the bot switches to another market so the old stream stops and the symbol can be
+     * subscribed again later without an AlreadySubscribed error.
+     */
+    async releaseSymbol(symbol) {
+        if (!symbol) return;
+
+        const tick_id = this.subscriptions.getIn(['tick', symbol]);
+        const ohlc_subscriptions = this.subscriptions.getIn(['ohlc', symbol]);
+        const stream_ids = [tick_id, ...(ohlc_subscriptions ? Array.from(ohlc_subscriptions.values()) : [])].filter(
+            Boolean
+        );
+
+        this.tickListeners = this.tickListeners.delete(symbol);
+        this.ohlcListeners = this.ohlcListeners.delete(symbol);
+        this.ticks = this.ticks.delete(symbol);
+        this.candles = this.candles.delete(symbol);
+        this.subscriptions = this.subscriptions.deleteIn(['tick', symbol]).deleteIn(['ohlc', symbol]);
+        // Cached "request in flight" promises are keyed by options; clear them so the next request is fresh.
+        this.ticks_history_promise = null;
+        this.candles_promise = null;
+
+        if (api_base.api && stream_ids.length) {
+            await Promise.all(stream_ids.map(id => doUntilDone(() => api_base.api.forget(id)).catch(() => undefined)));
+        }
+    }
+
     unsubscribeAllAndSubscribeListeners(symbol) {
         const ohlcSubscriptions = this.subscriptions.getIn(['ohlc', symbol]);
 
@@ -269,6 +297,16 @@ export default class TicksService {
             if (!api_base.api) resolve([]);
             doUntilDone(() => api_base.api.send(request_object), ['AlreadySubscribed'], api_base)
                 .then(r => {
+                    // Remember the stream id so the stream can be forgotten when the bot switches
+                    // to another market (otherwise switching back gives AlreadySubscribed).
+                    const subscription_id = r?.subscription?.id;
+                    if (subscription_id) {
+                        this.subscriptions =
+                            style === 'ticks'
+                                ? this.subscriptions.setIn(['tick', symbol], subscription_id)
+                                : this.subscriptions.setIn(['ohlc', symbol, Number(granularity)], subscription_id);
+                    }
+
                     if (style === 'ticks') {
                         const ticks = historyToTicks(r.history);
 
