@@ -53,6 +53,19 @@ describe('AI Bot Builder access', () => {
         expect(result.error).toContain('CR999');
     });
 
+    it('sends the Deriv-App-ID header Deriv requires, and works with the new DOT… account ids', async () => {
+        process.env.NEXT_PUBLIC_DERIV_APP_ID = 'APP123';
+        process.env.AI_ALLOWED_ACCOUNTS = 'dot90004580';
+        mockFetch.mockResolvedValue(accounts(['DOT90004580']));
+        const { checkAccess } = load();
+        expect(await checkAccess(req(TOKEN))).toMatchObject({ ok: true });
+        expect(mockFetch.mock.calls[0][1].headers).toMatchObject({
+            'Deriv-App-ID': 'APP123',
+            Authorization: `Bearer ${TOKEN}`,
+        });
+        delete process.env.NEXT_PUBLIC_DERIV_APP_ID;
+    });
+
     it('caches a verified token so Deriv is not called on every request', async () => {
         process.env.AI_ALLOWED_ACCOUNTS = 'CR123';
         mockFetch.mockResolvedValue(accounts(['CR123']));

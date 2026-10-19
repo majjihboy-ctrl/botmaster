@@ -2,7 +2,8 @@
 //
 // The browser sends the user's Deriv OAuth access token (the same Bearer token the app uses). The
 // server asks Deriv which accounts that token owns and only continues if one of them is listed in the
-// AI_ALLOWED_ACCOUNTS environment variable (comma-separated loginids, e.g. "CR1234567,VRTC7654321").
+// AI_ALLOWED_ACCOUNTS environment variable (comma-separated account ids as Deriv returns them, e.g.
+// "DOT90004580,DOT90004581"; the old CR/VRTC style ids work too).
 // A loginid sent by the browser is never trusted; only Deriv's answer to the token is.
 //
 // Plain CommonJS so Vercel's Node runtime never has to guess the module system.
@@ -30,7 +31,11 @@ async function accountIdsForToken(token) {
     const hit = cache.get(key);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.ids;
 
-    const response = await fetch(ACCOUNTS_URL, { method: 'GET', headers: { Authorization: `Bearer ${token}` } });
+    // Deriv's accounts endpoint requires the Deriv-App-ID header next to the Bearer token.
+    const headers = { Authorization: `Bearer ${token}` };
+    const appId = process.env.NEXT_PUBLIC_DERIV_APP_ID || process.env.DERIV_APP_ID;
+    if (appId) headers['Deriv-App-ID'] = appId;
+    const response = await fetch(ACCOUNTS_URL, { method: 'GET', headers });
     if (!response.ok) return null;
     const body = await response.json().catch(() => null);
     const ids = ((body && body.data) || []).map(a => String(a.account_id || '').toUpperCase()).filter(Boolean);
