@@ -8,6 +8,8 @@ interface GeneratedBot {
     params: { symbol: string };
     // Label/value rows to show for the generated bot (built by the server for every strategy).
     summary?: [string, string][];
+    // Parts of the request that could not be put in the bot (never dropped silently).
+    unsupported?: string[];
 }
 
 const EXAMPLE_PROMPTS = [
@@ -16,6 +18,7 @@ const EXAMPLE_PROMPTS = [
     'Even digits on Volatility 10 (1s), $1 stake, x2 martingale',
     'Digit over 3 on Volatility 100, $0.50 stake, stop at $5 profit',
     'Differs 7 on Volatility 50, no martingale',
+    'Over 2 when digits 1, 2 and 0 have not appeared in 10 ticks. If I lose, over 4 when the last digit is 0 or 9. Show journals',
 ];
 
 const AiBotBuilder = () => {
@@ -70,7 +73,7 @@ const AiBotBuilder = () => {
                     <Localize i18n_default_text='AI Bot Builder' />
                 </h1>
                 <p className='ai-bot-builder__subtitle'>
-                    <Localize i18n_default_text='Describe the bot you want in plain English. Pick Accumulator, Rise/Fall, Even/Odd, Over/Under or Matches/Differs, with stake, martingale, take profit and stop loss — then download the file and import it into Bot Builder like any other bot.' />
+                    <Localize i18n_default_text='Describe the bot you want in plain English. Pick Accumulator, Rise/Fall, Even/Odd, Over/Under or Matches/Differs, with entry rules like "digits 1, 2, 0 not seen in 10 ticks", a recovery trade after a loss, stake, martingale, take profit and stop loss — then download the file and import it into Bot Builder like any other bot.' />
                 </p>
             </div>
 
@@ -126,6 +129,14 @@ const AiBotBuilder = () => {
                             </React.Fragment>
                         ))}
                     </dl>
+
+                    {result.unsupported && result.unsupported.length > 0 && (
+                        <div className='ai-bot-builder__error'>
+                            <span>
+                                <Localize i18n_default_text='Not built:' /> {result.unsupported.join(' • ')}
+                            </span>
+                        </div>
+                    )}
 
                     <button type='button' className='ai-bot-builder__download-btn' onClick={handleDownload}>
                         <Localize i18n_default_text='Download bot XML' />

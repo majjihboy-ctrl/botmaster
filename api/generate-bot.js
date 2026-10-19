@@ -6,6 +6,7 @@ const {
     buildStrategyXml,
     describeParams,
 } = require('./_lib/strategy-templates');
+const { normalizeDigitRules, buildDigitRulesXml, describeDigitRules } = require('./_lib/digit-rules');
 
 // Accumulator growth rate only accepts these five values on Deriv.
 const VALID_GROWTH_RATES = ['0.01', '0.02', '0.03', '0.04', '0.05'];
@@ -148,7 +149,7 @@ async function callModel(systemPrompt, description) {
     throw new Error(`${errors.join(' | ')}${skipped.length ? ` (${skipped.join('; ')})` : ''}`);
 }
 
-const ALL_STRATEGIES = ['accumulator', ...STRATEGY_IDS];
+const ALL_STRATEGIES = ['accumulator', ...STRATEGY_IDS, 'digit_rules'];
 
 function buildSystemPrompt() {
     return `You turn a user's plain-English description of a Deriv trading bot into JSON settings. You do not write bot code.
@@ -161,6 +162,7 @@ Respond ONLY with a raw JSON object, no markdown fences, no preamble, no explana
 - "even_odd": digit even/odd contracts.
 - "over_under": digit over/under contracts (needs a "prediction" digit).
 - "matches_differs": digit matches/differs contracts (needs a "prediction" digit).
+- "digit_rules": a digit contract that only buys when a tick pattern is met (digits not seen in the last N ticks, last digit is X, ...), optionally with a different trade after a loss. Use it whenever the user gives a CONDITION for entering ("if", "when", "wait for", "after a loss only if...").
 
 Always include:
 - "strategy"
@@ -183,6 +185,18 @@ For every other strategy, also include:
 - "take_profit": total profit in USD at which the bot stops (default 10)
 - "stop_loss": total loss in USD at which the bot stops (default 10)
 
+If strategy is "digit_rules", return (besides symbol, initial_stake, duration_ticks 1-10, martingale_multiplier, take_profit, stop_loss):
+- "entry": {"contract": one of ["DIGITOVER","DIGITUNDER","DIGITMATCH","DIGITDIFF","DIGITEVEN","DIGITODD"], "prediction": digit (not for even/odd; over 0-8, under 1-9), "when": [conditions]}
+- "recovery" (optional, only if the user wants a different trade after a loss): same shape as "entry". It must use the same family as entry (over/under with over/under, matches/differs with matches/differs, even/odd with even/odd).
+- "journal": true if the user asks for journal messages / notifications / logs, else false.
+- "unsupported": a list of short strings for every part of the request you could NOT put in the bot. NEVER silently drop anything.
+Each condition is one of:
+  {"type":"digits_absent","digits":[1,2,0],"ticks":10}  none of these digits appeared in the last N ticks
+  {"type":"last_digit_in","digits":[0,9]}  the last digit is one of these
+  {"type":"last_digit_not_in","digits":[4,5]}
+  {"type":"last_digits","ticks":3,"op":"LESS"|"LEQ"|"GREATER"|"GEQ"|"EQ"|"NEQ","digit":4}  the last N digits are all <op> the digit
+All conditions in "when" must be true together. A bot can have ONE entry rule and ONE recovery rule only: Deriv fixes the digit before each trade, so two entry rules that need different digits (for example "Over 2 when A, Under 7 when B") cannot both be armed. Build the first one and put the other in "unsupported".
+
 If the user does not mention a value, use the default. Never invent a symbol or strategy outside the allowed lists.
 
 Examples:
@@ -195,7 +209,9 @@ Examples:
 "Digit over 3 on Volatility 100, stake 0.5, stop at 5 profit" ->
 {"strategy":"over_under","symbol":"R_100","direction":"over","prediction":3,"duration_ticks":1,"initial_stake":0.5,"martingale_multiplier":2,"take_profit":5,"stop_loss":10}
 "Differs 7 on Volatility 50, no martingale" ->
-{"strategy":"matches_differs","symbol":"R_50","direction":"differs","prediction":7,"duration_ticks":1,"initial_stake":1,"martingale_multiplier":1,"take_profit":10,"stop_loss":10}`;
+{"strategy":"matches_differs","symbol":"R_50","direction":"differs","prediction":7,"duration_ticks":1,"initial_stake":1,"martingale_multiplier":1,"take_profit":10,"stop_loss":10}
+"Over 2 when digits 1, 2 and 0 have not appeared in 10 ticks, and if I lose then over 4 when the last digit is 0 or 9, show journals" ->
+{"strategy":"digit_rules","symbol":"1HZ100V","duration_ticks":1,"initial_stake":1,"martingale_multiplier":2,"take_profit":10,"stop_loss":10,"journal":true,"entry":{"contract":"DIGITOVER","prediction":2,"when":[{"type":"digits_absent","digits":[1,2,0],"ticks":10}]},"recovery":{"contract":"DIGITOVER","prediction":4,"when":[{"type":"last_digit_in","digits":[0,9]}]},"unsupported":[]}`;
 }
 
 function parseModelJson(text) {
@@ -253,6 +269,17 @@ async function generateBot(description) {
         return { strategy, params, xml: fillBotTemplate(params), summary: accumulatorSummary(params) };
     }
 
+    if (strategy === 'digit_rules') {
+        const built = buildDigitRulesXml(parsed);
+        return {
+            strategy,
+            params: built.params,
+            xml: built.xml,
+            summary: describeDigitRules(built.params),
+            unsupported: built.params.unsupported,
+        };
+    }
+
     const params = normalizeStrategyParams(strategy, parsed);
     return { strategy, params, xml: buildStrategyXml(strategy, params), summary: describeParams(params) };
 }
@@ -280,9 +307,9 @@ module.exports = async function handler(req, res) {
             return;
         }
 
-        const { strategy, params, xml, summary } = await generateBot(description);
+        const { strategy, params, xml, summary, unsupported } = await generateBot(description);
 
-        res.status(200).json({ xml, params, strategy, summary });
+        res.status(200).json({ xml, params, strategy, summary, unsupported: unsupported || [] });
     } catch (err) {
         console.error('generate-bot error:', err);
         res.status(500).json({ error: (err && err.message) || 'Failed to generate bot' });
