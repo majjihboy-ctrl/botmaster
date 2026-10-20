@@ -43,6 +43,10 @@ const EXAMPLES: { tag: string; text: string }[] = [
         tag: 'Indicator',
         text: "Rise on Volatility 100 (1s) when RSI(14) is below 30. 5 ticks, D'Alembert with $0.50 steps, stop at $10 profit or loss",
     },
+    {
+        tag: 'Digit rules',
+        text: 'Over 2 when digits 1, 2 and 0 have not appeared in 10 ticks. If I lose, over 4 when the last digit is 0 or 9. Show journals',
+    },
     { tag: 'Accumulator', text: 'Volatility 100 index, 2% growth rate, stop at $20 profit or $15 loss' },
 ];
 
@@ -185,7 +189,7 @@ const AiBotBuilder = observer(() => {
                         <Localize i18n_default_text='Entry filters, recovery contracts, stake systems and risk stops. The AI only picks the settings; every bot is built from tested blocks and checked before you see it.' />
                     </p>
                     <ul className='ai-bot-builder__capabilities'>
-                        {['Entry filters', 'Recovery legs', 'Stake systems', 'Risk stops'].map(c => (
+                        {['Entry filters', 'Digit rules', 'Recovery legs', 'Stake systems', 'Risk stops'].map(c => (
                             <li key={c}>{localize(c)}</li>
                         ))}
                     </ul>

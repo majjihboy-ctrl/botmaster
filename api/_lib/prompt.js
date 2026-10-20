@@ -162,6 +162,27 @@ const EXAMPLES = [
         },
     },
     {
+        // Digit-pattern rules with their own recovery rule and journal messages ("digit_rules").
+        prompt: 'Over 2 when digits 1, 2 and 0 have not appeared in 10 ticks. If I lose, over 4 when the last digit is 0 or 9. Show journals',
+        spec: {
+            strategy: 'digit_rules',
+            symbol: '1HZ100V',
+            duration_ticks: 1,
+            initial_stake: 1,
+            martingale_multiplier: 2,
+            take_profit: 10,
+            stop_loss: 10,
+            journal: true,
+            entry: {
+                contract: 'DIGITOVER',
+                prediction: 2,
+                when: [{ type: 'digits_absent', digits: [1, 2, 0], ticks: 10 }],
+            },
+            recovery: { contract: 'DIGITOVER', prediction: 4, when: [{ type: 'last_digit_in', digits: [0, 9] }] },
+            unsupported: [],
+        },
+    },
+    {
         prompt: 'Differs 7 on Volatility 50, flat $1 stake, stop at $5 profit',
         spec: {
             strategy: 'matches_differs',
@@ -188,12 +209,13 @@ function buildSystemPrompt(previous) {
 
 Respond ONLY with one raw JSON object: no markdown fences, no preamble, no explanation. Omit fields the user did not mention (defaults are applied).
 
-"strategy" is one of ${JSON.stringify(['accumulator', ...SPEC_STRATEGIES])}:
+"strategy" is one of ${JSON.stringify(['accumulator', ...SPEC_STRATEGIES, 'digit_rules'])}:
 - "accumulator": accumulator contracts. Use it when the user mentions accumulator or growth rate, or names no strategy at all.
 - "rise_fall": rise/fall (call/put).  direction: "rise" | "fall".  duration_ticks 5-10.
 - "even_odd": digit even/odd.  direction: "even" | "odd".  duration_ticks 1-10.
 - "over_under": digit over/under.  direction: "over" (digit 0-8) | "under" (digit 1-9).  duration_ticks 1-10.
 - "matches_differs": digit matches/differs.  direction: "differs" | "matches" (digit 0-9).  duration_ticks 1-10.
+- "digit_rules": a digit contract that only buys when a tick-digit pattern holds, optionally with a DIFFERENT trade (with its own pattern) after a loss, and optional journal messages. Use it when the user gives a digit pattern the "entries" types below cannot express ("digits 1, 2 and 0 have not appeared in the last 10 ticks", "the last digit is 0 or 9") or when the recovery trade needs its own entry condition. Fields described under "digit_rules" below.
 
 Always: "symbol" (one of ${JSON.stringify(VALID_SYMBOLS)}; default "1HZ100V"), "initial_stake" (USD, minimum 0.35), "take_profit" and "stop_loss" (positive USD).
 Digit strategies (over_under, matches_differs) also take "prediction": the barrier digit.
@@ -213,6 +235,14 @@ Optional modules for every non-accumulator strategy:
 - Stake: "stake_mode": ${JSON.stringify(STAKE_MODES)} (default "martingale"). "martingale_multiplier" 1-10 (default 2), "stake_step" (dalembert), "max_stake" (cap in USD), "reset_after_losses" (go back to the initial stake after N losses in a row).
 - Extra stops: "max_consecutive_losses", "max_runs".
 - "unsupported": an array of short phrases (copied from the request) for anything the user asked for that none of the options above can express, for example time-of-day rules, news, waiting for N losses before the first trade, or custom code. NEVER silently drop a condition: every condition in the request must end up in "entries" or in "unsupported".
+
+digit_rules fields (instead of the optional modules above): besides symbol, duration_ticks 1-10, initial_stake, martingale_multiplier, take_profit and stop_loss:
+- "entry": {"contract": "DIGITOVER"|"DIGITUNDER"|"DIGITMATCH"|"DIGITDIFF"|"DIGITEVEN"|"DIGITODD", "prediction": digit (not for even/odd; over 0-8, under 1-9), "when": [conditions]}
+- "recovery" (optional, only when the user wants a different trade after a loss): same shape, same contract family as "entry" (over/under with over/under, matches/differs with matches/differs, even/odd with even/odd).
+- "journal": true if the user asks for journal messages, notifications or logs.
+- Conditions in "when" (all must hold): {"type":"digits_absent","digits":[1,2,0],"ticks":10} (none of these digits appeared in the last N ticks), {"type":"last_digit_in","digits":[0,9]}, {"type":"last_digit_not_in","digits":[4,5]}, {"type":"last_digits","ticks":3,"op":"LESS"|"LEQ"|"GREATER"|"GEQ"|"EQ"|"NEQ","digit":4} (the last N digits all satisfy it).
+- A digit_rules bot has ONE entry rule and ONE recovery rule: two entry rules that need different digits cannot both be armed, so build the first one and list the other in "unsupported".
+- "unsupported": short phrases for every part of the request you could not build. Never drop anything silently.
 
 Accumulator fields instead: "growth_rate" one of ${JSON.stringify(VALID_GROWTH_RATES)} (string, default "0.01"), "initial_stake" (default 10), "take_profit" per trade (default 10), "martingale_size" stake step after a loss (default 10), "profit_threshold" and "loss_threshold" total stops (default 10).
 
@@ -246,10 +276,35 @@ const ENTRY_SCHEMA = {
         value: { type: 'NUMBER' },
     },
 };
+const RULE_SCHEMA = {
+    type: 'OBJECT',
+    properties: {
+        ...ENTRY_SCHEMA.properties,
+        direction: { type: 'STRING' },
+        contract: {
+            type: 'STRING',
+            enum: ['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF', 'DIGITEVEN', 'DIGITODD'],
+        },
+        prediction: { type: 'INTEGER' },
+        when: {
+            type: 'ARRAY',
+            items: {
+                type: 'OBJECT',
+                properties: {
+                    type: { type: 'STRING' },
+                    digits: { type: 'ARRAY', items: { type: 'INTEGER' } },
+                    ticks: { type: 'INTEGER' },
+                    op: { type: 'STRING' },
+                    digit: { type: 'INTEGER' },
+                },
+            },
+        },
+    },
+};
 const RESPONSE_SCHEMA = {
     type: 'OBJECT',
     properties: {
-        strategy: { type: 'STRING', enum: ['accumulator', ...SPEC_STRATEGIES] },
+        strategy: { type: 'STRING', enum: ['accumulator', ...SPEC_STRATEGIES, 'digit_rules'] },
         symbol: { type: 'STRING', enum: VALID_SYMBOLS },
         direction: { type: 'STRING' },
         prediction: { type: 'INTEGER' },
@@ -259,7 +314,11 @@ const RESPONSE_SCHEMA = {
         entries: { type: 'ARRAY', items: ENTRY_SCHEMA },
         entry_logic: { type: 'STRING', enum: ['all', 'any'] },
         unsupported: { type: 'ARRAY', items: { type: 'STRING' } },
-        entry: ENTRY_SCHEMA,
+        // digit_rules uses entry/recovery as {contract, prediction, when[]}; the other strategies use a single
+        // entry condition and a {direction, digit} recovery leg. One loose shape covers both.
+        entry: RULE_SCHEMA,
+        recovery: RULE_SCHEMA,
+        journal: { type: 'BOOLEAN' },
         initial_stake: { type: 'NUMBER' },
         stake_mode: { type: 'STRING', enum: STAKE_MODES },
         martingale_multiplier: { type: 'NUMBER' },

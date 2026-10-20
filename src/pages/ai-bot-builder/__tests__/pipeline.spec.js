@@ -120,6 +120,52 @@ describe('conditions are never silently dropped', () => {
     });
 });
 
+describe('digit_rules strategy', () => {
+    const rules = {
+        strategy: 'digit_rules',
+        journal: true,
+        entry: {
+            contract: 'DIGITOVER',
+            prediction: 2,
+            when: [{ type: 'digits_absent', digits: [1, 2, 0], ticks: 10 }],
+        },
+        recovery: { contract: 'DIGITOVER', prediction: 4, when: [{ type: 'last_digit_in', digits: [0, 9] }] },
+        unsupported: ['send me a telegram alert'],
+    };
+
+    it('builds digit pattern entry + recovery rules and reports what it could not build', async () => {
+        const { ask } = scripted([rules]);
+        const result = await generateBot({
+            description: 'over 2 when digits 1, 2 and 0 are absent in 10 ticks, then over 4 after a loss',
+            ask,
+        });
+        expect(result.errors).toEqual([]);
+        expect(result.strategy).toBe('digit_rules');
+        expect(result.notes).toEqual(['Not built: send me a telegram alert']);
+        expect(result.summary.find(([k]) => k === 'After a loss')[1]).toMatch(/Over 4/);
+        expect(ask).toHaveBeenCalledTimes(1); // conditional wording must not trigger the "dropped condition" retry
+    });
+
+    it('can be refined: the current rules are part of the prompt and survive a round trip', async () => {
+        const first = compileBot(rules);
+        const { ask, calls } = scripted([{ ...first.params, initial_stake: 2 }]);
+        const result = await generateBot({ description: 'stake $2', previous: first.params, ask });
+        expect(calls[0].system).toContain('digits_absent');
+        expect(result.params.initial_stake).toBe(2);
+        expect(result.params.recovery.prediction).toBe(4);
+    });
+
+    it('produces valid XML for every contract family', () => {
+        for (const contract of ['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF', 'DIGITEVEN', 'DIGITODD']) {
+            const out = compileBot({
+                strategy: 'digit_rules',
+                entry: { contract, prediction: 3, when: [{ type: 'last_digit_in', digits: [1] }] },
+            });
+            expect(out.errors).toEqual([]);
+        }
+    });
+});
+
 describe('compileBot', () => {
     it('keeps the legacy over_under_switch id working', () => {
         const result = compileBot({

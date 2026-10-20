@@ -27,6 +27,7 @@ const ALLOWED_BLOCKS = new Set([
     'math_number_positive',
     'math_arithmetic',
     'variables_get',
+    'logic_boolean',
     'variables_set',
     'text',
     'contract_check_result',
@@ -142,9 +143,8 @@ function validateBotXml(xml, { strict = true } = {}) {
     const hasPredictionValue = /<value name="PREDICTION">/.test(xml);
     if (hasPredictionMutation !== hasPredictionValue) errors.push('Prediction setting and barrier digit do not match.');
 
-    const stake = /<value name="AMOUNT"><shadow type="math_number_positive"><field name="NUM">([^<]*)<\/field>/.exec(
-        xml
-    );
+    const stake =
+        /<value name="AMOUNT">\s*<shadow type="math_number_positive">\s*<field name="NUM">([^<]*)<\/field>/.exec(xml);
     if (!stake || Number(stake[1]) < MIN_STAKE) errors.push(`Initial stake must be at least ${MIN_STAKE}.`);
 
     return errors;

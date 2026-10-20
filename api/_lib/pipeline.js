@@ -7,11 +7,12 @@ const { fillBotTemplate } = require('./bot-template');
 const { VALID_SYMBOLS } = require('./strategy-templates');
 const { SPEC_STRATEGIES, normalizeSpec, validateRaw } = require('./bot-spec');
 const { buildAdvancedXml, describeSpec } = require('./advanced-bot');
+const { buildDigitRulesXml, describeDigitRules } = require('./digit-rules');
 const { validateBotXml } = require('./validate-xml');
 const { buildSystemPrompt, VALID_GROWTH_RATES } = require('./prompt');
 
 const MAX_ATTEMPTS = 3;
-const ALL_STRATEGIES = ['accumulator', ...SPEC_STRATEGIES];
+const ALL_STRATEGIES = ['accumulator', ...SPEC_STRATEGIES, 'digit_rules'];
 
 const ACCUMULATOR_DEFAULTS = {
     symbol: '1HZ100V',
@@ -63,7 +64,7 @@ function accumulatorSummary(p) {
 // condition and nothing reported as unsupported was most likely dropped by the model.
 const CONDITION_WORDS = /\b(when|whenever|only|wait(?:s|ing)?|until|once|unless|as soon as|crosses?|if)\b/i;
 function ignoredCondition(description, result, parsed) {
-    if (result.strategy === 'accumulator' || !result.params) return false;
+    if (result.strategy === 'accumulator' || result.strategy === 'digit_rules' || !result.params) return false;
     const spec = result.params;
     if (spec.entry.type !== 'none' || spec.recovery_legs.length > 0) return false;
     if (Array.isArray(parsed.unsupported) && parsed.unsupported.length) return false;
@@ -91,6 +92,22 @@ function compileBot(parsed) {
 
     const issues = validateRaw(input, ALL_STRATEGIES);
     if (issues.length) return { errors: issues };
+
+    if (input.strategy === 'digit_rules') {
+        // Entry/recovery rules on digit patterns (digits not seen, last digit in a set, ...). Anything the
+        // compiler could not build comes back in params.unsupported and is shown to the user, never dropped.
+        const built = buildDigitRulesXml(input);
+        const errors = validateBotXml(built.xml);
+        return {
+            errors,
+            strategy: 'digit_rules',
+            params: built.params,
+            xml: built.xml,
+            summary: describeDigitRules(built.params),
+            notes: built.params.unsupported.map(item => `Not built: ${item}`),
+            parsed: input,
+        };
+    }
 
     if (input.strategy === 'accumulator') {
         const params = accumulatorParams(input);
