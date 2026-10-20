@@ -41,6 +41,7 @@ const ALLOWED_BLOCKS = new Set([
     'ticks',
     'rsi_statement',
     'sma_statement',
+    'ema_statement',
     'input_list',
     'period',
 ]);

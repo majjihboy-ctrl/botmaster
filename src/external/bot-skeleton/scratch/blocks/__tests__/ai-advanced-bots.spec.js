@@ -99,6 +99,7 @@ function simulate(workspace, profits, analysis = {}) {
         getTicks: () => [1, 2, 3],
         rsi: () => (analysis.rsi !== undefined ? analysis.rsi : 50),
         sma: () => (analysis.sma !== undefined ? analysis.sma : 100),
+        ema: () => (analysis.ema !== undefined ? analysis.ema : 100),
     };
 
     let ranOut = false;
@@ -156,6 +157,8 @@ const ENTRIES = [
     { type: 'direction', direction: 'rise' },
     { type: 'rsi', period: 14, op: 'LT', level: 30 },
     { type: 'sma', period: 20, op: 'GT' },
+    { type: 'ema', period: 20, op: 'LT' },
+    { type: 'price', op: 'GT', value: 1234.5 },
 ];
 const STAKES = [
     { stake_mode: 'martingale', martingale_multiplier: 2 },
@@ -180,7 +183,7 @@ Object.keys(LEGS).forEach(strategy => {
                     strategy,
                     symbol: 'R_75',
                     duration_ticks: 5,
-                    entry,
+                    entries: [entry],
                     ...shape.extra(strategy),
                     ...stake,
                     max_consecutive_losses: 4,
@@ -309,7 +312,7 @@ describe('entry conditions', () => {
     };
 
     it('waits until the entry condition holds before buying', () => {
-        const raw = { ...base, entry: { type: 'last_digit', op: 'EQ', digit: 1 } };
+        const raw = { ...base, entries: [{ type: 'last_digit', op: 'EQ', digit: 1 }] };
         let polls = 0;
         const { stakes, contracts } = simulate(loadXml(build(raw).xml), [1, 1], {
             lastDigit: () => {
@@ -323,7 +326,7 @@ describe('entry conditions', () => {
     });
 
     it('after_loss: trades straight away until a loss, then waits for the entry', () => {
-        const raw = { ...base, entry: { type: 'last_digit', op: 'EQ', digit: 1, apply: 'after_loss' } };
+        const raw = { ...base, entries: [{ type: 'last_digit', op: 'EQ', digit: 1, apply: 'after_loss' }] };
         const digitsSeen = [];
         const { contracts } = simulate(loadXml(build(raw).xml), [-1, 5], {
             lastDigit: (lastWon, waited) => {
@@ -358,9 +361,58 @@ describe('entry conditions', () => {
     });
 
     it('digit percentage entry compares against the minimum', () => {
-        const raw = { ...base, entry: { type: 'digit_percent', side: 'over', digit: 1, ticks: 100, min_percent: 60 } };
+        const raw = {
+            ...base,
+            entries: [{ type: 'digit_percent', side: 'over', digit: 1, ticks: 100, min_percent: 60 }],
+        };
         expect(simulate(loadXml(build(raw).xml), [1], { overUnderPercent: () => 59 }).ranOut).toBe('never_entered');
         expect(simulate(loadXml(build(raw).xml), [1], { overUnderPercent: () => 60 }).contracts[0]).toBe('DIGITOVER');
+    });
+});
+
+describe('several conditions', () => {
+    const base = {
+        strategy: 'over_under',
+        direction: 'over',
+        prediction: 1,
+        initial_stake: 1,
+        take_profit: 500,
+        stop_loss: 500,
+    };
+    const entries = [
+        { type: 'last_digit', op: 'EQ', digit: 1 },
+        { type: 'rsi', period: 14, op: 'LT', level: 30 },
+    ];
+
+    it('ALL: buys only when every condition holds', () => {
+        const raw = { ...base, entries, entry_logic: 'all' };
+        const run = (digit, rsi) => simulate(loadXml(build(raw).xml), [1], { lastDigit: () => digit, rsi });
+        expect(run(1, 50).ranOut).toBe('never_entered');
+        expect(run(7, 20).ranOut).toBe('never_entered');
+        expect(run(1, 20).contracts[0]).toBe('DIGITOVER');
+    });
+
+    it('ANY: buys when at least one condition holds', () => {
+        const raw = { ...base, entries, entry_logic: 'any' };
+        const run = (digit, rsi) => simulate(loadXml(build(raw).xml), [1], { lastDigit: () => digit, rsi });
+        expect(run(7, 50).ranOut).toBe('never_entered');
+        expect(run(1, 50).contracts[0]).toBe('DIGITOVER');
+        expect(run(7, 20).contracts[0]).toBe('DIGITOVER');
+    });
+
+    it('price and EMA conditions load and gate the purchase', () => {
+        const raw = {
+            strategy: 'rise_fall',
+            direction: 'rise',
+            entries: [
+                { type: 'ema', period: 20, op: 'GT' },
+                { type: 'price', op: 'GT', value: 1200 },
+            ],
+            entry_logic: 'all',
+        };
+        const xml = build(raw).xml;
+        expect(validateBotXml(xml)).toEqual([]);
+        expect(simulate(loadXml(xml), [1], { sma: 100 }).code).toContain('Bot.ema(');
     });
 });
 

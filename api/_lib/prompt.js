@@ -48,7 +48,7 @@ const EXAMPLES = [
             direction: 'over',
             prediction: 1,
             duration_ticks: 1,
-            entry: { type: 'last_digit', op: 'EQ', digit: 1, apply: 'after_loss' },
+            entries: [{ type: 'last_digit', op: 'EQ', digit: 1, apply: 'after_loss' }],
             initial_stake: 1,
             stake_mode: 'martingale',
             martingale_multiplier: 2,
@@ -124,6 +124,44 @@ const EXAMPLES = [
         },
     },
     {
+        prompt: 'Under 6 on Volatility 100 (1s) when the last digit is below 3 and RSI(10) is under 35, flat $1 stake',
+        spec: {
+            strategy: 'over_under',
+            symbol: '1HZ100V',
+            direction: 'under',
+            prediction: 6,
+            entries: [
+                { type: 'last_digit', op: 'LT', digit: 3 },
+                { type: 'rsi', period: 10, op: 'LT', level: 35 },
+            ],
+            entry_logic: 'all',
+            initial_stake: 1,
+            stake_mode: 'flat',
+            take_profit: 10,
+            stop_loss: 10,
+        },
+    },
+    {
+        prompt: 'Rise on Volatility 75 when price is above the 20 EMA or above 1200, but only in the evening and only after 2 losses',
+        spec: {
+            strategy: 'rise_fall',
+            symbol: 'R_75',
+            direction: 'rise',
+            duration_ticks: 5,
+            entries: [
+                { type: 'ema', period: 20, op: 'GT' },
+                { type: 'price', op: 'GT', value: 1200 },
+            ],
+            entry_logic: 'any',
+            unsupported: ['only in the evening', 'only after 2 losses'],
+            initial_stake: 1,
+            stake_mode: 'martingale',
+            martingale_multiplier: 2,
+            take_profit: 10,
+            stop_loss: 10,
+        },
+    },
+    {
         prompt: 'Differs 7 on Volatility 50, flat $1 stake, stop at $5 profit',
         spec: {
             strategy: 'matches_differs',
@@ -162,20 +200,23 @@ Digit strategies (over_under, matches_differs) also take "prediction": the barri
 
 Optional modules for every non-accumulator strategy:
 - Several contracts: "base_legs": 1-2 objects {"direction":..., "digit":n} traded in turns. "recovery_legs": 1-2 objects in the same shape, traded after a loss until the next win. (For a single contract use "direction"/"prediction".)
-- "entry": only trade when a condition holds, otherwise wait for the next tick. "apply":"after_loss" means the first trade (and trades after a win) go straight in and the condition is only required while recovering from a loss. Types:
+- "entries": a list of 1-3 conditions; the bot only trades when they hold, otherwise it waits for the next tick. "entry_logic": "all" (every condition, default) or "any" (at least one). The first condition's "apply":"after_loss" means the first trade (and trades after a win) go straight in and the conditions are only required while recovering from a loss. Each condition is one of these types (at most one rsi, one sma and one ema):
   {"type":"last_digit","op":"EQ"|"NEQ"|"LT"|"LTE"|"GT"|"GTE","digit":0-9}
   {"type":"last_digits","count":1-20,"op":"LT"|"LTE"|"GT"|"GTE"|"EQ"|"NEQ","digit":0-9}   (the last N digits ALL satisfy it)
   {"type":"digit_percent","side":"over"|"under","digit":0-9,"ticks":10-1000,"min_percent":1-100}
   {"type":"parity_percent","parity":"even"|"odd","ticks":10-1000,"min_percent":1-100}
   {"type":"direction","direction":"rise"|"fall"}   (the market just moved that way)
   {"type":"rsi","period":2-50,"op":"LT"|"GT","level":1-99}
-  {"type":"sma","period":2-100,"op":"GT"|"LT"}   (last price above/below the moving average)
+  {"type":"sma","period":2-100,"op":"GT"|"LT"}   (last price above/below the simple moving average)
+  {"type":"ema","period":2-100,"op":"GT"|"LT"}   (last price above/below the exponential moving average)
+  {"type":"price","op":"GT"|"LT","value":number}   (last price above/below a fixed level)
 - Stake: "stake_mode": ${JSON.stringify(STAKE_MODES)} (default "martingale"). "martingale_multiplier" 1-10 (default 2), "stake_step" (dalembert), "max_stake" (cap in USD), "reset_after_losses" (go back to the initial stake after N losses in a row).
 - Extra stops: "max_consecutive_losses", "max_runs".
+- "unsupported": an array of short phrases (copied from the request) for anything the user asked for that none of the options above can express, for example time-of-day rules, news, waiting for N losses before the first trade, or custom code. NEVER silently drop a condition: every condition in the request must end up in "entries" or in "unsupported".
 
 Accumulator fields instead: "growth_rate" one of ${JSON.stringify(VALID_GROWTH_RATES)} (string, default "0.01"), "initial_stake" (default 10), "take_profit" per trade (default 10), "martingale_size" stake step after a loss (default 10), "profit_threshold" and "loss_threshold" total stops (default 10).
 
-Allowed entry types: ${JSON.stringify(ENTRY_TYPES.filter(t => t !== 'none'))}. Never invent a symbol, strategy, entry type or stake mode outside the lists. If the user asks for something these options cannot express, build the closest bot that they can.
+Allowed entry types: ${JSON.stringify(ENTRY_TYPES.filter(t => t !== 'none'))}. Never invent a symbol, strategy, entry type or stake mode outside the lists. If part of the request cannot be expressed, build the closest bot you can and list that part in "unsupported".
 
 Examples:
 
@@ -187,6 +228,24 @@ const leg = {
     type: 'OBJECT',
     properties: { direction: { type: 'STRING' }, digit: { type: 'INTEGER' } },
 };
+const ENTRY_SCHEMA = {
+    type: 'OBJECT',
+    properties: {
+        type: { type: 'STRING', enum: ENTRY_TYPES },
+        apply: { type: 'STRING', enum: ['always', 'after_loss'] },
+        op: { type: 'STRING' },
+        digit: { type: 'INTEGER' },
+        count: { type: 'INTEGER' },
+        side: { type: 'STRING', enum: ['over', 'under'] },
+        parity: { type: 'STRING', enum: ['even', 'odd'] },
+        direction: { type: 'STRING', enum: ['rise', 'fall'] },
+        ticks: { type: 'INTEGER' },
+        min_percent: { type: 'INTEGER' },
+        period: { type: 'INTEGER' },
+        level: { type: 'INTEGER' },
+        value: { type: 'NUMBER' },
+    },
+};
 const RESPONSE_SCHEMA = {
     type: 'OBJECT',
     properties: {
@@ -197,23 +256,10 @@ const RESPONSE_SCHEMA = {
         duration_ticks: { type: 'INTEGER' },
         base_legs: { type: 'ARRAY', items: leg },
         recovery_legs: { type: 'ARRAY', items: leg },
-        entry: {
-            type: 'OBJECT',
-            properties: {
-                type: { type: 'STRING', enum: ENTRY_TYPES },
-                apply: { type: 'STRING', enum: ['always', 'after_loss'] },
-                op: { type: 'STRING' },
-                digit: { type: 'INTEGER' },
-                count: { type: 'INTEGER' },
-                side: { type: 'STRING', enum: ['over', 'under'] },
-                parity: { type: 'STRING', enum: ['even', 'odd'] },
-                direction: { type: 'STRING', enum: ['rise', 'fall'] },
-                ticks: { type: 'INTEGER' },
-                min_percent: { type: 'INTEGER' },
-                period: { type: 'INTEGER' },
-                level: { type: 'INTEGER' },
-            },
-        },
+        entries: { type: 'ARRAY', items: ENTRY_SCHEMA },
+        entry_logic: { type: 'STRING', enum: ['all', 'any'] },
+        unsupported: { type: 'ARRAY', items: { type: 'STRING' } },
+        entry: ENTRY_SCHEMA,
         initial_stake: { type: 'NUMBER' },
         stake_mode: { type: 'STRING', enum: STAKE_MODES },
         martingale_multiplier: { type: 'NUMBER' },

@@ -59,6 +59,17 @@ function accumulatorSummary(p) {
     ];
 }
 
+// A request that sounds conditional ("when", "only if", "wait until", ...) but produced a bot with no entry
+// condition and nothing reported as unsupported was most likely dropped by the model.
+const CONDITION_WORDS = /\b(when|whenever|only|wait(?:s|ing)?|until|once|unless|as soon as|crosses?|if)\b/i;
+function ignoredCondition(description, result, parsed) {
+    if (result.strategy === 'accumulator' || !result.params) return false;
+    const spec = result.params;
+    if (spec.entry.type !== 'none' || spec.recovery_legs.length > 0) return false;
+    if (Array.isArray(parsed.unsupported) && parsed.unsupported.length) return false;
+    return CONDITION_WORDS.test(description);
+}
+
 function parseModelJson(text) {
     const raw = String(text || '')
         .replace(/```json|```/g, '')
@@ -91,13 +102,14 @@ function compileBot(parsed) {
     const { spec, notes } = normalizeSpec(input);
     const xml = buildAdvancedXml(spec);
     const errors = validateBotXml(xml);
-    return { errors, strategy: spec.strategy, params: spec, xml, summary: describeSpec(spec), notes };
+    return { errors, strategy: spec.strategy, params: spec, xml, summary: describeSpec(spec), notes, parsed: input };
 }
 
 // `ask(systemPrompt, userText)` returns the model's raw text and throws if no provider is reachable.
 async function generateBot({ description, previous, ask }) {
     const system = buildSystemPrompt(previous);
     let feedback = '';
+    let coverageRetried = false;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
         const userText = feedback
@@ -114,8 +126,26 @@ async function generateBot({ description, previous, ask }) {
         }
 
         const result = compileBot(parsed);
-        if (result.errors.length === 0) return result;
-        feedback = result.errors.slice(0, 5).join(' ');
+        if (result.errors.length) {
+            feedback = result.errors.slice(0, 5).join(' ');
+            continue;
+        }
+
+        if (!previous && ignoredCondition(description, result, parsed)) {
+            if (!coverageRetried && attempt < MAX_ATTEMPTS - 1) {
+                coverageRetried = true;
+                feedback =
+                    'the request describes a condition, but "entries" is empty and "unsupported" is empty. ' +
+                    'Put every condition from the request into "entries" using the allowed entry types, or list the ones that cannot be expressed in "unsupported".';
+                continue;
+            }
+            result.notes = [
+                ...result.notes,
+                'No entry condition was applied, so the bot trades on every run. If you wanted one, describe it with digits, a percentage, RSI/SMA/EMA, a price level or market direction.',
+            ];
+        }
+        delete result.parsed;
+        return result;
     }
 
     if (previous) {

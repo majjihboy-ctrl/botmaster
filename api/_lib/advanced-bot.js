@@ -18,6 +18,7 @@ const VAR_IDS = {
     recovery: 'bm_recovery_var',
     rsi: 'bm_rsi_var',
     sma: 'bm_sma_var',
+    ema: 'bm_ema_var',
 };
 
 const esc = text =>
@@ -115,6 +116,10 @@ function entryCondition(entry) {
             return cmp(entry.op, getV('rsi'), num(entry.level));
         case 'sma':
             return cmp(entry.op, '<block type="tick"></block>', getV('sma'));
+        case 'ema':
+            return cmp(entry.op, '<block type="tick"></block>', getV('ema'));
+        case 'price':
+            return cmp(entry.op, '<block type="tick"></block>', num(entry.value));
         default:
             return null;
     }
@@ -126,6 +131,7 @@ function entryPrelude(entry) {
         `<block type="${type}"><field name="VARIABLE" id="${VAR_IDS[varName]}">${varName}</field><statement name="STATEMENT"><block type="input_list"><value name="INPUT_LIST"><block type="ticks"></block></value><next><block type="period"><value name="PERIOD">${num(period)}</value></block></next></block></statement></block>`;
     if (entry.type === 'rsi') return indicator('rsi_statement', 'rsi', entry.period);
     if (entry.type === 'sma') return indicator('sma_statement', 'sma', entry.period);
+    if (entry.type === 'ema') return indicator('ema_statement', 'ema', entry.period);
     return '';
 }
 
@@ -140,14 +146,19 @@ function purchaseBlock(spec, lay) {
     return purchase(lay.contractOf(lay.baseLegs[0]));
 }
 
+const entriesOf = spec => [spec.entry, ...(spec.extra_entries || [])].filter(e => e && e.type !== 'none');
+
 function beforePurchaseStack(spec, lay) {
     const buy = purchaseBlock(spec, lay);
-    const cond = entryCondition(spec.entry);
-    if (!cond) return buy;
+    const entries = entriesOf(spec);
+    if (entries.length === 0) return buy;
+    // All conditions together (AND) or any one of them (OR).
+    const op = spec.entry_logic === 'any' ? 'OR' : 'AND';
+    const cond = entries.map(entryCondition).reduce((a, b) => logic(op, a, b));
     // "after_loss": the first trade (and every trade after a win) goes straight in; the entry is only
     // required while recovering from a loss.
     const gate = spec.entry.apply === 'after_loss' ? logic('OR', cmpVar('EQ', 'losses', 0), cond) : cond;
-    return stack([entryPrelude(spec.entry), ifThen(gate, buy)]);
+    return stack([entries.map(entryPrelude), ifThen(gate, buy)]);
 }
 
 const needsLosses = spec =>
@@ -394,6 +405,10 @@ function describeEntry(entry) {
             return `RSI(${entry.period}) ${OPS[entry.op]} ${entry.level}${when}`;
         case 'sma':
             return `Price ${OPS[entry.op]} SMA(${entry.period})${when}`;
+        case 'ema':
+            return `Price ${OPS[entry.op]} EMA(${entry.period})${when}`;
+        case 'price':
+            return `Price ${OPS[entry.op]} ${entry.value}${when}`;
         default:
             return 'Every run';
     }
@@ -421,7 +436,14 @@ function describeSpec(spec) {
     ];
     if (spec.recovery_legs.length) rows.push(['After a loss', legsText(spec, spec.recovery_legs)]);
     rows.push(
-        ['Entry', describeEntry(spec.entry)],
+        [
+            'Entry',
+            entriesOf(spec).length
+                ? entriesOf(spec)
+                      .map(describeEntry)
+                      .join(spec.entry_logic === 'any' ? ' OR ' : ' AND ')
+                : 'Every run',
+        ],
         ['Duration', `${spec.duration_ticks} tick${spec.duration_ticks === 1 ? '' : 's'}`],
         ['Initial stake', `$${spec.initial_stake}`],
         ['Stake after a loss', describeStake(spec)]

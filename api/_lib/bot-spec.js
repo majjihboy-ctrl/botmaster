@@ -12,7 +12,20 @@ const MIN_STAKE = 0.35; // Deriv's minimum stake
 
 const SPEC_STRATEGIES = ['rise_fall', 'even_odd', 'over_under', 'matches_differs'];
 const STAKE_MODES = ['martingale', 'dalembert', 'fibonacci', 'flat'];
-const ENTRY_TYPES = ['none', 'last_digit', 'last_digits', 'digit_percent', 'parity_percent', 'direction', 'rsi', 'sma'];
+const ENTRY_TYPES = [
+    'none',
+    'last_digit',
+    'last_digits',
+    'digit_percent',
+    'parity_percent',
+    'direction',
+    'rsi',
+    'sma',
+    'ema',
+    'price',
+];
+const INDICATOR_TYPES = ['rsi', 'sma', 'ema']; // each needs its own calculated variable, so one of each at most
+const MAX_ENTRIES = 3;
 
 // Over accepts digits 0-8, Under accepts 1-9 (Deriv rejects the others); matches/differs take 0-9.
 const DIGIT_RANGE = { over: [0, 8, 2], under: [1, 9, 7], differs: [0, 9, 5], matches: [0, 9, 5] };
@@ -147,11 +160,19 @@ function normalizeEntry(raw, strategyId, notes) {
                 level: intIn(raw.level, 1, 99, 30),
             };
         case 'sma':
+        case 'ema':
             return {
                 type,
                 apply,
                 period: intIn(raw.period, 2, 100, 20),
                 op: normalizeOp(raw.op, 'GT') === 'LT' ? 'LT' : 'GT',
+            };
+        case 'price':
+            return {
+                type,
+                apply,
+                op: normalizeOp(raw.op, 'GT') === 'LT' ? 'LT' : 'GT',
+                value: numIn(raw.value, 0.0001, 100000000, 1000),
             };
         default:
             notes.push(`Entry "${type}" is not supported; trading every run instead.`);
@@ -167,8 +188,13 @@ function validateRaw(raw, allowedStrategies) {
     if (!allowedStrategies.includes(raw.strategy)) {
         issues.push(`"strategy" must be one of ${JSON.stringify(allowedStrategies)}.`);
     }
-    if (raw.entry && typeof raw.entry === 'object' && raw.entry.type && !ENTRY_TYPES.includes(raw.entry.type)) {
-        issues.push(`"entry.type" must be one of ${JSON.stringify(ENTRY_TYPES)}.`);
+    const listed = [raw.entry, ...(Array.isArray(raw.entries) ? raw.entries : [])];
+    if (raw.entries !== undefined && !Array.isArray(raw.entries))
+        issues.push('"entries" must be an array of conditions.');
+    for (const e of listed) {
+        if (e && typeof e === 'object' && e.type && !ENTRY_TYPES.includes(e.type)) {
+            issues.push(`entry type "${e.type}" is not allowed; use one of ${JSON.stringify(ENTRY_TYPES)}.`);
+        }
     }
     if (raw.stake_mode !== undefined && !STAKE_MODES.includes(raw.stake_mode)) {
         issues.push(`"stake_mode" must be one of ${JSON.stringify(STAKE_MODES)}.`);
@@ -223,13 +249,40 @@ function normalizeSpec(raw) {
         notes.push('Martingale multiplier is capped at x10.');
     }
 
+    // Entry conditions: "entries" (preferred) or a single "entry". Up to MAX_ENTRIES, all required ("all")
+    // or any one ("any"). Only one condition per indicator, because each indicator owns one variable.
+    const rawEntries = Array.isArray(input.entries) ? input.entries : input.entry ? [input.entry] : [];
+    const entries = [];
+    const seenIndicators = new Set();
+    for (const raw of rawEntries.slice(0, MAX_ENTRIES + 2)) {
+        const entry = normalizeEntry(raw, strategyId, notes);
+        if (entry.type === 'none') continue;
+        if (INDICATOR_TYPES.includes(entry.type)) {
+            if (seenIndicators.has(entry.type)) {
+                notes.push(
+                    `Only one ${entry.type.toUpperCase()} condition is supported per bot, the extra one was left out.`
+                );
+                continue;
+            }
+            seenIndicators.add(entry.type);
+        }
+        if (entries.length < MAX_ENTRIES) entries.push(entry);
+    }
+    const unsupported = (Array.isArray(input.unsupported) ? input.unsupported : [])
+        .filter(t => typeof t === 'string' && t.trim())
+        .slice(0, 5)
+        .map(t => t.trim().slice(0, 120));
+    if (unsupported.length) notes.push(`Not supported yet, so not included: ${unsupported.join('; ')}.`);
+
     const spec = {
         strategy: strategyId,
         symbol,
         base_legs: base,
         recovery_legs: recovery,
         duration_ticks: duration,
-        entry: normalizeEntry(input.entry, strategyId, notes),
+        entry: entries[0] || { type: 'none', apply: 'always' },
+        extra_entries: entries.slice(1),
+        entry_logic: input.entry_logic === 'any' ? 'any' : 'all',
         initial_stake,
         stake_mode,
         martingale_multiplier,
@@ -241,13 +294,14 @@ function normalizeSpec(raw) {
         max_consecutive_losses: intIn(input.max_consecutive_losses, 0, 50, 0),
         max_runs: intIn(input.max_runs, 0, 100000, 0),
     };
-    return { spec, notes };
+    return { spec, notes, unsupported };
 }
 
 module.exports = {
     SPEC_STRATEGIES,
     STAKE_MODES,
     ENTRY_TYPES,
+    MAX_ENTRIES,
     DEFAULTS,
     MIN_STAKE,
     normalizeSpec,

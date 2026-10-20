@@ -70,6 +70,56 @@ describe('generateBot retry loop', () => {
     });
 });
 
+describe('conditions are never silently dropped', () => {
+    const noEntry = { strategy: 'over_under', direction: 'over', prediction: 1 };
+
+    it('asks again when a conditional request came back with no entry and nothing unsupported', async () => {
+        const withEntry = { ...noEntry, entries: [{ type: 'last_digit', op: 'EQ', digit: 4 }] };
+        const { ask, calls } = scripted([noEntry, withEntry]);
+        const result = await generateBot({ description: 'over 1 only when the last digit is 4', ask });
+        expect(calls[1].user).toContain('"entries" is empty');
+        expect(result.params.entry).toMatchObject({ type: 'last_digit', digit: 4 });
+        expect(result.notes).toEqual([]);
+    });
+
+    it('accepts an answer that reports the unsupported part and shows it to the user', async () => {
+        const { ask } = scripted([{ ...noEntry, unsupported: ['only in the evening'] }]);
+        const result = await generateBot({ description: 'over 1 but only when it is evening', ask });
+        expect(ask).toHaveBeenCalledTimes(1);
+        expect(result.notes.join(' ')).toMatch(/Not supported yet.*only in the evening/);
+    });
+
+    it('tells the user when a condition still could not be applied after the retry', async () => {
+        const { ask } = scripted([noEntry, noEntry]);
+        const result = await generateBot({ description: 'over 1 when the market feels hot', ask });
+        expect(ask).toHaveBeenCalledTimes(2);
+        expect(result.notes.join(' ')).toMatch(/No entry condition was applied/);
+    });
+
+    it('does not nag for requests without a condition', async () => {
+        const { ask } = scripted([noEntry]);
+        const result = await generateBot({ description: 'over 1 on volatility 10, martingale x2', ask });
+        expect(ask).toHaveBeenCalledTimes(1);
+        expect(result.notes).toEqual([]);
+    });
+
+    it('keeps several conditions with AND / OR and one indicator per type', () => {
+        const { spec, notes } = normalizeSpec({
+            ...noEntry,
+            entries: [
+                { type: 'last_digit', op: '<', digit: 3 },
+                { type: 'rsi', period: 10, op: 'LT', level: 35 },
+                { type: 'rsi', period: 5, op: 'GT', level: 60 },
+                { type: 'ema', period: 20, op: 'GT' },
+            ],
+            entry_logic: 'any',
+        });
+        expect([spec.entry, ...spec.extra_entries].map(e => e.type)).toEqual(['last_digit', 'rsi', 'ema']);
+        expect(spec.entry_logic).toBe('any');
+        expect(notes.join(' ')).toMatch(/Only one RSI/);
+    });
+});
+
 describe('compileBot', () => {
     it('keeps the legacy over_under_switch id working', () => {
         const result = compileBot({
