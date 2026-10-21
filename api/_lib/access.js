@@ -55,7 +55,7 @@ async function checkAccess(req) {
     try {
         ids = await accountIdsForToken(token);
     } catch (err) {
-        console.error('generate-bot: could not reach Deriv to verify the login:', err && err.message);
+        console.error('ai-chat: could not reach Deriv to verify the login:', err && err.message);
         return { ok: false, status: 503, error: 'Could not verify your login right now. Try again in a moment.' };
     }
     if (!ids) return { ok: false, status: 401, error: 'Your login could not be verified. Log in again.' };
