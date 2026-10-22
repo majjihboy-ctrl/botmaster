@@ -2,6 +2,49 @@
 @use 'components/shared/styles/mixins' as *;
 
 .app-header {
+    // Give the header its own stacking context above page content (Bot Builder is absolutely positioned
+    // over the same area with its own z-index and would otherwise paint over the header and its menus).
+    position: relative;
+    z-index: 3;
+
+    // @deriv-com/ui's Header is a flex row holding two wrappers that each ship with `width: 100%`; together
+    // they want 200% of the header and push the page wider than the viewport. Let the left column (logo +
+    // nav, which scrolls internally) shrink, and keep the right column (account switcher, theme, Transfer)
+    // at the width its content needs.
+    .deriv-wrapper {
+        width: auto;
+        min-width: 0;
+    }
+
+    .deriv-wrapper__left {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .deriv-wrapper__right {
+        flex: 0 0 auto;
+    }
+
+    // Mobile: tighter spacing between the menu button, logo and account trigger.
+    &--mobile {
+        .deriv-wrapper__left {
+            gap: 0.2rem;
+        }
+
+        .app-footer__icon {
+            height: 100%;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .acc-info {
+            padding-inline-start: 0.8rem;
+            padding-inline-end: 0.8rem;
+        }
+    }
+
     &__account-settings {
         padding-inline-end: 1.2rem;
         border-inline-end: 0.1rem solid var(--general-section-1);

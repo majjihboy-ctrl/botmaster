@@ -2,6 +2,13 @@
 @use 'components/shared/styles/mixins' as *;
 
 /** @define acc-info */
+/** @define acc-info__wrapper */
+// Anchor for the dropdown: without `position: relative` here the absolutely positioned panel attaches to
+// a further-up ancestor and renders detached from its trigger.
+.acc-info__wrapper {
+    position: relative;
+}
+
 .acc-info {
     align-items: center;
     cursor: default;
@@ -726,7 +733,8 @@
     position: absolute;
     top: calc(100% + 4px);
     right: 0;
-    z-index: 3;
+    // Header-level overlay: must stay above page content that uses large internal z-indexes.
+    z-index: 10000;
     min-width: 16rem;
     background-color: var(--general-main-2);
     border-radius: $BORDER_RADIUS;
@@ -735,8 +743,11 @@
 
     &__account {
         display: flex;
-        flex-direction: column;
-        padding: .8rem 1.6rem;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.2rem;
+        padding: 1rem 1.6rem;
         cursor: pointer;
         background: var(--general-main-2);
 
@@ -758,7 +769,7 @@
         color: var(--status-success);
         margin-bottom: 0.1rem;
         line-height: 1.2;
-        font-size: 1.4rem;
+        font-size: 1.2rem;
 
         &--virtual {
             color: $color-yellow;
@@ -783,6 +794,145 @@
 
         .dc-text {
             color: var(--text-general) !important;
+        }
+    }
+}
+
+// Richer account panel: Real / Demo tabs, per-account icon + id, reset balance, Trader's Hub links.
+.acc-info__id svg,
+.acc-info__id img {
+    width: 2.4rem;
+    height: 2.4rem;
+}
+
+.acc-dropdown {
+    // On mobile the trigger sits left of centre (after the menu button and logo), so a panel anchored to
+    // its right edge would run off-screen. Pin it to the viewport under the header instead.
+    @include mobile-screen {
+        position: fixed;
+        top: 5.1rem;
+        left: 1.6rem;
+        right: 1.6rem;
+    }
+
+    &--panel {
+        width: 32rem;
+        max-width: calc(100vw - 3.2rem);
+
+        @include mobile-screen {
+            width: auto;
+            max-width: none;
+        }
+    }
+
+    &__tabs {
+        display: flex;
+        border-bottom: 1px solid var(--general-section-1);
+    }
+
+    &__tab {
+        flex: 1;
+        padding: 1.2rem;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: var(--text-less-prominent);
+        cursor: pointer;
+
+        &--active {
+            color: var(--text-prominent);
+            border-bottom-color: var(--brand-red-coral, #ff444f);
+        }
+
+        &:hover:not(&--active) {
+            color: var(--text-general);
+        }
+    }
+
+    &__section-header {
+        padding: 1.2rem 1.6rem 0.6rem;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-less-prominent);
+    }
+
+    &__list {
+        max-height: 24rem;
+        overflow-y: auto;
+    }
+
+    &__empty {
+        padding: 1.6rem;
+        font-size: 1.3rem;
+        color: var(--text-less-prominent);
+    }
+
+    &__account-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    &__account-id {
+        font-size: 1.1rem;
+        line-height: 1.4;
+        color: var(--text-less-prominent);
+    }
+
+    &__reset-btn {
+        padding: 0.6rem 1.2rem;
+        border-radius: 4px;
+        border: 1px solid var(--border-normal);
+        background: transparent;
+        color: var(--text-general);
+        font-size: 1.1rem;
+        font-weight: 600;
+        white-space: nowrap;
+        cursor: pointer;
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        &:hover:not(:disabled) {
+            background: var(--state-hover);
+        }
+    }
+
+    &__cfd-link {
+        display: block;
+        padding: 1.2rem;
+        text-align: center;
+        font-size: 1.2rem;
+        color: var(--text-general);
+        text-decoration: none;
+        border-top: 1px solid var(--general-section-1);
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    &__footer {
+        display: flex;
+        justify-content: flex-end;
+        padding: 1.2rem 1.6rem;
+    }
+
+    &__manage-btn {
+        padding: 0.8rem 1.6rem;
+        border-radius: 2rem;
+        border: 1px solid var(--border-normal);
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-prominent);
+        text-decoration: none;
+
+        &:hover {
+            background: var(--state-hover);
         }
     }
 }

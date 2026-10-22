@@ -27,8 +27,9 @@ jest.mock('@/hooks/useLogout', () => ({
     useLogout: jest.fn(() => jest.fn()),
 }));
 
+const mockSend = jest.fn().mockResolvedValue({});
 jest.mock('@/external/bot-skeleton/services/api/api-base', () => ({
-    api_base: { is_running: false },
+    api_base: { is_running: false, api: { send: (...args: unknown[]) => mockSend(...args) } },
 }));
 
 jest.mock('@deriv-com/translations', () => ({
@@ -39,6 +40,13 @@ jest.mock('@/components/shared', () => ({
     addComma: (val: string) => val,
     getCurrencyDisplayCode: (c: string) => c,
     getDecimalPlaces: () => 2,
+    standalone_routes: { traders_hub: 'https://hub.example/dashboard/home' },
+}));
+
+jest.mock('@/components/currency/currency-icon', () => ({
+    CurrencyIcon: ({ currency, isVirtual }: { currency?: string; isVirtual?: boolean }) => (
+        <i data-testid='currency-icon' data-currency={currency} data-virtual={String(!!isVirtual)} />
+    ),
 }));
 
 jest.mock('@/utils/account-helpers', () => ({
@@ -147,6 +155,7 @@ describe('AccountSwitcher', () => {
         const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
         render(<AccountSwitcher activeAccount={mockActiveAccount} />);
         fireEvent.click(screen.getByTestId('dt_acc_info'));
+        fireEvent.click(screen.getByRole('tab', { name: 'Demo' }));
         const options = screen.getAllByRole('option');
         const inactiveOption = options.find(o => o.getAttribute('aria-selected') === 'false');
         if (inactiveOption) fireEvent.click(inactiveOption);
@@ -187,5 +196,53 @@ describe('AccountSwitcher', () => {
         expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
         fireEvent.click(trigger);
         expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('opens on the tab of the active account and lists only that kind of account', () => {
+        render(<AccountSwitcher activeAccount={mockActiveAccount} />);
+        fireEvent.click(screen.getByTestId('dt_acc_info'));
+        expect(screen.getByRole('tab', { name: 'Real' })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getAllByRole('option')).toHaveLength(1);
+        expect(screen.getByText('CR123')).toBeInTheDocument();
+        expect(screen.queryByText('VRTC456')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('tab', { name: 'Demo' }));
+        expect(screen.getByText('VRTC456')).toBeInTheDocument();
+        expect(screen.queryByText('CR123')).not.toBeInTheDocument();
+    });
+
+    it('shows a currency icon and the account id on every row', () => {
+        render(<AccountSwitcher activeAccount={mockActiveAccount} />);
+        fireEvent.click(screen.getByTestId('dt_acc_info'));
+        const icons = screen.getAllByTestId('currency-icon');
+        expect(icons.length).toBeGreaterThanOrEqual(2); // trigger + row
+        expect(icons[0]).toHaveAttribute('data-currency', 'USD');
+    });
+
+    it('resets the demo balance for the active demo account', async () => {
+        const { useApiBase } = require('@/hooks/useApiBase');
+        useApiBase.mockReturnValue({ accountList: mockAccountList, activeLoginid: 'VRTC456' });
+        const demoActive = {
+            ...mockActiveAccount,
+            loginid: 'VRTC456',
+            isVirtual: true,
+        } as unknown as TAccountSwitcher['activeAccount'];
+        render(<AccountSwitcher activeAccount={demoActive} />);
+        fireEvent.click(screen.getByTestId('dt_acc_info'));
+        expect(screen.getByRole('tab', { name: 'Demo' })).toHaveAttribute('aria-selected', 'true');
+        fireEvent.click(screen.getByRole('button', { name: 'Reset balance' }));
+        expect(mockSend).toHaveBeenCalledWith({ topup_virtual: 1 });
+    });
+
+    it("does not offer a balance reset on the real tab and links to Trader's Hub", () => {
+        render(<AccountSwitcher activeAccount={mockActiveAccount} />);
+        fireEvent.click(screen.getByTestId('dt_acc_info'));
+        expect(screen.queryByRole('button', { name: 'Reset balance' })).not.toBeInTheDocument();
+        const hubLinks = screen.getAllByRole('link');
+        expect(hubLinks.map(l => l.getAttribute('href'))).toEqual([
+            'https://hub.example/dashboard/home',
+            'https://hub.example/dashboard/home',
+        ]);
+        expect(screen.getByText('Manage accounts')).toBeInTheDocument();
     });
 });
