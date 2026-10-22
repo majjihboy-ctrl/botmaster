@@ -4,8 +4,11 @@
 .app-header {
     // Give the header its own stacking context above page content (Bot Builder is absolutely positioned
     // over the same area with its own z-index and would otherwise paint over the header and its menus).
+    // A stacking context traps its children, so the account dropdown can only be as high as this value:
+    // it has to clear the Run / Execution bar (20), the run panel drawer (5) and the mobile run sheet
+    // (1000), while staying under modals and toasts (9999+).
     position: relative;
-    z-index: 3;
+    z-index: 1001;
 
     // @deriv-com/ui's Header is a flex row holding two wrappers that each ship with `width: 100%`; together
     // they want 200% of the header and push the page wider than the viewport. Let the left column (logo +
