@@ -3,6 +3,7 @@ import AccountSwitcher from '../account-switcher';
 import type { TAccountSwitcher } from '../common/types';
 
 const mockCheckAndRegenerateWebSocket = jest.fn();
+const mockSetBalance = jest.fn();
 
 const mockAccountList = [
     { loginid: 'CR123', currency: 'USD', balance: 100, is_virtual: 0 },
@@ -27,13 +28,27 @@ jest.mock('@/hooks/useLogout', () => ({
     useLogout: jest.fn(() => jest.fn()),
 }));
 
-const mockSend = jest.fn().mockResolvedValue({});
+const mockSend = jest.fn().mockResolvedValue({ balance: { balance: 10000 } });
 jest.mock('@/external/bot-skeleton/services/api/api-base', () => ({
-    api_base: { is_running: false, api: { send: (...args: unknown[]) => mockSend(...args) } },
+    api_base: {
+        is_running: false,
+        api: { connection: { readyState: 1 }, send: (...args: unknown[]) => mockSend(...args) },
+    },
+}));
+
+const mockResetDemoBalance = jest.fn();
+jest.mock('@/services/derivws-accounts.service', () => ({
+    DerivWSAccountsService: { resetDemoBalance: (...args: unknown[]) => mockResetDemoBalance(...args) },
+}));
+
+jest.mock('@/external/deriv-core', () => ({
+    getAuthInfo: jest.fn(() => ({ access_token: 'token-123' })),
 }));
 
 jest.mock('@deriv-com/translations', () => ({
     Localize: ({ i18n_default_text }: { i18n_default_text: string }) => <span>{i18n_default_text}</span>,
+    localize: (text: string, values: Record<string, string> = {}) =>
+        text.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, key) => values[key] ?? _m),
 }));
 
 jest.mock('@/components/shared', () => ({
@@ -83,9 +98,12 @@ describe('AccountSwitcher', () => {
         useApiBase.mockReturnValue({ accountList: mockAccountList, activeLoginid: 'CR123' });
         const { useStore } = require('@/hooks/useStore');
         useStore.mockReturnValue({
-            client: { checkAndRegenerateWebSocket: mockCheckAndRegenerateWebSocket },
+            client: { checkAndRegenerateWebSocket: mockCheckAndRegenerateWebSocket, setBalance: mockSetBalance },
             run_panel: { is_running: false },
         });
+        mockResetDemoBalance.mockReset().mockResolvedValue(undefined);
+        mockSetBalance.mockReset();
+        mockSend.mockClear();
         require('@/external/bot-skeleton/services/api/api-base').api_base.is_running = false;
     });
 
@@ -219,9 +237,14 @@ describe('AccountSwitcher', () => {
         expect(icons[0]).toHaveAttribute('data-currency', 'USD');
     });
 
-    it('resets the demo balance for the active demo account', async () => {
+    it('resets a demo balance through the REST endpoint and shows the new balance', async () => {
         const { useApiBase } = require('@/hooks/useApiBase');
         useApiBase.mockReturnValue({ accountList: mockAccountList, activeLoginid: 'VRTC456' });
+        const { useStore } = require('@/hooks/useStore');
+        useStore.mockReturnValue({
+            client: { checkAndRegenerateWebSocket: mockCheckAndRegenerateWebSocket, setBalance: mockSetBalance },
+            run_panel: { is_running: false },
+        });
         const demoActive = {
             ...mockActiveAccount,
             loginid: 'VRTC456',
@@ -231,7 +254,29 @@ describe('AccountSwitcher', () => {
         fireEvent.click(screen.getByTestId('dt_acc_info'));
         expect(screen.getByRole('tab', { name: 'Demo' })).toHaveAttribute('aria-selected', 'true');
         fireEvent.click(screen.getByRole('button', { name: 'Reset balance' }));
-        expect(mockSend).toHaveBeenCalledWith({ topup_virtual: 1 });
+        await screen.findByText('Balance reset to 10,000');
+        expect(mockResetDemoBalance).toHaveBeenCalledWith('token-123', 'VRTC456');
+        expect(mockSend).not.toHaveBeenCalledWith({ topup_virtual: 1 });
+        expect(mockSetBalance).toHaveBeenCalledWith('10000');
+    });
+
+    it('can reset a demo account that is not the active one', async () => {
+        render(<AccountSwitcher activeAccount={mockActiveAccount} />);
+        fireEvent.click(screen.getByTestId('dt_acc_info'));
+        fireEvent.click(screen.getByRole('tab', { name: 'Demo' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Reset balance' }));
+        await screen.findByText('Demo balance reset to the default $10,000.');
+        expect(mockResetDemoBalance).toHaveBeenCalledWith('token-123', 'VRTC456');
+        expect(mockSetBalance).not.toHaveBeenCalled(); // only the active account's balance is live
+    });
+
+    it('shows the error when the reset fails', async () => {
+        mockResetDemoBalance.mockRejectedValue(new Error('Only demo accounts can have their balance reset'));
+        render(<AccountSwitcher activeAccount={mockActiveAccount} />);
+        fireEvent.click(screen.getByTestId('dt_acc_info'));
+        fireEvent.click(screen.getByRole('tab', { name: 'Demo' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Reset balance' }));
+        await screen.findByText('Only demo accounts can have their balance reset');
     });
 
     it("does not offer a balance reset on the real tab and links to Trader's Hub", () => {

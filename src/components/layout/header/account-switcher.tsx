@@ -5,10 +5,12 @@ import { addComma, getCurrencyDisplayCode, getDecimalPlaces, standalone_routes }
 import { CurrencyIcon } from '@/components/currency/currency-icon';
 import Text from '@/components/shared_ui/text';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
+import { getAuthInfo } from '@/external/deriv-core';
+import { DerivWSAccountsService } from '@/services/derivws-accounts.service';
 import { useApiBase } from '@/hooks/useApiBase';
 import { useStore } from '@/hooks/useStore';
 import { isDemoAccount } from '@/utils/account-helpers';
-import { Localize } from '@deriv-com/translations';
+import { Localize, localize } from '@deriv-com/translations';
 import { TAccountSwitcher } from './common/types';
 import AccountInfoWrapper from './account-info-wrapper';
 import './account-switcher.scss';
@@ -16,7 +18,8 @@ import './account-switcher.scss';
 const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
     const [isOpen, setIsOpen] = useState(false);
     const [activeCategory, setActiveCategory] = useState<'real' | 'demo'>('real');
-    const [isResetting, setIsResetting] = useState(false);
+    const [resettingId, setResettingId] = useState<string | null>(null);
+    const [resetMessage, setResetMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const { accountList, activeLoginid } = useApiBase();
     const { client, run_panel } = useStore() ?? {};
@@ -51,18 +54,45 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
         setIsOpen(prev => !prev);
     }, [is_bot_running, isSingleAccount]);
 
-    const handleResetBalance = useCallback(async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setIsResetting(true);
-        try {
-            // The balance subscription set up in api-base pushes the new amount, no refetch needed.
-            await api_base.api?.send({ topup_virtual: 1 });
-        } catch (err) {
-            console.error('Failed to reset demo balance:', err);
-        } finally {
-            setIsResetting(false);
-        }
-    }, []);
+    // Deriv's Options API has no WebSocket top-up (topup_virtual answers "Unrecognised request"); resetting a
+    // demo balance is a REST call that needs the OAuth access token and the demo account id. Works for any
+    // demo account of the logged-in user, not only the active one.
+    const handleResetBalance = useCallback(
+        async (e: React.MouseEvent, accountId: string) => {
+            e.stopPropagation();
+            if (resettingId) return;
+            setResettingId(accountId);
+            setResetMessage(null);
+            try {
+                const access_token = getAuthInfo()?.access_token;
+                if (!access_token) throw new Error(localize('Not signed in. Please log in and try again.'));
+                await DerivWSAccountsService.resetDemoBalance(access_token, accountId);
+
+                // The reset call returns no body, so ask for the balance to show the new figure.
+                let new_balance: number | undefined;
+                if (accountId === activeLoginid && api_base.api?.connection?.readyState === 1) {
+                    const res = await api_base.api.send({ balance: 1 });
+                    new_balance = res?.balance?.balance;
+                    if (typeof new_balance === 'number') client?.setBalance(new_balance.toString());
+                }
+                setResetMessage({
+                    type: 'success',
+                    text:
+                        typeof new_balance === 'number'
+                            ? localize('Balance reset to {{amount}}', { amount: new_balance.toLocaleString() })
+                            : localize('Demo balance reset to the default $10,000.'),
+                });
+            } catch (err) {
+                setResetMessage({
+                    type: 'error',
+                    text: (err as Error)?.message || localize('Could not reset balance. Please try again.'),
+                });
+            } finally {
+                setResettingId(null);
+            }
+        },
+        [resettingId, activeLoginid, client]
+    );
 
     const handleAccountSelect = useCallback(
         (loginid: string) => {
@@ -176,7 +206,10 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                 className={classNames('acc-dropdown__tab', {
                                     'acc-dropdown__tab--active': activeCategory === category,
                                 })}
-                                onClick={() => setActiveCategory(category)}
+                                onClick={() => {
+                                    setActiveCategory(category);
+                                    setResetMessage(null);
+                                }}
                             >
                                 {category === 'real' ? (
                                     <Localize i18n_default_text='Real' />
@@ -237,20 +270,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                         <div className='acc-dropdown__account-id'>{account.loginid}</div>
                                     </div>
                                 </div>
-                                {activeCategory === 'demo' && account.isActive ? (
-                                    <button
-                                        type='button'
-                                        className='acc-dropdown__reset-btn'
-                                        disabled={isResetting}
-                                        onClick={handleResetBalance}
-                                    >
-                                        {isResetting ? (
-                                            <Localize i18n_default_text='Resetting...' />
-                                        ) : (
-                                            <Localize i18n_default_text='Reset balance' />
-                                        )}
-                                    </button>
-                                ) : (
+                                <div className='acc-dropdown__account-right'>
                                     <Text size='xs' weight='bold' className='acc-dropdown__balance'>
                                         {account.currency ? (
                                             `${account.balance} ${getCurrencyDisplayCode(account.currency)}`
@@ -258,10 +278,33 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                             <Localize i18n_default_text='No currency assigned' />
                                         )}
                                     </Text>
-                                )}
+                                    {account.isVirtual && (
+                                        <button
+                                            type='button'
+                                            className='acc-dropdown__reset-btn'
+                                            disabled={!!resettingId}
+                                            onClick={e => handleResetBalance(e, account.loginid)}
+                                        >
+                                            {resettingId === account.loginid ? (
+                                                <Localize i18n_default_text='Resetting...' />
+                                            ) : (
+                                                <Localize i18n_default_text='Reset balance' />
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
+
+                    {resetMessage && (
+                        <div
+                            className={`acc-dropdown__message acc-dropdown__message--${resetMessage.type}`}
+                            role='status'
+                        >
+                            {resetMessage.text}
+                        </div>
+                    )}
 
                     <a
                         href={standalone_routes.traders_hub}

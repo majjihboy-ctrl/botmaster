@@ -875,6 +875,31 @@
         gap: 1rem;
     }
 
+    &__account-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.4rem;
+    }
+
+    &__message {
+        margin: 0 1.6rem 1.2rem;
+        padding: 0.8rem 1.2rem;
+        border-radius: 4px;
+        font-size: 1.2rem;
+        line-height: 1.4;
+
+        &--success {
+            color: var(--text-profit-success, #00a79e);
+            background: rgba(0, 167, 158, 0.12);
+        }
+
+        &--error {
+            color: var(--text-loss-danger, #ff444f);
+            background: rgba(255, 68, 79, 0.12);
+        }
+    }
+
     &__account-id {
         font-size: 1.1rem;
         line-height: 1.4;
