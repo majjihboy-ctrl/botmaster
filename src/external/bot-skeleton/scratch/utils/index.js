@@ -158,11 +158,15 @@ export const load = async ({
     setLoading(true);
     // Delay execution to allow fully previewing previous strategy if users quickly switch between strategies.
     await delayExecution(100);
-    const showInvalidStrategyError = () => {
+    const showInvalidStrategyError = (unsupported_blocks = []) => {
         setLoadedLocalFile(null);
         botNotification(notification_message().invalid_xml);
         setLoading(false);
-        const error_message = localize('XML file contains unsupported elements. Please check or modify file.');
+        // Name the block types this site does not have, so it is clear what to add or replace.
+        const details = unsupported_blocks.length
+            ? ` ${localize('Unsupported blocks: {{blocks}}.', { blocks: unsupported_blocks.join(', ') })}`
+            : '';
+        const error_message = `${localize('XML file contains unsupported elements. Please check or modify file.')}${details}`;
         globalObserver.emit('ui.log.error', error_message);
         return {
             error: error_message,
@@ -198,12 +202,12 @@ export const load = async ({
     }
 
     // Check if all block types in XML are allowed.
-    const has_invalid_blocks = Array.from(blockly_xml).some(block => {
-        const block_type = block.getAttribute('type');
-        return !Object.keys(window.Blockly.Blocks).includes(block_type);
-    });
-    if (has_invalid_blocks) {
-        return showInvalidStrategyError();
+    const registered_blocks = Object.keys(window.Blockly.Blocks);
+    const unsupported_blocks = [...new Set(Array.from(blockly_xml).map(block => block.getAttribute('type')))].filter(
+        block_type => !registered_blocks.includes(block_type)
+    );
+    if (unsupported_blocks.length) {
+        return showInvalidStrategyError(unsupported_blocks);
     }
 
     try {

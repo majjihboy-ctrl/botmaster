@@ -8,4 +8,5 @@ import './notify_telegram';
 import './total_profit';
 import './total_runs';
 import './useless_block';
+import './utt_licence_lock';
 import './console';
