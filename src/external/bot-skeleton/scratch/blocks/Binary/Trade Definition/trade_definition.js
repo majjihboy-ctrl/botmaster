@@ -188,6 +188,15 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.trade_definition = block 
             ? opposites[trade_type.toUpperCase()].map(opposite => Object.keys(opposite)[0])
             : [contract_type];
 
+    // Optional settings blocks in Trade parameters. Their generators emit engine calls (Bot.setAlternateMarkets,
+    // or an error for the unsupported market scanner), which have to run when the bot initialises.
+    const { forBlock } = window.Blockly.JavaScript.javascriptGenerator;
+    const optional_settings = ['trade_definition_alternate_markets', 'trade_definition_scan_all_markets']
+        .map(type => block.getChildByType(type))
+        .filter(Boolean)
+        .map(child => forBlock[child.type](child))
+        .join('');
+
     const initialization = window.Blockly.JavaScript.javascriptGenerator.statementToCode(block, 'INITIALIZATION');
     const trade_options_statement = window.Blockly.JavaScript.javascriptGenerator.statementToCode(block, 'SUBMARKET');
 
@@ -200,6 +209,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.trade_definition = block 
           shouldRestartOnError: ${should_restart_on_error},
           timeMachineEnabled  : ${should_restart_on_buy_sell},
         });
+        ${optional_settings}
         ${initialization.trim()}
     };
       BinaryBotPrivateStart = function BinaryBotPrivateStart() {

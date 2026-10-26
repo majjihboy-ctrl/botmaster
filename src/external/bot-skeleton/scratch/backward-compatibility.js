@@ -330,7 +330,29 @@ export default class BlockConversion {
     }
 
     // eslint-disable-next-line class-methods-use-this
+    // Field NAMES (not values) that bots from the previous platform called something else.
+    renameLegacyFieldNames(xml) {
+        const renamed = {
+            trade_definition_alternate_markets: {
+                ALTERNATE_MARKETS: 'ALT_MARKETS_ENABLED',
+                ALTERNATE_RUNS: 'ALT_MARKETS_EVERY',
+            },
+        };
+        Object.keys(renamed).forEach(block_type => {
+            xml.querySelectorAll(`block[type="${block_type}"]`).forEach(el_block => {
+                Array.from(el_block.children).forEach(el_child => {
+                    const new_name =
+                        el_child.tagName.toLowerCase() === 'field' &&
+                        renamed[block_type][el_child.getAttribute('name')];
+                    if (new_name) el_child.setAttribute('name', new_name);
+                });
+            });
+        });
+        return xml;
+    }
+
     updateRenamedFields(xml) {
+        this.renameLegacyFieldNames(xml);
         const renamed_fields = {
             MARKET_LIST: {
                 volidx: 'synthetic_index',

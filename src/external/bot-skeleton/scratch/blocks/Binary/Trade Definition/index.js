@@ -12,4 +12,5 @@ import './accumulator_take_profit';
 import './multiplier_take_profit';
 import './trade_definition_accumulator';
 import './trade_definition_alternate_markets';
+import './trade_definition_scan_all_markets';
 import './active_symbol_changer';
