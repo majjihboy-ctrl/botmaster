@@ -12,6 +12,7 @@ import * as constants from './state/constants';
 import rootReducer from './state/reducers';
 import Balance from './Balance';
 import OpenContract from './OpenContract';
+import VirtualHook from './VirtualHook';
 import Proposal from './Proposal';
 import Purchase from './Purchase';
 import Sell from './Sell';
@@ -89,7 +90,9 @@ const watchScope = ({ store, stopScope, passScope, passFlag, ignoreTick = false 
     });
 };
 
-export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Proposal(Ticks(Total(class {}))))))) {
+export default class TradeEngine extends Balance(
+    Purchase(Sell(OpenContract(VirtualHook(Proposal(Ticks(Total(class {})))))))
+) {
     constructor($scope) {
         super();
         this.observer = $scope.observer;

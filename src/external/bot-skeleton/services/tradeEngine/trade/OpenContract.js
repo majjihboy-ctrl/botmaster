@@ -45,6 +45,7 @@ export default Engine =>
                         };
                         clearTimeout(this.transaction_recovery_timeout);
                         this.updateTotals(contract);
+                        this.recordVirtualHookResult(contract);
                         contractStatus({
                             id: 'contract.sold',
                             data: contract.transaction_ids.sell,
@@ -134,6 +135,7 @@ export default Engine =>
             this.timing = { sold_at: performance.now(), settle_lag_ms: null };
             clearTimeout(this.transaction_recovery_timeout);
             this.updateTotals(settled);
+            this.recordVirtualHookResult(settled);
             contractStatus({
                 id: 'contract.sold',
                 data: settled.transaction_ids.sell,

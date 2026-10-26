@@ -26,6 +26,7 @@ const createEngine = ({ scope = DURING_PURCHASE } = {}) => {
     engine.contractId = 111;
     engine.data = { contract: { contract_id: 111, buy_price: 10, currency: 'USD', transaction_ids: { buy: 5 } } };
     engine.updateTotals = jest.fn();
+    engine.recordVirtualHookResult = jest.fn();
     return engine;
 };
 
@@ -48,6 +49,7 @@ describe('fast execution settle', () => {
         });
         expect(engine.contractId).toBe('');
         expect(engine.updateTotals).toHaveBeenCalledTimes(1);
+        expect(engine.recordVirtualHookResult).toHaveBeenCalledWith(expect.objectContaining({ status: 'won' })); // feeds the Virtual Hook
         expect(mockContractStatus).toHaveBeenCalledWith(expect.objectContaining({ id: 'contract.sold', data: 9 }));
         expect(engine.store.dispatch).toHaveBeenCalledTimes(1);
         expect(engine.fastSettledIds.has(111)).toBe(true);

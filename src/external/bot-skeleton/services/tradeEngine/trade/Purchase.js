@@ -17,6 +17,11 @@ export default Engine =>
                 return Promise.resolve();
             }
 
+            // Virtual Hook: while trading virtually nothing is bought; the engine simulates the contract.
+            if (this.shouldTradeVirtually()) {
+                return this.virtualPurchase(contract_type);
+            }
+
             const t_call = performance.now();
 
             const onSuccess = response => {

@@ -16,6 +16,9 @@ const getBotInterface = tradeEngine => {
         // is invisible to the engine, so they must talk to the engine through these Bot.* calls.
         setForcedSymbol: symbol => tradeEngine.setForcedSymbol(symbol),
         setAlternateMarkets: (enabled, every) => tradeEngine.setAlternateMarkets(enabled, every),
+        // Virtual Hook (see trade/VirtualHook.js).
+        configureVirtualHook: options => tradeEngine.configureVirtualHook(options),
+        enableVirtualHook: enabled => tradeEngine.enableVirtualHook(enabled),
         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
         sellAtMarket: () => tradeEngine.sellAtMarket(),
         getSellPrice: () => getSellPrice(tradeEngine),
