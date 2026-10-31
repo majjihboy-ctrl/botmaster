@@ -22,6 +22,12 @@
                         <next>
                           <block type="trade_definition_restartonerror" deletable="false" movable="false">
                             <field name="RESTARTONERROR">TRUE</field>
+                            <next>
+                              <block type="trade_definition_alternate_markets" deletable="false" movable="false">
+                                <field name="ALT_MARKETS_ENABLED">FALSE</field>
+                                <field name="ALT_MARKETS_EVERY">1</field>
+                              </block>
+                            </next>
                           </block>
                         </next>
                       </block>
