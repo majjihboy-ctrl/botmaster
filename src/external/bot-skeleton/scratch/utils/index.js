@@ -202,6 +202,7 @@ export const load = async ({
     }
     const blockConversion = new BlockConversion();
     xml = blockConversion.convertStrategy(xml, showIncompatibleStrategyDialog);
+    blockConversion.ensureAlternateMarketsBlock(xml);
     const blockly_xml = xml.querySelectorAll('block');
 
     // Check if there are any blocks in this strategy.
