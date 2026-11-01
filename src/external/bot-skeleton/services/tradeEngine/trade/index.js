@@ -183,12 +183,13 @@ export default class TradeEngine extends Balance(
                         clearTimeout(this.transaction_recovery_timeout);
                         this.handleFastSellTransaction(data.transaction);
                         // Pull the full contract details (exit tick, times) for the UI.
+                        // Best effort: the trade is already settled, so a failure here must not surface as an error.
                         doUntilDone(() => {
                             api_base.api.send({
                                 proposal_open_contract: 1,
                                 contract_id: data.transaction.contract_id,
                             });
-                        }, ['PriceMoved']);
+                        }, ['PriceMoved']).catch(() => undefined);
                         resolve();
                         return;
                     }

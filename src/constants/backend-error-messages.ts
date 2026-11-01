@@ -376,7 +376,11 @@ export const getLocalizedErrorMessage = (errorCode: string, errorResponse?: Reco
         });
 
         // If no predefined message, use the backend message if available
-        message = errorResponse?.message || localize('An error occurred. Please try again.');
+        // Keep the code in the text: without it the Journal only says "An error occurred" and there is nothing to
+        // report or fix. Deriv's own message wins when it sent one.
+        message =
+            errorResponse?.message ||
+            `${localize('An error occurred. Please try again.')}${errorCode ? ` (${errorCode})` : ''}`;
     }
 
     // Handle direct replacement of [_1], [_2], [_3] format with code_args values

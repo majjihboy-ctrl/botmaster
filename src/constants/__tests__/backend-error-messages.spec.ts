@@ -68,7 +68,13 @@ describe('Backend Error Messages', () => {
 
         it('should return fallback message for unknown error code', () => {
             const message = getLocalizedErrorMessage('UnknownErrorCode');
-            expect(message).toBe('An error occurred. Please try again.');
+            expect(message).toBe('An error occurred. Please try again. (UnknownErrorCode)');
+        });
+
+        it('prefers the message Deriv sent for an unknown code', () => {
+            expect(getLocalizedErrorMessage('UnknownErrorCode', { message: 'Sorry, try later' })).toBe(
+                'Sorry, try later'
+            );
         });
 
         it('should handle bot-skeleton specific errors', () => {
