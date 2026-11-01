@@ -9,6 +9,7 @@ import {
     save_types,
     saveWorkspaceToRecent,
 } from '@/external/bot-skeleton';
+import { ensureAlternateMarketsBlock } from '@/external/bot-skeleton/scratch/alternate-markets';
 import { inject_workspace_options, updateXmlValues } from '@/external/bot-skeleton/scratch/utils';
 import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
 import { TStores } from '@deriv/stores/types';
@@ -670,6 +671,8 @@ export default class LoadModalStore {
         } = window.Blockly.xmlValues;
         const derivWorkspace = window.Blockly.derivWorkspace;
 
+        // Every bot loaded from here (Free Bots, AI, recent, imports) gets the Alternate markets setting.
+        ensureAlternateMarketsBlock(convertedDom);
         window.Blockly.Xml.clearWorkspaceAndLoadFromXml(convertedDom, derivWorkspace);
         derivWorkspace.cleanUp();
         derivWorkspace.clearUndo();
@@ -711,6 +714,7 @@ export default class LoadModalStore {
             const convertedDom = window.Blockly?.utils?.xml?.textToDom(this.selected_strategy?.xml);
             const mainWorkspace = window.Blockly?.getMainWorkspace();
 
+            ensureAlternateMarketsBlock(convertedDom);
             window.Blockly?.Xml?.clearWorkspaceAndLoadFromXml(convertedDom, mainWorkspace);
         }
         setLoading(false);
