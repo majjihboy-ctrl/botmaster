@@ -62,12 +62,13 @@ describe('market switching', () => {
     });
 
     describe('watchTicks', () => {
-        it('moves the tick stream: stops and releases the old symbol, then monitors the new one', async () => {
+        it('moves the tick stream: releases the old symbol (listeners and stream), then monitors the new one', async () => {
             const { engine, calls } = createEngine();
             await engine.watchTicks('R_10');
             await engine.watchTicks('R_25');
 
-            expect(calls).toEqual(['monitor:R_10', 'stop:R_10', 'release:R_10', 'monitor:R_25']);
+            // No separate stopMonitor: it wipes the stream ids that releaseSymbol needs to forget the old stream.
+            expect(calls).toEqual(['monitor:R_10', 'release:R_10', 'monitor:R_25']);
             expect(engine.symbol).toBe('R_25');
         });
 
@@ -84,15 +85,7 @@ describe('market switching', () => {
             engine.watchTicks('R_25');
             await engine.watchTicks('R_50');
 
-            expect(calls).toEqual([
-                'monitor:R_10',
-                'stop:R_10',
-                'release:R_10',
-                'monitor:R_25',
-                'stop:R_25',
-                'release:R_25',
-                'monitor:R_50',
-            ]);
+            expect(calls).toEqual(['monitor:R_10', 'release:R_10', 'monitor:R_25', 'release:R_25', 'monitor:R_50']);
         });
 
         it('does nothing when asked for the symbol it is already on', async () => {
