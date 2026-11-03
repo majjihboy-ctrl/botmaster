@@ -194,7 +194,9 @@ export default class TicksService {
 
         Promise.all(subscription.map(id => doUntilDone(() => api_base.api.forget(id))));
 
-        this.subscriptions = new Map();
+        // Only this symbol's candle streams were forgotten. Wiping the whole map would also lose the ids of the
+        // other symbols' tick streams, which could then never be forgotten.
+        this.subscriptions = this.subscriptions.deleteIn(['ohlc', symbol]);
     }
 
     updateTicksAndCallListeners(symbol, ticks) {

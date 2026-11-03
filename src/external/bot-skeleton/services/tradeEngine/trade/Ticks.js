@@ -11,8 +11,6 @@ import { getDirection, getLastDigit } from '../utils/helpers';
 import { expectPositiveInteger } from '../utils/sanitize';
 import * as constants from './state/constants';
 
-let tickListenerKey;
-
 // Submarket key of "Continuous Indices" (Volatility indices). The display name is translated, the key is not.
 const CONTINUOUS_INDICES_SUBMARKET = 'random_index';
 
@@ -42,7 +40,9 @@ export default Engine =>
             const { ticksService } = this.$scope;
 
             if (previous_symbol) {
-                await ticksService.stopMonitor({ symbol: previous_symbol, key: tickListenerKey });
+                // releaseSymbol drops the listeners AND forgets the stream. Calling stopMonitor first used to wipe
+                // the record of open stream ids, so the old stream could never be forgotten and every market
+                // switch leaked one subscription until Deriv answered SubscriptionLimitExceeded.
                 await ticksService.releaseSymbol(previous_symbol);
             }
 
@@ -57,7 +57,7 @@ export default Engine =>
                 this.store.dispatch({ type: constants.NEW_TICK, payload: epoch });
             };
 
-            tickListenerKey = await ticksService.monitor({ symbol, callback });
+            await ticksService.monitor({ symbol, callback });
         }
 
         // ---- Market switching (Alternate markets / Set active symbol blocks) ----

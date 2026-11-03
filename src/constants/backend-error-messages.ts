@@ -110,6 +110,9 @@ export const getBackendErrorMessages = () => ({
     CandleListExpected: localize('A valid candle list is expected'),
     CustomLimitsReached: localize('Custom trading limits have been reached'),
     AlreadySubscribed: localize('Already subscribed to this data stream'),
+    SubscriptionLimitExceeded: localize(
+        'Too many open data streams on this connection. Stop the bot and run it again to start fresh.'
+    ),
     MaxTradesReached: localize('Maximum number of trades reached'),
     MaxLossReached: localize('Maximum loss amount reached'),
 
