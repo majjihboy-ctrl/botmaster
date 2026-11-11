@@ -123,10 +123,22 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
 
             // Handle auth errors by calling client.logout() directly instead of useLogout hook
             // This prevents redundant logout operations since useLogout internally calls client.logout()
+            // An AuthorizationRequired reply to a data request (ticks_history, proposal, ...) usually just means the
+            // socket reconnected (e.g. after the mobile file picker used by "Import") and that request ran before
+            // authorize finished. It is not a dead session, so only log out when authorize/balance itself is refused.
+            // A genuinely expired session still gets logged out: authorize fails (api-base) or InvalidToken arrives.
+            const msg_type_str = String(msg_type ?? '');
+            const is_transient_auth_race =
+                error?.code === 'AuthorizationRequired' && msg_type_str !== 'authorize' && msg_type_str !== 'balance';
+            if (is_transient_auth_race) {
+                // eslint-disable-next-line no-console
+                console.warn('[auth] Ignored AuthorizationRequired for', msg_type_str, '- not logging out');
+            }
             if (
-                error?.code === 'AuthorizationRequired' ||
-                error?.code === 'DisabledClient' ||
-                error?.code === 'InvalidToken'
+                !is_transient_auth_race &&
+                (error?.code === 'AuthorizationRequired' ||
+                    error?.code === 'DisabledClient' ||
+                    error?.code === 'InvalidToken')
             ) {
                 // Clear all URL query parameters for these auth errors
                 clearInvalidTokenParams();
