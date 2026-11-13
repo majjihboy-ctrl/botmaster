@@ -104,7 +104,8 @@ async function callXai(system, messages) {
 async function chat(system, messages) {
     const providers = providerOrder();
     if (providers.length === 0) {
-        throw new Error('No AI key set: add GEMINI_API_KEY (free) or XAI_API_KEY in the environment variables');
+        // `expose` marks a message that is written by us, contains no secret, and is safe to show the owner.
+        throw Object.assign(new Error('No AI key set: add GEMINI_API_KEY (free) or XAI_API_KEY in the environment variables'), { expose: true });
     }
 
     const errors = [];

@@ -76,8 +76,11 @@ async function handler(req, res) {
         const reply = await chat(SYSTEM_PROMPT, messages);
         res.status(200).json({ reply });
     } catch (err) {
+        // Full detail stays in the server log. The browser only sees messages we wrote ourselves
+        // (marked `expose`); raw provider errors (quota, model names, account details) are never sent.
         console.error('ai-chat error:', err);
-        res.status(500).json({ error: (err && err.message) || 'The AI request failed' });
+        const message = err && err.expose ? err.message : 'The AI request failed. Please try again in a moment.';
+        res.status(500).json({ error: message });
     }
 }
 
