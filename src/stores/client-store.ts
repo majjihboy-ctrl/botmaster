@@ -19,6 +19,11 @@ import {
 import type { TAuthData } from '../types/api-types';
 import type RootStore from './root-store';
 
+/** Max time to wait for the WebSocket to re-initialise after an account switch. */
+const REGENERATE_TIMEOUT_MS = 15000;
+/** After a switch, release the account-area loading flag if the socket never reports 'open'. */
+const ACCOUNT_REGENERATING_WATCHDOG_MS = 12000;
+
 export default class ClientStore {
     loginid = '';
     account_list: TAuthData['account_list'] = [];
@@ -407,7 +412,26 @@ export default class ClientStore {
                 // Force create a new connection with the current active login ID
                 // Wrap the potentially failing init call in a try-catch
                 try {
-                    await api_base.init(true); // ✅ Await the async call
+                    // Never wait forever: a socket that hangs while (re)connecting would otherwise leave
+                    // is_regenerating stuck true, and every later account switch is silently ignored.
+                    let init_timer: ReturnType<typeof setTimeout> | undefined;
+                    const init_timeout = new Promise<never>((_, reject) => {
+                        init_timer = setTimeout(
+                            () => reject(new Error('WebSocket re-initialisation timed out')),
+                            REGENERATE_TIMEOUT_MS
+                        );
+                    });
+                    try {
+                        await Promise.race([api_base.init(true), init_timeout]);
+                    } finally {
+                        if (init_timer) clearTimeout(init_timer);
+                    }
+
+                    // The 'open' event can fire before the listener is attached; if the socket is already
+                    // open nothing else would clear the loading flag, so the account area stayed hidden.
+                    if (api_base.api?.connection?.readyState === 1) {
+                        this.setIsAccountRegenerating(false);
+                    }
                 } catch (initError) {
                     ErrorLogger.error('ClientStore', 'WebSocket initialization failed', initError);
                     this.setIsAccountRegenerating(false);
@@ -424,6 +448,15 @@ export default class ClientStore {
             // or dispatching an event that UI components can listen to
         } finally {
             this.is_regenerating = false;
+            // Watchdog: the loading flag is normally cleared when the socket opens. If that never happens
+            // (no active account, missed open event, failed authorize) don't leave the account switcher
+            // hidden/frozen -- release it after a grace period.
+            setTimeout(() => {
+                if (this.is_account_regenerating && !this.is_regenerating) {
+                    ErrorLogger.warn?.('ClientStore', 'Account regeneration flag was stuck; releasing it');
+                    this.setIsAccountRegenerating(false);
+                }
+            }, ACCOUNT_REGENERATING_WATCHDOG_MS);
         }
     }
 
