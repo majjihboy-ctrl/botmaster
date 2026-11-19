@@ -116,6 +116,22 @@ describe('POST /api/ai-chat', () => {
         expect(res.body.error).toMatch(/No AI key set/);
     });
 
+    it('never sends raw provider errors to the browser', async () => {
+        process.env.XAI_API_KEY = 'x-key';
+        const secretDetail = 'project=acme-prod quota exceeded for key ending 9f3a';
+        mockFetch.mockImplementation(
+            route({
+                derivws: () => deriv(['DOT1']),
+                generativelanguage: () => ({ ok: false, status: 429, text: async () => secretDetail }),
+                'api.x.ai': () => ({ ok: false, status: 500, text: async () => secretDetail }),
+            })
+        );
+        const res = await post(load(), [{ role: 'user', content: 'hi' }]);
+        expect(res.code).toBe(500);
+        expect(JSON.stringify(res.body)).not.toMatch(/acme-prod|9f3a|quota|xAI API error|429/);
+        expect(res.body.error).toMatch(/AI request failed/);
+    });
+
     it('rate limits one IP', async () => {
         mockFetch.mockImplementation(route({ derivws: () => deriv(['DOT1']), generativelanguage: () => gemini('ok') }));
         const handler = load();
