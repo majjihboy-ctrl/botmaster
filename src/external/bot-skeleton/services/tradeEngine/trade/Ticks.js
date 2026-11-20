@@ -49,11 +49,21 @@ export default Engine =>
             const callback = ticks => {
                 // A tick that was already in flight for a market we have left must not drive the bot.
                 if (this.symbol !== symbol) return;
+
+                // Scan all markets: this market has had its turn, so move to the next one instead of handling
+                // this tick.
+                const next_symbol = this.getScanHopTarget();
+                if (next_symbol) {
+                    this.scanHop(next_symbol);
+                    return;
+                }
+
                 if (this.is_proposal_subscription_required) {
                     this.checkProposalReady();
                 }
                 const lastTick = ticks.slice(-1)[0];
                 const { epoch } = lastTick;
+                this.scanMarkEvaluated(symbol);
                 this.store.dispatch({ type: constants.NEW_TICK, payload: epoch });
             };
 
@@ -69,6 +79,83 @@ export default Engine =>
         setAlternateMarkets(enabled, every) {
             const runs = Math.max(1, Math.floor(Number(every)) || 1);
             this.market_switch.alternate = { enabled: !!enabled, every: runs };
+        }
+
+        // ---- Scan all markets ----
+
+        setScanAllMarkets(enabled) {
+            const scan = this.getScanState();
+            const was_enabled = scan.enabled;
+            scan.enabled = !!enabled;
+            if (scan.enabled && !was_enabled) {
+                scan.evaluated = false;
+                scan.eval_symbol = null;
+                notify('info', localize('Scanning all Continuous Indices for an entry.'));
+            }
+        }
+
+        getScanState() {
+            if (!this.market_switch.scan) {
+                this.market_switch.scan = { enabled: false, evaluated: false, eval_symbol: null, warned: false };
+            }
+            return this.market_switch.scan;
+        }
+
+        /**
+         * The market to move to next while scanning, or null when the bot should just handle the tick. A market is
+         * left once its first tick has been given to the bot's rules and they did not buy. Scanning only runs while
+         * the bot is waiting to buy (never during a trade), never fights a forced symbol, and needs the direct-buy
+         * path (payout / ask-price blocks keep proposals open on one market).
+         */
+        getScanHopTarget() {
+            const scan = this.market_switch?.scan;
+            if (!scan || !scan.enabled || !scan.evaluated) return null;
+            if (this.market_switch.forced_symbol) return null;
+            if (this.is_proposal_subscription_required || !this.tradeOptions) return null;
+            if (this.store?.getState?.().scope !== constants.BEFORE_PURCHASE) return null;
+
+            const next_symbol = this.getNextContinuousSymbol(this.symbol);
+            if (!next_symbol) {
+                if (!scan.warned) {
+                    scan.warned = true;
+                    notify(
+                        'warn',
+                        localize('Scan all markets only works with Continuous Indices; staying on {{ symbol }}.', {
+                            symbol: this.symbol,
+                        })
+                    );
+                }
+                scan.enabled = false;
+                return null;
+            }
+            return next_symbol;
+        }
+
+        scanHop(next_symbol) {
+            const scan = this.getScanState();
+            scan.evaluated = false;
+            scan.eval_symbol = null;
+            this.market_switch.current_symbol = next_symbol;
+            // The buy is built from tradeOptions, so it must follow the market the rules are being read from.
+            this.tradeOptions = { ...this.tradeOptions, symbol: next_symbol };
+            return this.watchTicks(next_symbol);
+        }
+
+        scanMarkEvaluated(symbol) {
+            const scan = this.market_switch?.scan;
+            if (!scan || !scan.enabled) return;
+            scan.evaluated = true;
+            scan.eval_symbol = symbol;
+        }
+
+        /**
+         * True when a purchase request comes from rules that were evaluated on a different market than the one the
+         * bot is on now (a hop happened while they were running). Buying then would trade one market on another
+         * market's data, so the request is ignored and the rules get another go on the next tick.
+         */
+        isScanPurchaseStale() {
+            const scan = this.market_switch?.scan;
+            return !!scan && scan.enabled && scan.eval_symbol !== this.symbol;
         }
 
         getActiveSymbol() {

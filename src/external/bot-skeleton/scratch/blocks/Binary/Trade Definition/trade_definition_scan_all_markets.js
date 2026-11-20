@@ -1,14 +1,13 @@
 import { localize } from '@deriv-com/translations';
 import { excludeOptionFromContextMenu, modifyContextMenu } from '../../../utils';
 
-// Present in bots made for this site's previous platform, where ticking it made the bot scan every market
-// for a signal. This site has no market scanner yet, so the block is accepted (so those bots import) and:
-//   - unticked: does nothing, exactly like the original;
-//   - ticked:   stops the bot with a clear error, rather than quietly trading a single market.
+// "Scan all markets": while the bot is waiting for its before-purchase rules to pass, the trade engine checks each
+// Continuous Index in turn (one tick each) and buys on the first market where the rules pass.
+// Engine side: Bot.setScanAllMarkets, see trade/Ticks.js.
 window.Blockly.Blocks.trade_definition_scan_all_markets = {
     init() {
         this.jsonInit({
-            message0: localize('Scan all markets (not supported on this site yet): {{ checkbox }}', {
+            message0: localize('Scan all markets (Continuous Indices only): {{ checkbox }}', {
                 checkbox: '%1',
             }),
             args0: [
@@ -24,7 +23,9 @@ window.Blockly.Blocks.trade_definition_scan_all_markets = {
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             previousStatement: null,
             nextStatement: null,
-            tooltip: localize('Market scanning is not available here. Leave this unticked.'),
+            tooltip: localize(
+                'While waiting for your entry rules, check each Continuous Index in turn and trade the first one where they pass.'
+            ),
         });
 
         this.setMovable(false);
@@ -46,10 +47,5 @@ window.Blockly.Blocks.trade_definition_scan_all_markets = {
     required_inputs: ['SCAN_ALL_MARKETS'],
 };
 
-window.Blockly.JavaScript.javascriptGenerator.forBlock.trade_definition_scan_all_markets = block => {
-    if (block.getFieldValue('SCAN_ALL_MARKETS') !== 'TRUE') return '';
-    const message = localize(
-        'Scan all markets is not supported on this site yet. Untick it in Trade parameters to run this bot.'
-    );
-    return `throw new Error(${JSON.stringify(message)});\n`;
-};
+window.Blockly.JavaScript.javascriptGenerator.forBlock.trade_definition_scan_all_markets = block =>
+    `Bot.setScanAllMarkets(${block.getFieldValue('SCAN_ALL_MARKETS') === 'TRUE'});\n`;

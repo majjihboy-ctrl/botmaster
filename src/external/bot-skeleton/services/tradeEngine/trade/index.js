@@ -122,6 +122,7 @@ export default class TradeEngine extends Balance(
             current_symbol: null,
             last_rotation_runs: -1,
             warned_not_continuous: false,
+            scan: { enabled: false, evaluated: false, eval_symbol: null, warned: false },
         };
         this.store = createStore(rootReducer, applyMiddleware(thunk));
     }

@@ -161,16 +161,18 @@ describe('blocks used by bots from the previous platform', () => {
         expect(code).toContain('Bot.setAlternateMarkets(true, 3);');
     });
 
-    it('scan-all-markets does nothing when unticked and stops the bot with an error when ticked', async () => {
+    it('scan-all-markets reaches the engine, off and on', async () => {
         const off = DBot.generateCode.call({ workspace: loadConverted((await importAsTheAppDoes(BOT)).converted) });
-        expect(off).not.toContain('Scan all markets');
+        expect(off).toContain('Bot.setScanAllMarkets(false);');
+        expect(off).not.toContain('throw new Error');
 
         const on = BOT.replace(
             '<field name="SCAN_ALL_MARKETS">FALSE</field>',
             '<field name="SCAN_ALL_MARKETS">TRUE</field>'
         );
         const code = DBot.generateCode.call({ workspace: loadConverted((await importAsTheAppDoes(on)).converted) });
-        expect(code).toMatch(/throw new Error\(".*Scan all markets is not supported/);
+        expect(code).toContain('Bot.setScanAllMarkets(true);');
+        expect(code).not.toContain('not supported');
     });
 
     it('still saves with the current field names and reloads', async () => {

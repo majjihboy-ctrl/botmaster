@@ -17,6 +17,11 @@ export default Engine =>
                 return Promise.resolve();
             }
 
+            // Scan all markets: rules that ran on another market must not buy on this one.
+            if (this.isScanPurchaseStale?.()) {
+                return Promise.resolve();
+            }
+
             // Virtual Hook: while trading virtually nothing is bought; the engine simulates the contract.
             if (this.shouldTradeVirtually()) {
                 return this.virtualPurchase(contract_type);

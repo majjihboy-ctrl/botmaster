@@ -189,7 +189,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.trade_definition = block 
             : [contract_type];
 
     // Optional settings blocks in Trade parameters. Their generators emit engine calls (Bot.setAlternateMarkets,
-    // or an error for the unsupported market scanner), which have to run when the bot initialises.
+    // Bot.setScanAllMarkets), which have to run when the bot initialises.
     const { forBlock } = window.Blockly.JavaScript.javascriptGenerator;
     const optional_settings = ['trade_definition_alternate_markets', 'trade_definition_scan_all_markets']
         .map(type => block.getChildByType(type))
